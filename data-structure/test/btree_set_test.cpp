@@ -21,7 +21,7 @@ std::size_t verify_node(const Node* node, const Node* parent,
   assert(node->parent == parent);
   assert(node->position == position);
   assert(node->key_count <= SmallSet::kMaxKeys);
-  if (!is_root) assert(node->key_count >= 1);
+  if (!is_root) assert(node->key_count >= SmallSet::kMinKeys);
 
   for (std::size_t i = 0; i < node->key_count; ++i) {
     if (lower) assert(*lower < node->keys[i]);

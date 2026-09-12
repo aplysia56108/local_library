@@ -24,7 +24,8 @@ class Btree_Set {
   static_assert(MinDegree >= 2);
   static_assert(std::default_initializable<Key>);
 
-  // 非根ノードは MinDegree - 1 個以上のキーを持つ。
+  // 非根ノードは kMinKeys 以上 kMaxKeys 以下のキーを持つ。
+  static constexpr std::size_t kMinKeys = MinDegree - 1;
   static constexpr std::size_t kMaxKeys = 2 * MinDegree - 1;
   static constexpr std::size_t kMaxChildren = 2 * MinDegree;
 
