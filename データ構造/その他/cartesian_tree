@@ -1,0 +1,50 @@
+/*
+https://atcoder.jp/contests/abc311/submissions/43902219
+を参考に
+https://en.wikipedia.org/wiki/Cartesian_tree
+
+root:min
+*/
+template <typename T>
+struct Cartesian_Tree {
+    int root;
+    vi l, r;
+    Cartesian_Tree() {
+    }
+    Cartesian_Tree(const vector<T> &a) {
+        int n = a.size();
+        l = r = vi(n, -1);
+        vector<int> s(n);
+        int si = -1;
+        rep(i, n) {
+            while (~si && a[i] < a[s[si]]) l[i] = s[si--];  // > max
+            if (~si) r[s[si]] = i;
+            s[++si] = i;
+        }
+        root = s[0];
+    }
+};
+
+// min cartesian tree
+/*
+https://atcoder.jp/contests/wtf22-day1/submissions/45302353
+を参考に
+関数の方が速い。親を返す
+*/
+// template <class T>
+// vector<T> cartesiantree(const vector<T> &a) {
+//     int n = a.size();
+//     vector<T> par(n, -1);
+//     vector<T> s;
+//     for (int i = 0; i < n; i++) {
+//         int last = -1;
+//         while (s.size() && a[s.back()] >= a[i]) {
+//             last = s.back();
+//             s.pop_back();
+//         }
+//         if (last != -1) par[last] = i;
+//         if (s.size()) par[i] = s.back();
+//         s.push_back(i);
+//     }
+//     return par;
+// }
