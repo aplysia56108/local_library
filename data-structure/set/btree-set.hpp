@@ -14,8 +14,10 @@
 #include <cstddef>
 #include <concepts>
 #include <functional>
+#include <iterator>
 #include <optional>
 #include <utility>
+#include <vector>
 
 template <class Key, class Compare = std::less<Key>,
           std::size_t NodeCapMax = 63>
@@ -546,6 +548,110 @@ class Btree_Set {
     return erased;
   }
 
+  static std::size_t saturating_add(std::size_t lhs, std::size_t rhs,
+                                    std::size_t limit) {
+    return lhs >= limit - rhs ? limit : lhs + rhs;
+  }
+
+  static std::size_t saturating_multiply(std::size_t lhs, std::size_t rhs,
+                                         std::size_t limit) {
+    if (lhs == 0 || rhs == 0) return 0;
+    return lhs > limit / rhs ? limit : lhs * rhs;
+  }
+
+  Node* build_sorted_subtree(const std::vector<Key>& keys,
+                             std::size_t& key_position,
+                             const std::vector<std::size_t>& min_non_root,
+                             const std::vector<std::size_t>& max_non_root,
+                             std::size_t height, bool is_root,
+                             std::size_t subtree_size) {
+    Node* node = new Node();
+    if (height == 0) {
+      node->key_count = subtree_size;
+      for (std::size_t i = 0; i < subtree_size; ++i) {
+        node->keys[i] = keys[key_position++];
+      }
+      node->subtree_size = subtree_size;
+      return node;
+    }
+
+    const std::size_t min_keys = is_root ? 1 : kMinKeys;
+    std::size_t key_count = min_keys;
+    const std::size_t child_minimum = min_non_root[height - 1];
+    const std::size_t child_maximum = max_non_root[height - 1];
+    while (key_count <= kMaxKeys) {
+      const std::size_t children_size = subtree_size - key_count;
+      if (children_size >= (key_count + 1) * child_minimum &&
+          children_size <= (key_count + 1) * child_maximum) {
+        break;
+      }
+      ++key_count;
+    }
+    assert(key_count <= kMaxKeys);
+
+    node->is_leaf = false;
+    node->key_count = key_count;
+    std::size_t remaining = subtree_size - key_count;
+    for (std::size_t i = 0; i <= key_count; ++i) {
+      const std::size_t children_left = key_count - i;
+      const std::size_t child_size = std::min(
+          child_maximum, remaining - children_left * child_minimum);
+      node->children[i] = build_sorted_subtree(
+          keys, key_position, min_non_root, max_non_root, height - 1, false,
+          child_size);
+      node->children[i]->parent = node;
+      node->children[i]->position = i;
+      remaining -= child_size;
+      if (i < key_count) node->keys[i] = keys[key_position++];
+    }
+    assert(remaining == 0);
+    node->recalculate_subtree_size();
+    return node;
+  }
+
+  void build_from_sorted_unique(const std::vector<Key>& keys) {
+    assert(root_ == nullptr);
+    size_ = keys.size();
+    if (keys.empty()) return;
+
+    const std::size_t limit = keys.size() + 1;
+    std::vector<std::size_t> min_non_root{kMinKeys};
+    std::vector<std::size_t> max_non_root{kMaxKeys};
+    if (keys.size() <= kMaxKeys) {
+      std::size_t key_position = 0;
+      root_ = build_sorted_subtree(keys, key_position, min_non_root,
+                                   max_non_root, 0, true, keys.size());
+      assert(key_position == keys.size());
+      return;
+    }
+
+    std::size_t height = 1;
+    while (true) {
+      const std::size_t root_minimum =
+          saturating_add(1, saturating_multiply(2, min_non_root.back(), limit),
+                         limit);
+      const std::size_t root_maximum = saturating_add(
+          kMaxKeys,
+          saturating_multiply(kMaxChildren, max_non_root.back(), limit),
+          limit);
+      if (keys.size() >= root_minimum && keys.size() <= root_maximum) break;
+      min_non_root.push_back(saturating_add(
+          kMinKeys,
+          saturating_multiply(kMinKeys + 1, min_non_root.back(), limit),
+          limit));
+      max_non_root.push_back(saturating_add(
+          kMaxKeys,
+          saturating_multiply(kMaxChildren, max_non_root.back(), limit),
+          limit));
+      ++height;
+    }
+
+    std::size_t key_position = 0;
+    root_ = build_sorted_subtree(keys, key_position, min_non_root, max_non_root,
+                                 height, true, keys.size());
+    assert(key_position == keys.size());
+  }
+
   Node* root_ = nullptr;
   std::size_t size_ = 0;
   Compare compare_{};
@@ -863,6 +969,24 @@ class Btree_Set {
 
   Btree_Set() = default;
   explicit Btree_Set(Compare compare) : compare_(std::move(compare)) {}
+  template <std::input_iterator Iterator>
+  Btree_Set(Iterator first, Iterator last, bool is_sorted = false,
+            Compare compare = Compare{})
+      : compare_(std::move(compare)) {
+    std::vector<Key> keys;
+    for (; first != last; ++first) keys.emplace_back(*first);
+    if (!is_sorted) {
+      std::sort(keys.begin(), keys.end(), compare_);
+    } else {
+      assert(std::is_sorted(keys.begin(), keys.end(), compare_));
+    }
+    keys.erase(std::unique(keys.begin(), keys.end(),
+                           [this](const Key& lhs, const Key& rhs) {
+                             return equivalent(lhs, rhs);
+                           }),
+               keys.end());
+    build_from_sorted_unique(keys);
+  }
   Btree_Set(const Btree_Set&) = delete;
   Btree_Set& operator=(const Btree_Set&) = delete;
   ~Btree_Set() {

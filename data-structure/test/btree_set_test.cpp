@@ -7,6 +7,7 @@
 #include <set>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #define private public
 #include "data-structure/set/btree-set.hpp"
@@ -72,6 +73,30 @@ void verify_tree(const Set& set) {
 
 template <class Set>
 void test_insert() {
+  std::vector<int> unsorted;
+  for (int i = 999; i >= 0; --i) {
+    unsorted.push_back(i);
+    if (i % 17 == 0) unsorted.push_back(i);
+  }
+  Set range_set(unsorted.begin(), unsorted.end());
+  assert(range_set.size() == 1000);
+  verify_tree(range_set);
+  for (int key = 0; key < 1000; ++key) {
+    assert(*range_set.nth(key) == key);
+  }
+
+  std::vector<int> sorted;
+  for (int key = 0; key < 1000; ++key) {
+    sorted.push_back(key);
+    if (key % 19 == 0) sorted.push_back(key);
+  }
+  Set linear_set(sorted.begin(), sorted.end(), true);
+  assert(linear_set.size() == 1000);
+  verify_tree(linear_set);
+  for (int key = 0; key < 1000; ++key) {
+    assert(*linear_set.nth(key) == key);
+  }
+
   Set set;
   Set emplace_test;
   const auto [emplaced, emplace_inserted] = emplace_test.emplace(42);
