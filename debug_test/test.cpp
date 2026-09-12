@@ -81,6 +81,26 @@ void test_dsu() {
   debug(uf);
 }
 
+void test_argument_name_parsing() {
+  const char* names =
+      "func({1, 2}, values[3, 4]), \"a, b\", R\"tag(c, d)tag\", value";
+  const char* comma = debug_impl::find_top_level_comma(names);
+  assert(comma != nullptr);
+  assert(std::string_view(comma) == ", \"a, b\", R\"tag(c, d)tag\", value");
+
+  std::ostringstream captured;
+  auto* original_buffer = std::cout.rdbuf(captured.rdbuf());
+
+  const auto difference = [](int x, int y) { return y - x; };
+  const int value = 42;
+  debug(difference(1, 3), "a, b", R"tag(c, d)tag", value);
+
+  std::cout.rdbuf(original_buffer);
+  assert(captured.str() ==
+         "difference(1, 3): 2, \"a, b\": a, b, "
+         "R\"tag(c, d)tag\": c, d, value: 42\n");
+}
+
 int main() {
   std::cout << "=== 1. 基本型・特殊数値・文字列 ===" << std::endl;
   int a = 42;
@@ -188,6 +208,10 @@ int main() {
   test_lazy_segtree();
   test_fenwick_tree();
   test_dsu();
+
+  std::cout << "\n=== 10. debug 引数名の解析 ===" << std::endl;
+  test_argument_name_parsing();
+  std::cout << "passed" << std::endl;
 
   return 0;
 }
