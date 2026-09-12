@@ -72,6 +72,7 @@ void verify_tree(const Set& set) {
 template <class Set>
 void test_insert() {
   Set set;
+  assert(set.erase(-1) == 0);
   for (int i = 0; i < 1000; ++i) {
     const int key = (i * 73) % 1000;
     const auto [it, inserted] = set.insert(key);
@@ -92,7 +93,20 @@ void test_insert() {
     verify_tree(set);
   }
 
-  set.clear();
+  for (int i = 0; i < 1000; ++i) {
+    const int key = (i * 137) % 1000;
+    assert(set.erase(key) == 1);
+    assert(set.size() == static_cast<std::size_t>(999 - i));
+    assert(set.locate(key).first == nullptr);
+    assert(set.erase(key) == 0);
+
+    if (set.empty()) {
+      assert(set.root_ == nullptr);
+    } else {
+      verify_tree(set);
+    }
+  }
+
   assert(set.empty());
   assert(set.size() == 0);
 }

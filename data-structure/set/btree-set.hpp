@@ -166,7 +166,25 @@ class Btree_Set {
       return {std::move(all_keys[median_index]), right};
     }
 
-    void erase(const std::size_t i) {};
+    void erase_from_leaf(std::size_t key_index) {
+      assert(is_leaf);
+      assert(key_index < key_count);
+
+      for (std::size_t i = key_index + 1; i < key_count; ++i) {
+        keys[i - 1] = std::move(keys[i]);
+      }
+      --key_count;
+      --subtree_size;
+    }
+
+    void update_child_positions() {
+      if (!is_leaf) {
+        for (std::size_t i = 0; i <= key_count; ++i) {
+          children[i]->parent = this;
+          children[i]->position = i;
+        }
+      }
+    }
 
     std::pair<Node*, std::size_t> nth(std::size_t i) const;
   };
@@ -248,6 +266,182 @@ class Btree_Set {
       }
     }
     delete node;
+  }
+
+  void borrow_from_left(Node* parent, std::size_t child_index) {
+    Node* left = parent->children[child_index - 1];
+    Node* child = parent->children[child_index];
+    assert(left->key_count > kMinKeys);
+    assert(left->is_leaf == child->is_leaf);
+
+    for (std::size_t i = child->key_count; i > 0; --i) {
+      child->keys[i] = std::move(child->keys[i - 1]);
+    }
+    if (!child->is_leaf) {
+      for (std::size_t i = child->key_count + 1; i > 0; --i) {
+        child->children[i] = child->children[i - 1];
+      }
+      child->children[0] = left->children[left->key_count];
+      left->children[left->key_count] = nullptr;
+    }
+
+    child->keys[0] = std::move(parent->keys[child_index - 1]);
+    parent->keys[child_index - 1] = std::move(left->keys[left->key_count - 1]);
+    --left->key_count;
+    ++child->key_count;
+
+    left->update_child_positions();
+    child->update_child_positions();
+    left->recalculate_subtree_size();
+    child->recalculate_subtree_size();
+    parent->recalculate_subtree_size();
+  }
+
+  void borrow_from_right(Node* parent, std::size_t child_index) {
+    Node* child = parent->children[child_index];
+    Node* right = parent->children[child_index + 1];
+    assert(right->key_count > kMinKeys);
+    assert(right->is_leaf == child->is_leaf);
+
+    child->keys[child->key_count] = std::move(parent->keys[child_index]);
+    parent->keys[child_index] = std::move(right->keys[0]);
+    for (std::size_t i = 1; i < right->key_count; ++i) {
+      right->keys[i - 1] = std::move(right->keys[i]);
+    }
+
+    if (!child->is_leaf) {
+      child->children[child->key_count + 1] = right->children[0];
+      for (std::size_t i = 1; i <= right->key_count; ++i) {
+        right->children[i - 1] = right->children[i];
+      }
+      right->children[right->key_count] = nullptr;
+    }
+
+    ++child->key_count;
+    --right->key_count;
+    child->update_child_positions();
+    right->update_child_positions();
+    child->recalculate_subtree_size();
+    right->recalculate_subtree_size();
+    parent->recalculate_subtree_size();
+  }
+
+  // children[left_index] とその右兄弟を併合し、左側のノードを返す。
+  Node* merge_children(Node* parent, std::size_t left_index) {
+    Node* left = parent->children[left_index];
+    Node* right = parent->children[left_index + 1];
+    assert(left->is_leaf == right->is_leaf);
+    assert(left->key_count + 1 + right->key_count <= kMaxKeys);
+
+    const std::size_t left_key_count = left->key_count;
+    left->keys[left_key_count] = std::move(parent->keys[left_index]);
+    for (std::size_t i = 0; i < right->key_count; ++i) {
+      left->keys[left_key_count + 1 + i] = std::move(right->keys[i]);
+    }
+
+    if (!left->is_leaf) {
+      for (std::size_t i = 0; i <= right->key_count; ++i) {
+        left->children[left_key_count + 1 + i] = right->children[i];
+      }
+    }
+    left->key_count += 1 + right->key_count;
+
+    for (std::size_t i = left_index + 1; i < parent->key_count; ++i) {
+      parent->keys[i - 1] = std::move(parent->keys[i]);
+    }
+    for (std::size_t i = left_index + 2; i <= parent->key_count; ++i) {
+      parent->children[i - 1] = parent->children[i];
+    }
+    parent->children[parent->key_count] = nullptr;
+    --parent->key_count;
+
+    left->update_child_positions();
+    parent->update_child_positions();
+    left->recalculate_subtree_size();
+    parent->recalculate_subtree_size();
+    delete right;
+    return left;
+  }
+
+  // child_index の子に降りる前に、削除後も下限を満たせるよう調整する。
+  std::size_t prepare_child_for_erase(Node* parent,
+                                      std::size_t child_index) {
+    Node* child = parent->children[child_index];
+    if (child->key_count > kMinKeys) {
+      return child_index;
+    }
+    if (child_index > 0 &&
+        parent->children[child_index - 1]->key_count > kMinKeys) {
+      borrow_from_left(parent, child_index);
+      return child_index;
+    }
+    if (child_index < parent->key_count &&
+        parent->children[child_index + 1]->key_count > kMinKeys) {
+      borrow_from_right(parent, child_index);
+      return child_index;
+    }
+    if (child_index < parent->key_count) {
+      merge_children(parent, child_index);
+      return child_index;
+    }
+    merge_children(parent, child_index - 1);
+    return child_index - 1;
+  }
+
+  Key maximum_key(Node* node) const {
+    while (!node->is_leaf) {
+      node = node->children[node->key_count];
+    }
+    return node->keys[node->key_count - 1];
+  }
+
+  Key minimum_key(Node* node) const {
+    while (!node->is_leaf) {
+      node = node->children[0];
+    }
+    return node->keys[0];
+  }
+
+  bool erase_recursive(Node* node, const Key& key) {
+    std::size_t key_index = lower_bound_index(node, key);
+    if (key_index < node->key_count &&
+        equivalent(node->keys[key_index], key)) {
+      if (node->is_leaf) {
+        node->erase_from_leaf(key_index);
+        return true;
+      }
+
+      Node* left = node->children[key_index];
+      Node* right = node->children[key_index + 1];
+      if (left->key_count > kMinKeys) {
+        const Key predecessor = maximum_key(left);
+        node->keys[key_index] = predecessor;
+        const bool erased = erase_recursive(left, predecessor);
+        node->recalculate_subtree_size();
+        return erased;
+      }
+      if (right->key_count > kMinKeys) {
+        const Key successor = minimum_key(right);
+        node->keys[key_index] = successor;
+        const bool erased = erase_recursive(right, successor);
+        node->recalculate_subtree_size();
+        return erased;
+      }
+
+      Node* merged = merge_children(node, key_index);
+      const bool erased = erase_recursive(merged, key);
+      node->recalculate_subtree_size();
+      return erased;
+    }
+
+    if (node->is_leaf) {
+      return false;
+    }
+
+    key_index = prepare_child_for_erase(node, key_index);
+    const bool erased = erase_recursive(node->children[key_index], key);
+    node->recalculate_subtree_size();
+    return erased;
   }
 
   Node* root_ = nullptr;
@@ -334,7 +528,27 @@ class Btree_Set {
   std::pair<iterator, bool> emplace(Args&&... args);
 
   iterator erase(const_iterator pos);
-  size_type erase(const Key& key);
+  size_type erase(const Key& key) {
+    if (root_ == nullptr || !erase_recursive(root_, key)) {
+      return 0;
+    }
+    --size_;
+
+    if (root_->key_count == 0) {
+      if (root_->is_leaf) {
+        delete root_;
+        root_ = nullptr;
+      } else {
+        Node* new_root = root_->children[0];
+        new_root->parent = nullptr;
+        new_root->position = 0;
+        root_->children[0] = nullptr;
+        delete root_;
+        root_ = new_root;
+      }
+    }
+    return 1;
+  }
 
   iterator find(const Key& key);
   bool contains(const Key& key) const;
