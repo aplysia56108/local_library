@@ -18,16 +18,16 @@
 #include <utility>
 
 template <class Key, class Compare = std::less<Key>,
-          std::size_t MinDegree = 32>
+          std::size_t NodeCapMax = 63>
 class Btree_Set {
  private:
-  static_assert(MinDegree >= 2);
+  static_assert(NodeCapMax >= 3);
   static_assert(std::default_initializable<Key>);
 
   // 非根ノードは kMinKeys 以上 kMaxKeys 以下のキーを持つ。
-  static constexpr std::size_t kMinKeys = MinDegree - 1;
-  static constexpr std::size_t kMaxKeys = 2 * MinDegree - 1;
-  static constexpr std::size_t kMaxChildren = 2 * MinDegree;
+  static constexpr std::size_t kMinKeys = (NodeCapMax - 1) / 2;
+  static constexpr std::size_t kMaxKeys = NodeCapMax;
+  static constexpr std::size_t kMaxChildren = NodeCapMax + 1;
 
   struct Node {
     // keys[0, key_count) だけが有効なキーである。
@@ -124,9 +124,9 @@ class Btree_Set {
         all_children[key_index + 1] = right_child;
       }
 
-      // 2 * MinDegree 個のキーから、左に MinDegree - 1 個、右に
-      // MinDegree 個を残し、境界の 1 個を親へ昇格させる。
-      const std::size_t median_index = MinDegree - 1;
+      // kMaxKeys + 1 個のキーから中央値を親へ昇格させる。
+      // 左右のノードには少なくとも kMinKeys 個のキーが残る。
+      const std::size_t median_index = kMaxKeys / 2;
       const std::size_t left_key_count = median_index;
       const std::size_t right_key_count = kMaxKeys - median_index;
 

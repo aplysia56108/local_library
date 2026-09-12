@@ -11,17 +11,21 @@
 #include "data-structure/set/btree-set.hpp"
 #undef private
 
-using SmallSet = Btree_Set<int, std::less<int>, 2>;
+using SmallSet = Btree_Set<int, std::less<int>, 3>;
 using Node = SmallSet::Node;
 
-std::size_t verify_node(const Node* node, const Node* parent,
-                        std::size_t position, std::optional<int> lower,
-                        std::optional<int> upper, bool is_root) {
+template <class Set>
+std::size_t verify_node(const typename Set::Node* node,
+                        const typename Set::Node* parent,
+                        std::size_t position,
+                        std::optional<typename Set::key_type> lower,
+                        std::optional<typename Set::key_type> upper,
+                        bool is_root) {
   assert(node != nullptr);
   assert(node->parent == parent);
   assert(node->position == position);
-  assert(node->key_count <= SmallSet::kMaxKeys);
-  if (!is_root) assert(node->key_count >= SmallSet::kMinKeys);
+  assert(node->key_count <= Set::kMaxKeys);
+  if (!is_root) assert(node->key_count >= Set::kMinKeys);
 
   for (std::size_t i = 0; i < node->key_count; ++i) {
     if (lower) assert(*lower < node->keys[i]);
@@ -31,22 +35,25 @@ std::size_t verify_node(const Node* node, const Node* parent,
 
   std::size_t subtree_size = node->key_count;
   if (node->is_leaf) {
-    for (Node* child : node->children) {
+    for (typename Set::Node* child : node->children) {
       assert(child == nullptr);
     }
   } else {
     // 内部ノードの有効な子は key_count + 1 個である。
     for (std::size_t i = 0; i <= node->key_count; ++i) {
       assert(node->children[i] != nullptr);
-      const std::optional<int> child_lower =
-          i == 0 ? lower : std::optional<int>{node->keys[i - 1]};
-      const std::optional<int> child_upper =
-          i == node->key_count ? upper : std::optional<int>{node->keys[i]};
-      subtree_size += verify_node(node->children[i], node, i, child_lower,
-                                  child_upper, false);
+      const std::optional<typename Set::key_type> child_lower =
+          i == 0 ? lower
+                 : std::optional<typename Set::key_type>{node->keys[i - 1]};
+      const std::optional<typename Set::key_type> child_upper =
+          i == node->key_count
+              ? upper
+              : std::optional<typename Set::key_type>{node->keys[i]};
+      subtree_size += verify_node<Set>(node->children[i], node, i,
+                                       child_lower, child_upper, false);
     }
     for (std::size_t i = node->key_count + 1;
-         i < SmallSet::kMaxChildren; ++i) {
+         i < Set::kMaxChildren; ++i) {
       assert(node->children[i] == nullptr);
     }
   }
@@ -55,10 +62,39 @@ std::size_t verify_node(const Node* node, const Node* parent,
   return subtree_size;
 }
 
-void verify_tree(const SmallSet& set) {
+template <class Set>
+void verify_tree(const Set& set) {
   assert(set.root_ != nullptr);
-  assert(verify_node(set.root_, nullptr, 0, std::nullopt, std::nullopt, true) ==
-         set.size());
+  assert(verify_node<Set>(set.root_, nullptr, 0, std::nullopt, std::nullopt,
+                          true) == set.size());
+}
+
+template <class Set>
+void test_insert() {
+  Set set;
+  for (int i = 0; i < 1000; ++i) {
+    const int key = (i * 73) % 1000;
+    const auto [it, inserted] = set.insert(key);
+    (void)it;
+    assert(inserted);
+    assert(set.size() == static_cast<std::size_t>(i + 1));
+    verify_tree(set);
+  }
+  for (int key = 0; key < 1000; ++key) {
+    const auto [it, inserted] = set.insert(key);
+    (void)it;
+    assert(!inserted);
+    assert(set.size() == 1000);
+
+    const auto [node, key_index] = set.locate(key);
+    assert(node != nullptr);
+    assert(node->keys[key_index] == key);
+    verify_tree(set);
+  }
+
+  set.clear();
+  assert(set.empty());
+  assert(set.size() == 0);
 }
 
 int main() {
@@ -119,28 +155,6 @@ int main() {
   assert(children[4].position == 1);
   delete internal_split.right;
 
-  SmallSet set;
-  for (int i = 0; i < 199; ++i) {
-    const int key = (i * 73) % 199;
-    const auto [it, inserted] = set.insert(key);
-    (void)it;
-    assert(inserted);
-    assert(set.size() == static_cast<std::size_t>(i + 1));
-  }
-  for (int key = 0; key < 199; ++key) {
-    const auto [it, inserted] = set.insert(key);
-    (void)it;
-    assert(!inserted);
-    assert(set.size() == 199);
-
-    const auto [node, key_index] = set.locate(key);
-    assert(node != nullptr);
-    assert(node->keys[key_index] == key);
-  }
-
-  verify_tree(set);
-
-  set.clear();
-  assert(set.empty());
-  assert(set.size() == 0);
+  test_insert<SmallSet>();
+  test_insert<Btree_Set<int, std::less<int>, 10>>();
 }
