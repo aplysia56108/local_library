@@ -256,6 +256,110 @@ class Btree_Set {
     return {nullptr, 0};
   }
 
+  std::pair<Node*, std::size_t> lower_bound_locate(const Key& key) const {
+    Node* node = root_;
+    Node* candidate_node = nullptr;
+    std::size_t candidate_index = 0;
+
+    while (node != nullptr) {
+      const std::size_t key_index = lower_bound_index(node, key);
+      if (key_index < node->key_count) {
+        candidate_node = node;
+        candidate_index = key_index;
+      }
+      if (node->is_leaf) {
+        break;
+      }
+      node = node->children[key_index];
+    }
+    return {candidate_node, candidate_index};
+  }
+
+  std::pair<Node*, std::size_t> upper_bound_locate(const Key& key) const {
+    Node* node = root_;
+    Node* candidate_node = nullptr;
+    std::size_t candidate_index = 0;
+
+    while (node != nullptr) {
+      std::size_t low = 0;
+      std::size_t high = node->key_count;
+      while (low < high) {
+        const std::size_t mid = low + (high - low) / 2;
+        if (compare_(key, node->keys[mid])) {
+          high = mid;
+        } else {
+          low = mid + 1;
+        }
+      }
+      if (low < node->key_count) {
+        candidate_node = node;
+        candidate_index = low;
+      }
+      if (node->is_leaf) {
+        break;
+      }
+      node = node->children[low];
+    }
+    return {candidate_node, candidate_index};
+  }
+
+  std::pair<Node*, std::size_t> nth_locate(std::size_t index) const {
+    if (index >= size_) {
+      return {nullptr, 0};
+    }
+
+    Node* node = root_;
+    while (true) {
+      for (std::size_t i = 0; i <= node->key_count; ++i) {
+        if (!node->is_leaf) {
+          const std::size_t child_size = node->children[i]->subtree_size;
+          if (index < child_size) {
+            node = node->children[i];
+            goto next_node;
+          }
+          index -= child_size;
+        }
+        if (i == node->key_count) {
+          break;
+        }
+        if (index == 0) {
+          return {node, i};
+        }
+        --index;
+      }
+      assert(false);
+
+    next_node:
+      continue;
+    }
+  }
+
+  std::size_t index_of_node(const Node* node, std::size_t key_index) const {
+    assert(node != nullptr);
+    assert(key_index < node->key_count);
+
+    std::size_t index = key_index;
+    if (!node->is_leaf) {
+      for (std::size_t i = 0; i <= key_index; ++i) {
+        index += node->children[i]->subtree_size;
+      }
+    }
+
+    while (node->parent != nullptr) {
+      const Node* parent = node->parent;
+      for (std::size_t i = 0; i < node->position; ++i) {
+        index += parent->children[i]->subtree_size + 1;
+      }
+      node = parent;
+    }
+    return index;
+  }
+
+  std::size_t index_of_position(const Node* node,
+                                std::size_t key_index) const {
+    return node == nullptr ? size_ : index_of_node(node, key_index);
+  }
+
   static void delete_subtree(Node* node) {
     if (node == nullptr) {
       return;
@@ -453,26 +557,297 @@ class Btree_Set {
    public:
     iterator() = default;
 
+    const Key& operator*() const {
+      assert(node_ != nullptr);
+      return node_->keys[key_index_];
+    }
+
+    const Key* operator->() const { return &operator*(); }
+
+    iterator& operator++() {
+      assert(node_ != nullptr);
+      if (!node_->is_leaf) {
+        node_ = node_->children[key_index_ + 1];
+        while (!node_->is_leaf) {
+          node_ = node_->children[0];
+        }
+        key_index_ = 0;
+        return *this;
+      }
+
+      if (key_index_ + 1 < node_->key_count) {
+        ++key_index_;
+        return *this;
+      }
+
+      while (node_->parent != nullptr &&
+             node_->position == node_->parent->key_count) {
+        node_ = node_->parent;
+      }
+      if (node_->parent == nullptr) {
+        node_ = nullptr;
+        key_index_ = 0;
+      } else {
+        key_index_ = node_->position;
+        node_ = node_->parent;
+      }
+      return *this;
+    }
+
+    iterator operator++(int) {
+      iterator result = *this;
+      ++*this;
+      return result;
+    }
+
+    iterator& operator--() {
+      assert(owner_ != nullptr);
+      if (node_ == nullptr) {
+        node_ = owner_->root_;
+        assert(node_ != nullptr);
+        while (!node_->is_leaf) {
+          node_ = node_->children[node_->key_count];
+        }
+        key_index_ = node_->key_count - 1;
+        return *this;
+      }
+      if (!node_->is_leaf) {
+        node_ = node_->children[key_index_];
+        while (!node_->is_leaf) {
+          node_ = node_->children[node_->key_count];
+        }
+        key_index_ = node_->key_count - 1;
+        return *this;
+      }
+
+      if (key_index_ > 0) {
+        --key_index_;
+        return *this;
+      }
+
+      while (node_->parent != nullptr && node_->position == 0) {
+        node_ = node_->parent;
+      }
+      assert(node_->parent != nullptr);
+      key_index_ = node_->position - 1;
+      node_ = node_->parent;
+      return *this;
+    }
+
+    iterator operator--(int) {
+      iterator result = *this;
+      --*this;
+      return result;
+    }
+
+    iterator& operator+=(std::ptrdiff_t offset) {
+      assert(owner_ != nullptr);
+      const std::size_t index = owner_->index_of_position(node_, key_index_);
+      if (offset >= 0) {
+        assert(static_cast<std::size_t>(offset) <= owner_->size_ - index);
+        const auto [node, key_index] =
+            owner_->nth_locate(index + static_cast<std::size_t>(offset));
+        *this = iterator{owner_, node, key_index};
+      } else {
+        const std::size_t distance =
+            static_cast<std::size_t>(-(offset + 1)) + 1;
+        assert(distance <= index);
+        const auto [node, key_index] = owner_->nth_locate(index - distance);
+        *this = iterator{owner_, node, key_index};
+      }
+      return *this;
+    }
+
+    iterator& operator-=(std::ptrdiff_t offset) {
+      assert(owner_ != nullptr);
+      const std::size_t index = owner_->index_of_position(node_, key_index_);
+      if (offset >= 0) {
+        assert(static_cast<std::size_t>(offset) <= index);
+        const auto [node, key_index] =
+            owner_->nth_locate(index - static_cast<std::size_t>(offset));
+        *this = iterator{owner_, node, key_index};
+      } else {
+        const std::size_t distance =
+            static_cast<std::size_t>(-(offset + 1)) + 1;
+        assert(distance <= owner_->size_ - index);
+        const auto [node, key_index] = owner_->nth_locate(index + distance);
+        *this = iterator{owner_, node, key_index};
+      }
+      return *this;
+    }
+
+    friend iterator operator+(iterator it, std::ptrdiff_t offset) {
+      return it += offset;
+    }
+
+    friend iterator operator+(std::ptrdiff_t offset, iterator it) {
+      return it += offset;
+    }
+
+    friend iterator operator-(iterator it, std::ptrdiff_t offset) {
+      return it -= offset;
+    }
+
+    friend std::ptrdiff_t operator-(const iterator& lhs,
+                                    const iterator& rhs) {
+      assert(lhs.owner_ == rhs.owner_);
+      assert(lhs.owner_ != nullptr);
+      return static_cast<std::ptrdiff_t>(
+                 lhs.owner_->index_of_position(lhs.node_, lhs.key_index_)) -
+             static_cast<std::ptrdiff_t>(
+                 rhs.owner_->index_of_position(rhs.node_, rhs.key_index_));
+    }
+
+    friend bool operator==(const iterator&, const iterator&) = default;
+
    private:
+    const Btree_Set* owner_ = nullptr;
     Node* node_ = nullptr;
     std::size_t key_index_ = 0;
 
-    iterator(Node* node, std::size_t key_index)
-        : node_(node), key_index_(key_index) {}
+    iterator(const Btree_Set* owner, Node* node, std::size_t key_index)
+        : owner_(owner), node_(node), key_index_(key_index) {}
 
     friend class Btree_Set;
+    friend class const_iterator;
   };
 
   class const_iterator {
    public:
     const_iterator() = default;
+    const_iterator(const iterator& other)
+        : owner_(other.owner_), node_(other.node_), key_index_(other.key_index_) {}
+
+    const Key& operator*() const {
+      assert(node_ != nullptr);
+      return node_->keys[key_index_];
+    }
+
+    const Key* operator->() const { return &operator*(); }
+
+    const_iterator& operator++() {
+      assert(node_ != nullptr);
+      if (!node_->is_leaf) {
+        node_ = node_->children[key_index_ + 1];
+        while (!node_->is_leaf) node_ = node_->children[0];
+        key_index_ = 0;
+      } else if (key_index_ + 1 < node_->key_count) {
+        ++key_index_;
+      } else {
+        while (node_->parent != nullptr &&
+               node_->position == node_->parent->key_count) {
+          node_ = node_->parent;
+        }
+        if (node_->parent == nullptr) {
+          node_ = nullptr;
+          key_index_ = 0;
+        } else {
+          key_index_ = node_->position;
+          node_ = node_->parent;
+        }
+      }
+      return *this;
+    }
+
+    const_iterator operator++(int) {
+      const_iterator result = *this;
+      ++*this;
+      return result;
+    }
+
+    const_iterator& operator--() {
+      assert(owner_ != nullptr);
+      if (node_ == nullptr) {
+        node_ = owner_->root_;
+        assert(node_ != nullptr);
+        while (!node_->is_leaf) node_ = node_->children[node_->key_count];
+        key_index_ = node_->key_count - 1;
+      } else if (!node_->is_leaf) {
+        node_ = node_->children[key_index_];
+        while (!node_->is_leaf) node_ = node_->children[node_->key_count];
+        key_index_ = node_->key_count - 1;
+      } else if (key_index_ > 0) {
+        --key_index_;
+      } else {
+        while (node_->parent != nullptr && node_->position == 0) {
+          node_ = node_->parent;
+        }
+        assert(node_->parent != nullptr);
+        key_index_ = node_->position - 1;
+        node_ = node_->parent;
+      }
+      return *this;
+    }
+
+    const_iterator operator--(int) {
+      const_iterator result = *this;
+      --*this;
+      return result;
+    }
+
+    const_iterator& operator+=(std::ptrdiff_t offset) {
+      assert(owner_ != nullptr);
+      const std::size_t index = owner_->index_of_position(node_, key_index_);
+      if (offset >= 0) {
+        assert(static_cast<std::size_t>(offset) <= owner_->size_ - index);
+        *this = owner_->nth(index + static_cast<std::size_t>(offset));
+      } else {
+        const std::size_t distance =
+            static_cast<std::size_t>(-(offset + 1)) + 1;
+        assert(distance <= index);
+        *this = owner_->nth(index - distance);
+      }
+      return *this;
+    }
+
+    const_iterator& operator-=(std::ptrdiff_t offset) {
+      assert(owner_ != nullptr);
+      const std::size_t index = owner_->index_of_position(node_, key_index_);
+      if (offset >= 0) {
+        assert(static_cast<std::size_t>(offset) <= index);
+        *this = owner_->nth(index - static_cast<std::size_t>(offset));
+      } else {
+        const std::size_t distance =
+            static_cast<std::size_t>(-(offset + 1)) + 1;
+        assert(distance <= owner_->size_ - index);
+        *this = owner_->nth(index + distance);
+      }
+      return *this;
+    }
+
+    friend const_iterator operator+(const_iterator it, std::ptrdiff_t offset) {
+      return it += offset;
+    }
+
+    friend const_iterator operator+(std::ptrdiff_t offset, const_iterator it) {
+      return it += offset;
+    }
+
+    friend const_iterator operator-(const_iterator it, std::ptrdiff_t offset) {
+      return it -= offset;
+    }
+
+    friend std::ptrdiff_t operator-(const const_iterator& lhs,
+                                    const const_iterator& rhs) {
+      assert(lhs.owner_ == rhs.owner_);
+      assert(lhs.owner_ != nullptr);
+      return static_cast<std::ptrdiff_t>(
+                 lhs.owner_->index_of_position(lhs.node_, lhs.key_index_)) -
+             static_cast<std::ptrdiff_t>(
+                 rhs.owner_->index_of_position(rhs.node_, rhs.key_index_));
+    }
+
+    friend bool operator==(const const_iterator&, const const_iterator&) =
+        default;
 
    private:
+    const Btree_Set* owner_ = nullptr;
     const Node* node_ = nullptr;
     std::size_t key_index_ = 0;
 
-    const_iterator(const Node* node, std::size_t key_index)
-        : node_(node), key_index_(key_index) {}
+    const_iterator(const Btree_Set* owner, const Node* node,
+                   std::size_t key_index)
+        : owner_(owner), node_(node), key_index_(key_index) {}
 
     friend class Btree_Set;
   };
@@ -499,13 +874,13 @@ class Btree_Set {
     if (root_ == nullptr) {
       root_ = new Node(key);
       ++size_;
-      return {iterator{root_, 0}, true};
+      return {iterator{this, root_, 0}, true};
     }
 
     InsertResult result = insert_recursive(root_, key);
     if (!result.inserted) {
       const auto [node, key_index] = locate(key);
-      return {iterator{node, key_index}, false};
+      return {iterator{this, node, key_index}, false};
     }
 
     ++size_;
@@ -522,12 +897,22 @@ class Btree_Set {
     }
 
     const auto [node, key_index] = locate(key);
-    return {iterator{node, key_index}, true};
+    return {iterator{this, node, key_index}, true};
   }
-  template <class... Args>
-  std::pair<iterator, bool> emplace(Args&&... args);
 
-  iterator erase(const_iterator pos);
+  template <class... Args>
+  std::pair<iterator, bool> emplace(Args&&... args) {
+    return insert(Key(std::forward<Args>(args)...));
+  }
+
+  iterator erase(const_iterator pos) {
+    assert(pos.owner_ == this);
+    assert(pos.node_ != nullptr);
+    const std::size_t next_index = index_of_node(pos.node_, pos.key_index_);
+    const Key key = pos.node_->keys[pos.key_index_];
+    assert(erase(key) == 1);
+    return nth(next_index);
+  }
   size_type erase(const Key& key) {
     if (root_ == nullptr || !erase_recursive(root_, key)) {
       return 0;
@@ -550,15 +935,109 @@ class Btree_Set {
     return 1;
   }
 
-  iterator find(const Key& key);
-  bool contains(const Key& key) const;
-  iterator lower_bound(const Key& key);
-  iterator upper_bound(const Key& key);
-  std::pair<iterator, iterator> equal_range(const Key& key);
+  iterator find(const Key& key) {
+    const auto [node, key_index] = locate(key);
+    return iterator{this, node, key_index};
+  }
 
-  iterator begin();
-  iterator end();
-  iterator nth(size_type index);  // index == size() なら end()
-  size_type order_of_key(const Key& key) const;
-  size_type index_of(const_iterator it) const;
+  const_iterator find(const Key& key) const {
+    const auto [node, key_index] = locate(key);
+    return const_iterator{this, node, key_index};
+  }
+
+  bool contains(const Key& key) const { return locate(key).first != nullptr; }
+
+  iterator lower_bound(const Key& key) {
+    const auto [node, key_index] = lower_bound_locate(key);
+    return iterator{this, node, key_index};
+  }
+
+  const_iterator lower_bound(const Key& key) const {
+    const auto [node, key_index] = lower_bound_locate(key);
+    return const_iterator{this, node, key_index};
+  }
+
+  iterator upper_bound(const Key& key) {
+    const auto [node, key_index] = upper_bound_locate(key);
+    return iterator{this, node, key_index};
+  }
+
+  const_iterator upper_bound(const Key& key) const {
+    const auto [node, key_index] = upper_bound_locate(key);
+    return const_iterator{this, node, key_index};
+  }
+
+  std::pair<iterator, iterator> equal_range(const Key& key) {
+    return {lower_bound(key), upper_bound(key)};
+  }
+
+  std::pair<const_iterator, const_iterator> equal_range(const Key& key) const {
+    return {lower_bound(key), upper_bound(key)};
+  }
+
+  iterator begin() {
+    if (root_ == nullptr) {
+      return end();
+    }
+    Node* node = root_;
+    while (!node->is_leaf) {
+      node = node->children[0];
+    }
+    return iterator{this, node, 0};
+  }
+
+  iterator end() { return iterator{this, nullptr, 0}; }
+
+  const_iterator begin() const { return cbegin(); }
+  const_iterator end() const { return cend(); }
+
+  const_iterator cbegin() const {
+    if (root_ == nullptr) return cend();
+    const Node* node = root_;
+    while (!node->is_leaf) node = node->children[0];
+    return const_iterator{this, node, 0};
+  }
+
+  const_iterator cend() const { return const_iterator{this, nullptr, 0}; }
+
+  iterator nth(size_type index) {
+    const auto [node, key_index] = nth_locate(index);
+    return iterator{this, node, key_index};
+  }
+
+  const_iterator nth(size_type index) const {
+    const auto [node, key_index] = nth_locate(index);
+    return const_iterator{this, node, key_index};
+  }
+
+  size_type order_of_key(const Key& key) const {
+    Node* node = root_;
+    size_type result = 0;
+    while (node != nullptr) {
+      const std::size_t key_index = lower_bound_index(node, key);
+      for (std::size_t i = 0; i < key_index; ++i) {
+        if (!node->is_leaf) {
+          result += node->children[i]->subtree_size;
+        }
+        ++result;
+      }
+      if (key_index < node->key_count &&
+          equivalent(node->keys[key_index], key)) {
+        if (!node->is_leaf) {
+          result += node->children[key_index]->subtree_size;
+        }
+        return result;
+      }
+      if (node->is_leaf) {
+        return result;
+      }
+      node = node->children[key_index];
+    }
+    return result;
+  }
+
+  size_type index_of(const_iterator it) const {
+    assert(it.owner_ == this);
+    return index_of_node(it.node_, it.key_index_);
+  }
 };

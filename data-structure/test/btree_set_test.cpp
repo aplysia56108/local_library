@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <functional>
 #include <optional>
+#include <set>
 #include <type_traits>
 #include <utility>
 
@@ -72,6 +73,11 @@ void verify_tree(const Set& set) {
 template <class Set>
 void test_insert() {
   Set set;
+  Set emplace_test;
+  const auto [emplaced, emplace_inserted] = emplace_test.emplace(42);
+  assert(emplace_inserted);
+  assert(*emplaced == 42);
+
   assert(set.erase(-1) == 0);
   for (int i = 0; i < 1000; ++i) {
     const int key = (i * 73) % 1000;
@@ -93,9 +99,90 @@ void test_insert() {
     verify_tree(set);
   }
 
+  std::set<int> reference;
+  for (int key = 0; key < 1000; ++key) {
+    reference.insert(key);
+  }
+
+  auto it = set.begin();
+  for (int key = 0; key < 1000; ++key, ++it) {
+    assert(it != set.end());
+    assert(*it == key);
+    assert(set.index_of(typename Set::const_iterator(it)) ==
+           static_cast<std::size_t>(key));
+    assert(*set.nth(key) == key);
+    assert(set.order_of_key(key) == static_cast<std::size_t>(key));
+  }
+  assert(it == set.end());
+
+  it = set.end();
+  for (int key = 999; key >= 0; --key) {
+    --it;
+    assert(*it == key);
+  }
+  assert(it == set.begin());
+
+  const Set& const_set = set;
+  for (int index = 0; index <= 1000; ++index) {
+    const auto advanced = set.begin() + index;
+    assert(advanced - set.begin() == index);
+    assert(set.end() - advanced == 1000 - index);
+    if (index < 1000) assert(*advanced == index);
+
+    const auto const_advanced = const_set.cbegin() + index;
+    assert(const_advanced - const_set.cbegin() == index);
+    assert(const_set.cend() - const_advanced == 1000 - index);
+    if (index < 1000) assert(*const_advanced == index);
+  }
+
+  for (int key = -1; key <= 1000; ++key) {
+    const auto expected_lower = reference.lower_bound(key);
+    const auto expected_upper = reference.upper_bound(key);
+    const auto lower = set.lower_bound(key);
+    const auto upper = set.upper_bound(key);
+    const auto [equal_first, equal_second] = set.equal_range(key);
+    const auto const_lower = const_set.lower_bound(key);
+    const auto const_upper = const_set.upper_bound(key);
+    const auto [const_equal_first, const_equal_second] =
+        const_set.equal_range(key);
+
+    assert(const_set.contains(key) == reference.contains(key));
+    assert((const_set.find(key) == const_set.end()) ==
+           (reference.find(key) == reference.end()));
+    assert(const_equal_first == const_lower);
+    assert(const_equal_second == const_upper);
+    assert(equal_first == lower);
+    assert(equal_second == upper);
+    assert((lower == set.end()) == (expected_lower == reference.end()));
+    assert((upper == set.end()) == (expected_upper == reference.end()));
+    if (expected_lower != reference.end()) assert(*lower == *expected_lower);
+    if (expected_upper != reference.end()) assert(*upper == *expected_upper);
+    if (expected_lower != reference.end()) {
+      assert(*const_lower == *expected_lower);
+    }
+    if (expected_upper != reference.end()) {
+      assert(*const_upper == *expected_upper);
+    }
+    assert(set.order_of_key(key) ==
+           static_cast<std::size_t>(
+               std::distance(reference.begin(), expected_lower)));
+  }
+
   for (int i = 0; i < 1000; ++i) {
     const int key = (i * 137) % 1000;
-    assert(set.erase(key) == 1);
+    const auto reference_it = reference.find(key);
+    assert(reference_it != reference.end());
+    const auto reference_next = reference.erase(reference_it);
+
+    if (i % 2 == 0) {
+      const auto found = set.find(key);
+      assert(found != set.end());
+      const auto next = set.erase(typename Set::const_iterator(found));
+      assert((next == set.end()) == (reference_next == reference.end()));
+      if (reference_next != reference.end()) assert(*next == *reference_next);
+    } else {
+      assert(set.erase(key) == 1);
+    }
     assert(set.size() == static_cast<std::size_t>(999 - i));
     assert(set.locate(key).first == nullptr);
     assert(set.erase(key) == 0);
