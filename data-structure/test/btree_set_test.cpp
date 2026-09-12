@@ -70,4 +70,49 @@ int main() {
   assert(children[4].parent == internal_split.right);
   assert(children[4].position == 1);
   delete internal_split.right;
+
+  SmallSet set;
+  for (int i = 0; i < 199; ++i) {
+    const int key = (i * 73) % 199;
+    const auto [it, inserted] = set.insert(key);
+    (void)it;
+    assert(inserted);
+    assert(set.size() == static_cast<std::size_t>(i + 1));
+  }
+  for (int key = 0; key < 199; ++key) {
+    const auto [it, inserted] = set.insert(key);
+    (void)it;
+    assert(!inserted);
+    assert(set.size() == 199);
+
+    const auto [node, key_index] = set.locate(key);
+    assert(node != nullptr);
+    assert(node->keys[key_index] == key);
+  }
+
+  const auto verify_subtree = [&](const auto& self, const Node* node,
+                                  bool is_root) -> std::size_t {
+    assert(node != nullptr);
+    assert(node->key_count <= 3);
+    if (!is_root) assert(node->key_count >= 1);
+    for (std::size_t i = 1; i < node->key_count; ++i) {
+      assert(node->keys[i - 1] < node->keys[i]);
+    }
+
+    std::size_t subtree_size = node->key_count;
+    if (!node->is_leaf) {
+      for (std::size_t i = 0; i <= node->key_count; ++i) {
+        assert(node->children[i]->parent == node);
+        assert(node->children[i]->position == i);
+        subtree_size += self(self, node->children[i], false);
+      }
+    }
+    assert(node->subtree_size == subtree_size);
+    return subtree_size;
+  };
+  assert(verify_subtree(verify_subtree, set.root_, true) == set.size());
+
+  set.clear();
+  assert(set.empty());
+  assert(set.size() == 0);
 }

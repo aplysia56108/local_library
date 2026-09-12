@@ -9,10 +9,12 @@
 // パフォーマンスが高いとうれしい。
 // まずはインターフェースを書いてほしい
 #include <array>
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <concepts>
 #include <functional>
+#include <optional>
 #include <utility>
 
 template <class Key, class Compare = std::less<Key>,
@@ -87,7 +89,7 @@ class Btree_Set {
       }
 
       ++key_count;
-      recalculate_subtree_size();
+      ++subtree_size;
     }
 
     // 満杯のノードへキーを挿入し、中央値を親へ渡すために分割する。
@@ -168,19 +170,114 @@ class Btree_Set {
     std::pair<Node*, std::size_t> nth(std::size_t i) const;
   };
 
+  struct InsertResult {
+    bool inserted;
+    std::optional<typename Node::SplitResult> split;
+  };
+
+  // node 内で key 以上となる最初のキーの添字を返す。
+  std::size_t lower_bound_index(const Node* node, const Key& key) const {
+    return std::lower_bound(node->keys.begin(),
+                            node->keys.begin() + node->key_count, key,
+                            compare_) -
+           node->keys.begin();
+  }
+
+  bool equivalent(const Key& lhs, const Key& rhs) const {
+    return !compare_(lhs, rhs) && !compare_(rhs, lhs);
+  }
+
+  // key を葉まで挿入し、分割した場合だけ親へ渡す情報を返す。
+  InsertResult insert_recursive(Node* node, const Key& key) {
+    const std::size_t key_index = lower_bound_index(node, key);
+    if (key_index < node->key_count &&
+        equivalent(node->keys[key_index], key)) {
+      return {false, std::nullopt};
+    }
+
+    if (node->is_leaf) {
+      if (node->key_count < kMaxKeys) {
+        node->insert_non_full(key, nullptr, key_index);
+        return {true, std::nullopt};
+      }
+      return {true, node->split_and_insert(key, nullptr, key_index)};
+    }
+
+    InsertResult child_result = insert_recursive(node->children[key_index], key);
+    if (!child_result.inserted) {
+      return {false, std::nullopt};
+    }
+    if (!child_result.split) {
+      ++node->subtree_size;
+      return {true, std::nullopt};
+    }
+
+    const auto& child_split = *child_result.split;
+    if (node->key_count < kMaxKeys) {
+      node->insert_non_full(child_split.separator, child_split.right, key_index);
+      return {true, std::nullopt};
+    }
+    return {true, node->split_and_insert(child_split.separator,
+                                         child_split.right, key_index)};
+  }
+
+  std::pair<Node*, std::size_t> locate(const Key& key) const {
+    Node* node = root_;
+    while (node != nullptr) {
+      const std::size_t key_index = lower_bound_index(node, key);
+      if (key_index < node->key_count &&
+          equivalent(node->keys[key_index], key)) {
+        return {node, key_index};
+      }
+      if (node->is_leaf) {
+        break;
+      }
+      node = node->children[key_index];
+    }
+    return {nullptr, 0};
+  }
+
+  static void delete_subtree(Node* node) {
+    if (node == nullptr) {
+      return;
+    }
+    if (!node->is_leaf) {
+      for (std::size_t i = 0; i <= node->key_count; ++i) {
+        delete_subtree(node->children[i]);
+      }
+    }
+    delete node;
+  }
+
+  Node* root_ = nullptr;
+  std::size_t size_ = 0;
+  Compare compare_{};
+
  public:
   class iterator {
+   public:
+    iterator() = default;
+
    private:
     Node* node_ = nullptr;
     std::size_t key_index_ = 0;
+
+    iterator(Node* node, std::size_t key_index)
+        : node_(node), key_index_(key_index) {}
 
     friend class Btree_Set;
   };
 
   class const_iterator {
+   public:
+    const_iterator() = default;
+
    private:
     const Node* node_ = nullptr;
     std::size_t key_index_ = 0;
+
+    const_iterator(const Node* node, std::size_t key_index)
+        : node_(node), key_index_(key_index) {}
 
     friend class Btree_Set;
   };
@@ -190,11 +287,48 @@ class Btree_Set {
   using size_type = std::size_t;
 
   Btree_Set() = default;
-  bool empty() const;
-  size_type size() const;
-  void clear();
+  explicit Btree_Set(Compare compare) : compare_(std::move(compare)) {}
+  Btree_Set(const Btree_Set&) = delete;
+  Btree_Set& operator=(const Btree_Set&) = delete;
+  ~Btree_Set() { clear(); }
 
-  std::pair<iterator, bool> insert(const Key& key);
+  bool empty() const { return size_ == 0; }
+  size_type size() const { return size_; }
+  void clear() {
+    delete_subtree(root_);
+    root_ = nullptr;
+    size_ = 0;
+  }
+
+  std::pair<iterator, bool> insert(const Key& key) {
+    if (root_ == nullptr) {
+      root_ = new Node(key);
+      ++size_;
+      return {iterator{root_, 0}, true};
+    }
+
+    InsertResult result = insert_recursive(root_, key);
+    if (!result.inserted) {
+      const auto [node, key_index] = locate(key);
+      return {iterator{node, key_index}, false};
+    }
+
+    ++size_;
+    if (result.split) {
+      Node* new_root = new Node();
+      new_root->is_leaf = false;
+      new_root->children[0] = root_;
+      root_->parent = new_root;
+      root_->position = 0;
+      new_root->insert_non_full(result.split->separator, result.split->right,
+                                0);
+      new_root->recalculate_subtree_size();
+      root_ = new_root;
+    }
+
+    const auto [node, key_index] = locate(key);
+    return {iterator{node, key_index}, true};
+  }
   template <class... Args>
   std::pair<iterator, bool> emplace(Args&&... args);
 
