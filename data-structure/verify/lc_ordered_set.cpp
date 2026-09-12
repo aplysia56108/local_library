@@ -87,6 +87,23 @@ inline const double eps = 1e-9;
 ////////////////////////////////////////////////////////////////////////////////
 
 // https://judge.yosupo.jp/problem/ordered_set
+// AC 885ms
+
+/*
+ * You are given a set of non-negative integers `S = {a_0, ..., a_{N-1}}`.
+ * Process the following `Q` queries:
+ *
+ * - `0 x`: If `x` is not in `S`, insert `x` into `S`. Otherwise, do nothing.
+ * - `1 x`: If `x` is in `S`, remove `x` from `S`. Otherwise, do nothing.
+ * - `2 x`: Output the `x`-th smallest element of `S` in ascending order.
+ *   If `|S| < x`, output `-1`.
+ * - `3 x`: Output the number of elements in `S` that are less than or equal to
+ * `x`.
+ * - `4 x`: Output the largest element in `S` that is less than or equal to `x`.
+ *   If no such element exists, output `-1`.
+ * - `5 x`: Output the smallest element in `S` that is greater than or equal to
+ * `x`. If no such element exists, output `-1`.
+ */
 
 #include "data-structure/set/btree-set.hpp"
 
@@ -100,4 +117,50 @@ signed main() {
   }
 }
 
-void solve() {}
+void solve() {
+  int n, q;
+  cin >> n >> q;
+
+  vi a(n);
+  cin >> a;
+  Btree_Set<int> st;
+
+  rep(i, n) st.insert(a[i]);
+
+  rep(i, q) {
+    int t, x;
+    cin >> t >> x;
+
+    if (t == 0) {
+      st.insert(x);
+    }
+    elif (t == 1) {
+      st.erase(x);
+    }
+    elif (t == 2) {
+      if (st.size() < x)
+        err();
+      else
+        out(*st.nth(x - 1));
+    }
+    elif (t == 3) {
+      auto k = st.upper_bound(x) - st.begin();
+
+      out(k);
+    }
+    elif (t == 4) {
+      auto it = st.upper_bound(x);
+      if (it == st.begin())
+        err();
+      else
+        out(*(--it));
+    }
+    else {
+      auto it = st.lower_bound(x);
+      if (it == st.end())
+        err();
+      else
+        out(*it);
+    }
+  }
+}
