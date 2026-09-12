@@ -551,6 +551,8 @@ class Btree_Set {
   Compare compare_{};
 
  public:
+  class const_iterator;
+
   class iterator {
    public:
     iterator() = default;
