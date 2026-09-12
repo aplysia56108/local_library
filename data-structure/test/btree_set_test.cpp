@@ -3,12 +3,63 @@
 #include <concepts>
 #include <cstddef>
 #include <functional>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
 #define private public
 #include "data-structure/set/btree-set.hpp"
 #undef private
+
+using SmallSet = Btree_Set<int, std::less<int>, 2>;
+using Node = SmallSet::Node;
+
+std::size_t verify_node(const Node* node, const Node* parent,
+                        std::size_t position, std::optional<int> lower,
+                        std::optional<int> upper, bool is_root) {
+  assert(node != nullptr);
+  assert(node->parent == parent);
+  assert(node->position == position);
+  assert(node->key_count <= SmallSet::kMaxKeys);
+  if (!is_root) assert(node->key_count >= 1);
+
+  for (std::size_t i = 0; i < node->key_count; ++i) {
+    if (lower) assert(*lower < node->keys[i]);
+    if (upper) assert(node->keys[i] < *upper);
+    if (i > 0) assert(node->keys[i - 1] < node->keys[i]);
+  }
+
+  std::size_t subtree_size = node->key_count;
+  if (node->is_leaf) {
+    for (Node* child : node->children) {
+      assert(child == nullptr);
+    }
+  } else {
+    // 内部ノードの有効な子は key_count + 1 個である。
+    for (std::size_t i = 0; i <= node->key_count; ++i) {
+      assert(node->children[i] != nullptr);
+      const std::optional<int> child_lower =
+          i == 0 ? lower : std::optional<int>{node->keys[i - 1]};
+      const std::optional<int> child_upper =
+          i == node->key_count ? upper : std::optional<int>{node->keys[i]};
+      subtree_size += verify_node(node->children[i], node, i, child_lower,
+                                  child_upper, false);
+    }
+    for (std::size_t i = node->key_count + 1;
+         i < SmallSet::kMaxChildren; ++i) {
+      assert(node->children[i] == nullptr);
+    }
+  }
+
+  assert(node->subtree_size == subtree_size);
+  return subtree_size;
+}
+
+void verify_tree(const SmallSet& set) {
+  assert(set.root_ != nullptr);
+  assert(verify_node(set.root_, nullptr, 0, std::nullopt, std::nullopt, true) ==
+         set.size());
+}
 
 int main() {
   using Set = Btree_Set<int>;
@@ -20,9 +71,6 @@ int main() {
   static_assert(std::same_as<Set::iterator, Btree_Set<int>::iterator>);
   static_assert(
       std::same_as<Set::const_iterator, Btree_Set<int>::const_iterator>);
-
-  using SmallSet = Btree_Set<int, std::less<int>, 2>;
-  using Node = SmallSet::Node;
 
   Node leaf;
   leaf.insert_non_full(1, nullptr, 0);
@@ -90,27 +138,7 @@ int main() {
     assert(node->keys[key_index] == key);
   }
 
-  const auto verify_subtree = [&](const auto& self, const Node* node,
-                                  bool is_root) -> std::size_t {
-    assert(node != nullptr);
-    assert(node->key_count <= 3);
-    if (!is_root) assert(node->key_count >= 1);
-    for (std::size_t i = 1; i < node->key_count; ++i) {
-      assert(node->keys[i - 1] < node->keys[i]);
-    }
-
-    std::size_t subtree_size = node->key_count;
-    if (!node->is_leaf) {
-      for (std::size_t i = 0; i <= node->key_count; ++i) {
-        assert(node->children[i]->parent == node);
-        assert(node->children[i]->position == i);
-        subtree_size += self(self, node->children[i], false);
-      }
-    }
-    assert(node->subtree_size == subtree_size);
-    return subtree_size;
-  };
-  assert(verify_subtree(verify_subtree, set.root_, true) == set.size());
+  verify_tree(set);
 
   set.clear();
   assert(set.empty());
