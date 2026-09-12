@@ -90,6 +90,14 @@ template <class T, class U>
 std::pair<T, U> operator-(const std::pair<T, U>& a, const std::pair<T, U>& b) {
   return {a.first - b.first, a.second - b.second};
 }
+
+/**
+ * @brief pair の符号反転 (-a)
+ */
+template <class T, class U>
+std::pair<T, U> operator-(const std::pair<T, U>& a) {
+  return {-a.first, -a.second};
+}
 }  // namespace std
 // ==========================================
 // 2. グラフ・集計ユーティリティ
