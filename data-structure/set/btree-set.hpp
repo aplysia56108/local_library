@@ -209,8 +209,7 @@ class Btree_Set {
   // key を葉まで挿入し、分割した場合だけ親へ渡す情報を返す。
   InsertResult insert_recursive(Node* node, const Key& key) {
     const std::size_t key_index = lower_bound_index(node, key);
-    if (key_index < node->key_count &&
-        equivalent(node->keys[key_index], key)) {
+    if (key_index < node->key_count && equivalent(node->keys[key_index], key)) {
       return {false, std::nullopt};
     }
 
@@ -222,7 +221,8 @@ class Btree_Set {
       return {true, node->split_and_insert(key, nullptr, key_index)};
     }
 
-    InsertResult child_result = insert_recursive(node->children[key_index], key);
+    InsertResult child_result =
+        insert_recursive(node->children[key_index], key);
     if (!child_result.inserted) {
       return {false, std::nullopt};
     }
@@ -233,7 +233,8 @@ class Btree_Set {
 
     const auto& child_split = *child_result.split;
     if (node->key_count < kMaxKeys) {
-      node->insert_non_full(child_split.separator, child_split.right, key_index);
+      node->insert_non_full(child_split.separator, child_split.right,
+                            key_index);
       return {true, std::nullopt};
     }
     return {true, node->split_and_insert(child_split.separator,
@@ -355,8 +356,7 @@ class Btree_Set {
     return index;
   }
 
-  std::size_t index_of_position(const Node* node,
-                                std::size_t key_index) const {
+  std::size_t index_of_position(const Node* node, std::size_t key_index) const {
     return node == nullptr ? size_ : index_of_node(node, key_index);
   }
 
@@ -468,8 +468,7 @@ class Btree_Set {
   }
 
   // child_index の子に降りる前に、削除後も下限を満たせるよう調整する。
-  std::size_t prepare_child_for_erase(Node* parent,
-                                      std::size_t child_index) {
+  std::size_t prepare_child_for_erase(Node* parent, std::size_t child_index) {
     Node* child = parent->children[child_index];
     if (child->key_count > kMinKeys) {
       return child_index;
@@ -508,8 +507,7 @@ class Btree_Set {
 
   bool erase_recursive(Node* node, const Key& key) {
     std::size_t key_index = lower_bound_index(node, key);
-    if (key_index < node->key_count &&
-        equivalent(node->keys[key_index], key)) {
+    if (key_index < node->key_count && equivalent(node->keys[key_index], key)) {
       if (node->is_leaf) {
         node->erase_from_leaf(key_index);
         return true;
@@ -562,7 +560,9 @@ class Btree_Set {
       return node_->keys[key_index_];
     }
 
-    const Key* operator->() const { return &operator*(); }
+    const Key* operator->() const {
+      return &operator*();
+    }
 
     iterator& operator++() {
       assert(node_ != nullptr);
@@ -594,7 +594,7 @@ class Btree_Set {
       return *this;
     }
 
-    iterator operator++(int) {
+    iterator operator++(signed) {
       iterator result = *this;
       ++*this;
       return result;
@@ -634,7 +634,7 @@ class Btree_Set {
       return *this;
     }
 
-    iterator operator--(int) {
+    iterator operator--(signed) {
       iterator result = *this;
       --*this;
       return result;
@@ -688,8 +688,7 @@ class Btree_Set {
       return it -= offset;
     }
 
-    friend std::ptrdiff_t operator-(const iterator& lhs,
-                                    const iterator& rhs) {
+    friend std::ptrdiff_t operator-(const iterator& lhs, const iterator& rhs) {
       assert(lhs.owner_ == rhs.owner_);
       assert(lhs.owner_ != nullptr);
       return static_cast<std::ptrdiff_t>(
@@ -716,14 +715,18 @@ class Btree_Set {
    public:
     const_iterator() = default;
     const_iterator(const iterator& other)
-        : owner_(other.owner_), node_(other.node_), key_index_(other.key_index_) {}
+        : owner_(other.owner_),
+          node_(other.node_),
+          key_index_(other.key_index_) {}
 
     const Key& operator*() const {
       assert(node_ != nullptr);
       return node_->keys[key_index_];
     }
 
-    const Key* operator->() const { return &operator*(); }
+    const Key* operator->() const {
+      return &operator*();
+    }
 
     const_iterator& operator++() {
       assert(node_ != nullptr);
@@ -749,7 +752,7 @@ class Btree_Set {
       return *this;
     }
 
-    const_iterator operator++(int) {
+    const_iterator operator++(signed) {
       const_iterator result = *this;
       ++*this;
       return result;
@@ -779,7 +782,7 @@ class Btree_Set {
       return *this;
     }
 
-    const_iterator operator--(int) {
+    const_iterator operator--(signed) {
       const_iterator result = *this;
       --*this;
       return result;
@@ -837,8 +840,8 @@ class Btree_Set {
                  rhs.owner_->index_of_position(rhs.node_, rhs.key_index_));
     }
 
-    friend bool operator==(const const_iterator&, const const_iterator&) =
-        default;
+    friend bool operator==(const const_iterator&,
+                           const const_iterator&) = default;
 
    private:
     const Btree_Set* owner_ = nullptr;
@@ -860,10 +863,16 @@ class Btree_Set {
   explicit Btree_Set(Compare compare) : compare_(std::move(compare)) {}
   Btree_Set(const Btree_Set&) = delete;
   Btree_Set& operator=(const Btree_Set&) = delete;
-  ~Btree_Set() { clear(); }
+  ~Btree_Set() {
+    clear();
+  }
 
-  bool empty() const { return size_ == 0; }
-  size_type size() const { return size_; }
+  bool empty() const {
+    return size_ == 0;
+  }
+  size_type size() const {
+    return size_;
+  }
   void clear() {
     delete_subtree(root_);
     root_ = nullptr;
@@ -945,7 +954,9 @@ class Btree_Set {
     return const_iterator{this, node, key_index};
   }
 
-  bool contains(const Key& key) const { return locate(key).first != nullptr; }
+  bool contains(const Key& key) const {
+    return locate(key).first != nullptr;
+  }
 
   iterator lower_bound(const Key& key) {
     const auto [node, key_index] = lower_bound_locate(key);
@@ -986,10 +997,16 @@ class Btree_Set {
     return iterator{this, node, 0};
   }
 
-  iterator end() { return iterator{this, nullptr, 0}; }
+  iterator end() {
+    return iterator{this, nullptr, 0};
+  }
 
-  const_iterator begin() const { return cbegin(); }
-  const_iterator end() const { return cend(); }
+  const_iterator begin() const {
+    return cbegin();
+  }
+  const_iterator end() const {
+    return cend();
+  }
 
   const_iterator cbegin() const {
     if (root_ == nullptr) return cend();
@@ -998,7 +1015,9 @@ class Btree_Set {
     return const_iterator{this, node, 0};
   }
 
-  const_iterator cend() const { return const_iterator{this, nullptr, 0}; }
+  const_iterator cend() const {
+    return const_iterator{this, nullptr, 0};
+  }
 
   iterator nth(size_type index) {
     const auto [node, key_index] = nth_locate(index);
