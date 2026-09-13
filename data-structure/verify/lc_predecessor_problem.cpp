@@ -86,6 +86,8 @@ inline const double eps = 1e-9;
 
 ////////////////////////////////////////////////////////////////////////////////
 // https://judge.yosupo.jp/problem/predecessor_problem
+// AC 2063 ms
+
 /*
  * Let `S` be a set consisting of integers from `0` to `N - 1`.
  * Process the following `Q` queries:
