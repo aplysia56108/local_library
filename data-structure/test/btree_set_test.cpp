@@ -66,9 +66,13 @@ std::size_t verify_node(const typename Set::Node* node,
 
 template <class Set>
 void verify_tree(const Set& set) {
-  assert(set.root_ != nullptr);
-  assert(verify_node<Set>(set.root_, nullptr, 0, std::nullopt, std::nullopt,
-                          true) == set.size());
+  assert(set.header_.root != nullptr);
+  assert(verify_node<Set>(set.header_.root, nullptr, 0, std::nullopt,
+                          std::nullopt, true) == set.size());
+  assert(set.header_.first != nullptr);
+  assert(set.header_.last != nullptr);
+  assert(set.header_.first->is_leaf);
+  assert(set.header_.last->is_leaf);
 }
 
 template <class Set>
@@ -104,6 +108,11 @@ void test_insert() {
   assert(*emplaced == 42);
 
   assert(set.erase(-1) == 0);
+  auto empty_before = set.begin();
+  --empty_before;
+  assert(empty_before == set.bbegin());
+  ++empty_before;
+  assert(empty_before == set.end());
   for (int i = 0; i < 1000; ++i) {
     const int key = (i * 73) % 1000;
     const auto [it, inserted] = set.insert(key);
@@ -147,7 +156,22 @@ void test_insert() {
   }
   assert(it == set.begin());
 
+  auto before_begin = set.begin();
+  --before_begin;
+  assert(before_begin == set.bbegin());
+  assert(set.begin() - set.bbegin() == 1);
+  assert(*(set.bbegin() + 1) == 0);
+  ++before_begin;
+  assert(before_begin == set.begin());
+
   const Set& const_set = set;
+  auto const_before_begin = const_set.begin();
+  --const_before_begin;
+  assert(const_before_begin == const_set.bbegin());
+  assert(const_set.begin() - const_set.bbegin() == 1);
+  assert(*(const_set.bbegin() + 1) == 0);
+  ++const_before_begin;
+  assert(const_before_begin == const_set.begin());
   for (int index = 0; index <= 1000; ++index) {
     const auto advanced = set.begin() + index;
     assert(advanced - set.begin() == index);
@@ -213,7 +237,9 @@ void test_insert() {
     assert(set.erase(key) == 0);
 
     if (set.empty()) {
-      assert(set.root_ == nullptr);
+      assert(set.header_.root == nullptr);
+      assert(set.header_.first == nullptr);
+      assert(set.header_.last == nullptr);
     } else {
       verify_tree(set);
     }

@@ -196,6 +196,8 @@ class Btree_Set {
     std::optional<typename Node::SplitResult> split;
   };
 
+  enum class Iterator_Boundary { kBeforeBegin, kValid, kEnd };
+
   // node 内で key 以上となる最初のキーの添字を返す。
   std::size_t lower_bound_index(const Node* node, const Key& key) const {
     return std::lower_bound(node->keys.begin(),
@@ -244,7 +246,7 @@ class Btree_Set {
   }
 
   std::pair<Node*, std::size_t> locate(const Key& key) const {
-    Node* node = root_;
+    Node* node = header_.root;
     while (node != nullptr) {
       const std::size_t key_index = lower_bound_index(node, key);
       if (key_index < node->key_count &&
@@ -260,7 +262,7 @@ class Btree_Set {
   }
 
   std::pair<Node*, std::size_t> lower_bound_locate(const Key& key) const {
-    Node* node = root_;
+    Node* node = header_.root;
     Node* candidate_node = nullptr;
     std::size_t candidate_index = 0;
 
@@ -279,7 +281,7 @@ class Btree_Set {
   }
 
   std::pair<Node*, std::size_t> upper_bound_locate(const Key& key) const {
-    Node* node = root_;
+    Node* node = header_.root;
     Node* candidate_node = nullptr;
     std::size_t candidate_index = 0;
 
@@ -311,7 +313,7 @@ class Btree_Set {
       return {nullptr, 0};
     }
 
-    Node* node = root_;
+    Node* node = header_.root;
     while (true) {
       for (std::size_t i = 0; i <= node->key_count; ++i) {
         if (!node->is_leaf) {
@@ -358,8 +360,13 @@ class Btree_Set {
     return index;
   }
 
-  std::size_t index_of_position(const Node* node, std::size_t key_index) const {
-    return node == nullptr ? size_ : index_of_node(node, key_index);
+  std::ptrdiff_t index_of_position(const Node* node, std::size_t key_index,
+                                   Iterator_Boundary boundary) const {
+    if (boundary == Iterator_Boundary::kBeforeBegin) return -1;
+    if (boundary == Iterator_Boundary::kEnd) {
+      return static_cast<std::ptrdiff_t>(size_);
+    }
+    return static_cast<std::ptrdiff_t>(index_of_node(node, key_index));
   }
 
   static void delete_subtree(Node* node) {
@@ -610,7 +617,7 @@ class Btree_Set {
   }
 
   void build_from_sorted_unique(const std::vector<Key>& keys) {
-    assert(root_ == nullptr);
+    assert(header_.root == nullptr);
     size_ = keys.size();
     if (keys.empty()) return;
 
@@ -619,9 +626,10 @@ class Btree_Set {
     std::vector<std::size_t> max_non_root{kMaxKeys};
     if (keys.size() <= kMaxKeys) {
       std::size_t key_position = 0;
-      root_ = build_sorted_subtree(keys, key_position, min_non_root,
-                                   max_non_root, 0, true, keys.size());
+      header_.root = build_sorted_subtree(keys, key_position, min_non_root,
+                                          max_non_root, 0, true, keys.size());
       assert(key_position == keys.size());
+      refresh_edges();
       return;
     }
 
@@ -647,12 +655,30 @@ class Btree_Set {
     }
 
     std::size_t key_position = 0;
-    root_ = build_sorted_subtree(keys, key_position, min_non_root, max_non_root,
-                                 height, true, keys.size());
+    header_.root = build_sorted_subtree(keys, key_position, min_non_root,
+                                        max_non_root, height, true, keys.size());
     assert(key_position == keys.size());
+    refresh_edges();
   }
 
-  Node* root_ = nullptr;
+  struct Header {
+    Node* root = nullptr;
+    Node* first = nullptr;
+    Node* last = nullptr;
+  } header_;
+
+  void refresh_edges() {
+    header_.first = nullptr;
+    header_.last = nullptr;
+    if (header_.root == nullptr) return;
+    header_.first = header_.root;
+    while (!header_.first->is_leaf) header_.first = header_.first->children[0];
+    header_.last = header_.root;
+    while (!header_.last->is_leaf) {
+      header_.last = header_.last->children[header_.last->key_count];
+    }
+  }
+
   std::size_t size_ = 0;
   Compare compare_{};
 
@@ -664,7 +690,7 @@ class Btree_Set {
     iterator() = default;
 
     const Key& operator*() const {
-      assert(node_ != nullptr);
+      assert(boundary_ == Iterator_Boundary::kValid);
       return node_->keys[key_index_];
     }
 
@@ -673,7 +699,14 @@ class Btree_Set {
     }
 
     iterator& operator++() {
-      assert(node_ != nullptr);
+      if (boundary_ == Iterator_Boundary::kBeforeBegin) {
+        node_ = owner_->header_.first;
+        key_index_ = 0;
+        boundary_ = node_ == nullptr ? Iterator_Boundary::kEnd
+                                     : Iterator_Boundary::kValid;
+        return *this;
+      }
+      assert(boundary_ == Iterator_Boundary::kValid);
       if (!node_->is_leaf) {
         node_ = node_->children[key_index_ + 1];
         while (!node_->is_leaf) {
@@ -695,6 +728,7 @@ class Btree_Set {
       if (node_->parent == nullptr) {
         node_ = nullptr;
         key_index_ = 0;
+        boundary_ = Iterator_Boundary::kEnd;
       } else {
         key_index_ = node_->position;
         node_ = node_->parent;
@@ -710,13 +744,15 @@ class Btree_Set {
 
     iterator& operator--() {
       assert(owner_ != nullptr);
-      if (node_ == nullptr) {
-        node_ = owner_->root_;
-        assert(node_ != nullptr);
-        while (!node_->is_leaf) {
-          node_ = node_->children[node_->key_count];
+      assert(boundary_ != Iterator_Boundary::kBeforeBegin);
+      if (boundary_ == Iterator_Boundary::kEnd) {
+        node_ = owner_->header_.last;
+        if (node_ == nullptr) {
+          boundary_ = Iterator_Boundary::kBeforeBegin;
+          return *this;
         }
         key_index_ = node_->key_count - 1;
+        boundary_ = Iterator_Boundary::kValid;
         return *this;
       }
       if (!node_->is_leaf) {
@@ -736,7 +772,12 @@ class Btree_Set {
       while (node_->parent != nullptr && node_->position == 0) {
         node_ = node_->parent;
       }
-      assert(node_->parent != nullptr);
+      if (node_->parent == nullptr) {
+        node_ = nullptr;
+        key_index_ = 0;
+        boundary_ = Iterator_Boundary::kBeforeBegin;
+        return *this;
+      }
       key_index_ = node_->position - 1;
       node_ = node_->parent;
       return *this;
@@ -750,38 +791,23 @@ class Btree_Set {
 
     iterator& operator+=(std::ptrdiff_t offset) {
       assert(owner_ != nullptr);
-      const std::size_t index = owner_->index_of_position(node_, key_index_);
-      if (offset >= 0) {
-        assert(static_cast<std::size_t>(offset) <= owner_->size_ - index);
-        const auto [node, key_index] =
-            owner_->nth_locate(index + static_cast<std::size_t>(offset));
-        *this = iterator{owner_, node, key_index};
+      const std::ptrdiff_t index =
+          owner_->index_of_position(node_, key_index_, boundary_);
+      const std::ptrdiff_t target = index + offset;
+      assert(-1 <= target &&
+             target <= static_cast<std::ptrdiff_t>(owner_->size_));
+      if (target == -1) {
+        *this = iterator{owner_, Iterator_Boundary::kBeforeBegin};
       } else {
-        const std::size_t distance =
-            static_cast<std::size_t>(-(offset + 1)) + 1;
-        assert(distance <= index);
-        const auto [node, key_index] = owner_->nth_locate(index - distance);
+        const auto [node, key_index] =
+            owner_->nth_locate(static_cast<std::size_t>(target));
         *this = iterator{owner_, node, key_index};
       }
       return *this;
     }
 
     iterator& operator-=(std::ptrdiff_t offset) {
-      assert(owner_ != nullptr);
-      const std::size_t index = owner_->index_of_position(node_, key_index_);
-      if (offset >= 0) {
-        assert(static_cast<std::size_t>(offset) <= index);
-        const auto [node, key_index] =
-            owner_->nth_locate(index - static_cast<std::size_t>(offset));
-        *this = iterator{owner_, node, key_index};
-      } else {
-        const std::size_t distance =
-            static_cast<std::size_t>(-(offset + 1)) + 1;
-        assert(distance <= owner_->size_ - index);
-        const auto [node, key_index] = owner_->nth_locate(index + distance);
-        *this = iterator{owner_, node, key_index};
-      }
-      return *this;
+      return *this += -offset;
     }
 
     friend iterator operator+(iterator it, std::ptrdiff_t offset) {
@@ -799,10 +825,10 @@ class Btree_Set {
     friend std::ptrdiff_t operator-(const iterator& lhs, const iterator& rhs) {
       assert(lhs.owner_ == rhs.owner_);
       assert(lhs.owner_ != nullptr);
-      return static_cast<std::ptrdiff_t>(
-                 lhs.owner_->index_of_position(lhs.node_, lhs.key_index_)) -
-             static_cast<std::ptrdiff_t>(
-                 rhs.owner_->index_of_position(rhs.node_, rhs.key_index_));
+      return lhs.owner_->index_of_position(lhs.node_, lhs.key_index_,
+                                           lhs.boundary_) -
+             rhs.owner_->index_of_position(rhs.node_, rhs.key_index_,
+                                           rhs.boundary_);
     }
 
     friend bool operator==(const iterator&, const iterator&) = default;
@@ -811,9 +837,17 @@ class Btree_Set {
     const Btree_Set* owner_ = nullptr;
     Node* node_ = nullptr;
     std::size_t key_index_ = 0;
+    Iterator_Boundary boundary_ = Iterator_Boundary::kEnd;
 
     iterator(const Btree_Set* owner, Node* node, std::size_t key_index)
-        : owner_(owner), node_(node), key_index_(key_index) {}
+        : owner_(owner),
+          node_(node),
+          key_index_(key_index),
+          boundary_(node == nullptr ? Iterator_Boundary::kEnd
+                                    : Iterator_Boundary::kValid) {}
+
+    iterator(const Btree_Set* owner, Iterator_Boundary boundary)
+        : owner_(owner), boundary_(boundary) {}
 
     friend class Btree_Set;
     friend class const_iterator;
@@ -825,10 +859,11 @@ class Btree_Set {
     const_iterator(const iterator& other)
         : owner_(other.owner_),
           node_(other.node_),
-          key_index_(other.key_index_) {}
+          key_index_(other.key_index_),
+          boundary_(other.boundary_) {}
 
     const Key& operator*() const {
-      assert(node_ != nullptr);
+      assert(boundary_ == Iterator_Boundary::kValid);
       return node_->keys[key_index_];
     }
 
@@ -837,7 +872,14 @@ class Btree_Set {
     }
 
     const_iterator& operator++() {
-      assert(node_ != nullptr);
+      if (boundary_ == Iterator_Boundary::kBeforeBegin) {
+        node_ = owner_->header_.first;
+        key_index_ = 0;
+        boundary_ = node_ == nullptr ? Iterator_Boundary::kEnd
+                                     : Iterator_Boundary::kValid;
+        return *this;
+      }
+      assert(boundary_ == Iterator_Boundary::kValid);
       if (!node_->is_leaf) {
         node_ = node_->children[key_index_ + 1];
         while (!node_->is_leaf) node_ = node_->children[0];
@@ -852,6 +894,7 @@ class Btree_Set {
         if (node_->parent == nullptr) {
           node_ = nullptr;
           key_index_ = 0;
+          boundary_ = Iterator_Boundary::kEnd;
         } else {
           key_index_ = node_->position;
           node_ = node_->parent;
@@ -868,11 +911,15 @@ class Btree_Set {
 
     const_iterator& operator--() {
       assert(owner_ != nullptr);
-      if (node_ == nullptr) {
-        node_ = owner_->root_;
-        assert(node_ != nullptr);
-        while (!node_->is_leaf) node_ = node_->children[node_->key_count];
+      assert(boundary_ != Iterator_Boundary::kBeforeBegin);
+      if (boundary_ == Iterator_Boundary::kEnd) {
+        node_ = owner_->header_.last;
+        if (node_ == nullptr) {
+          boundary_ = Iterator_Boundary::kBeforeBegin;
+          return *this;
+        }
         key_index_ = node_->key_count - 1;
+        boundary_ = Iterator_Boundary::kValid;
       } else if (!node_->is_leaf) {
         node_ = node_->children[key_index_];
         while (!node_->is_leaf) node_ = node_->children[node_->key_count];
@@ -883,7 +930,12 @@ class Btree_Set {
         while (node_->parent != nullptr && node_->position == 0) {
           node_ = node_->parent;
         }
-        assert(node_->parent != nullptr);
+        if (node_->parent == nullptr) {
+          node_ = nullptr;
+          key_index_ = 0;
+          boundary_ = Iterator_Boundary::kBeforeBegin;
+          return *this;
+        }
         key_index_ = node_->position - 1;
         node_ = node_->parent;
       }
@@ -898,32 +950,21 @@ class Btree_Set {
 
     const_iterator& operator+=(std::ptrdiff_t offset) {
       assert(owner_ != nullptr);
-      const std::size_t index = owner_->index_of_position(node_, key_index_);
-      if (offset >= 0) {
-        assert(static_cast<std::size_t>(offset) <= owner_->size_ - index);
-        *this = owner_->nth(index + static_cast<std::size_t>(offset));
+      const std::ptrdiff_t index =
+          owner_->index_of_position(node_, key_index_, boundary_);
+      const std::ptrdiff_t target = index + offset;
+      assert(-1 <= target &&
+             target <= static_cast<std::ptrdiff_t>(owner_->size_));
+      if (target == -1) {
+        *this = const_iterator{owner_, Iterator_Boundary::kBeforeBegin};
       } else {
-        const std::size_t distance =
-            static_cast<std::size_t>(-(offset + 1)) + 1;
-        assert(distance <= index);
-        *this = owner_->nth(index - distance);
+        *this = owner_->nth(static_cast<std::size_t>(target));
       }
       return *this;
     }
 
     const_iterator& operator-=(std::ptrdiff_t offset) {
-      assert(owner_ != nullptr);
-      const std::size_t index = owner_->index_of_position(node_, key_index_);
-      if (offset >= 0) {
-        assert(static_cast<std::size_t>(offset) <= index);
-        *this = owner_->nth(index - static_cast<std::size_t>(offset));
-      } else {
-        const std::size_t distance =
-            static_cast<std::size_t>(-(offset + 1)) + 1;
-        assert(distance <= owner_->size_ - index);
-        *this = owner_->nth(index + distance);
-      }
-      return *this;
+      return *this += -offset;
     }
 
     friend const_iterator operator+(const_iterator it, std::ptrdiff_t offset) {
@@ -942,10 +983,10 @@ class Btree_Set {
                                     const const_iterator& rhs) {
       assert(lhs.owner_ == rhs.owner_);
       assert(lhs.owner_ != nullptr);
-      return static_cast<std::ptrdiff_t>(
-                 lhs.owner_->index_of_position(lhs.node_, lhs.key_index_)) -
-             static_cast<std::ptrdiff_t>(
-                 rhs.owner_->index_of_position(rhs.node_, rhs.key_index_));
+      return lhs.owner_->index_of_position(lhs.node_, lhs.key_index_,
+                                           lhs.boundary_) -
+             rhs.owner_->index_of_position(rhs.node_, rhs.key_index_,
+                                           rhs.boundary_);
     }
 
     friend bool operator==(const const_iterator&,
@@ -955,10 +996,18 @@ class Btree_Set {
     const Btree_Set* owner_ = nullptr;
     const Node* node_ = nullptr;
     std::size_t key_index_ = 0;
+    Iterator_Boundary boundary_ = Iterator_Boundary::kEnd;
 
     const_iterator(const Btree_Set* owner, const Node* node,
                    std::size_t key_index)
-        : owner_(owner), node_(node), key_index_(key_index) {}
+        : owner_(owner),
+          node_(node),
+          key_index_(key_index),
+          boundary_(node == nullptr ? Iterator_Boundary::kEnd
+                                    : Iterator_Boundary::kValid) {}
+
+    const_iterator(const Btree_Set* owner, Iterator_Boundary boundary)
+        : owner_(owner), boundary_(boundary) {}
 
     friend class Btree_Set;
   };
@@ -1000,19 +1049,20 @@ class Btree_Set {
     return size_;
   }
   void clear() {
-    delete_subtree(root_);
-    root_ = nullptr;
+    delete_subtree(header_.root);
+    header_ = {};
     size_ = 0;
   }
 
   std::pair<iterator, bool> insert(const Key& key) {
-    if (root_ == nullptr) {
-      root_ = new Node(key);
+    if (header_.root == nullptr) {
+      header_.root = new Node(key);
       ++size_;
-      return {iterator{this, root_, 0}, true};
+      refresh_edges();
+      return {iterator{this, header_.root, 0}, true};
     }
 
-    InsertResult result = insert_recursive(root_, key);
+    InsertResult result = insert_recursive(header_.root, key);
     if (!result.inserted) {
       const auto [node, key_index] = locate(key);
       return {iterator{this, node, key_index}, false};
@@ -1022,15 +1072,16 @@ class Btree_Set {
     if (result.split) {
       Node* new_root = new Node();
       new_root->is_leaf = false;
-      new_root->children[0] = root_;
-      root_->parent = new_root;
-      root_->position = 0;
+      new_root->children[0] = header_.root;
+      header_.root->parent = new_root;
+      header_.root->position = 0;
       new_root->insert_non_full(result.split->separator, result.split->right,
                                 0);
       new_root->recalculate_subtree_size();
-      root_ = new_root;
+      header_.root = new_root;
     }
 
+    refresh_edges();
     const auto [node, key_index] = locate(key);
     return {iterator{this, node, key_index}, true};
   }
@@ -1049,24 +1100,28 @@ class Btree_Set {
     return nth(next_index);
   }
   size_type erase(const Key& key) {
-    if (root_ == nullptr || !erase_recursive(root_, key)) {
+    if (header_.root == nullptr) return 0;
+    if (!erase_recursive(header_.root, key)) {
+      // 見つからないキーでも、降下前の併合・借用で木の形は変わり得る。
+      refresh_edges();
       return 0;
     }
     --size_;
 
-    if (root_->key_count == 0) {
-      if (root_->is_leaf) {
-        delete root_;
-        root_ = nullptr;
+    if (header_.root->key_count == 0) {
+      if (header_.root->is_leaf) {
+        delete header_.root;
+        header_.root = nullptr;
       } else {
-        Node* new_root = root_->children[0];
+        Node* new_root = header_.root->children[0];
         new_root->parent = nullptr;
         new_root->position = 0;
-        root_->children[0] = nullptr;
-        delete root_;
-        root_ = new_root;
+        header_.root->children[0] = nullptr;
+        delete header_.root;
+        header_.root = new_root;
       }
     }
+    refresh_edges();
     return 1;
   }
 
@@ -1113,19 +1168,21 @@ class Btree_Set {
   }
 
   iterator begin() {
-    if (root_ == nullptr) {
+    if (header_.root == nullptr) {
       return end();
     }
-    Node* node = root_;
+    Node* node = header_.first;
     while (!node->is_leaf) {
       node = node->children[0];
     }
     return iterator{this, node, 0};
   }
 
-  iterator end() {
-    return iterator{this, nullptr, 0};
+  iterator bbegin() {
+    return iterator{this, Iterator_Boundary::kBeforeBegin};
   }
+
+  iterator end() { return iterator{this, Iterator_Boundary::kEnd}; }
 
   const_iterator begin() const {
     return cbegin();
@@ -1134,15 +1191,20 @@ class Btree_Set {
     return cend();
   }
 
+  const_iterator bbegin() const { return cbbegin(); }
+
+  const_iterator cbbegin() const {
+    return const_iterator{this, Iterator_Boundary::kBeforeBegin};
+  }
+
   const_iterator cbegin() const {
-    if (root_ == nullptr) return cend();
-    const Node* node = root_;
-    while (!node->is_leaf) node = node->children[0];
+    if (header_.root == nullptr) return cend();
+    const Node* node = header_.first;
     return const_iterator{this, node, 0};
   }
 
   const_iterator cend() const {
-    return const_iterator{this, nullptr, 0};
+    return const_iterator{this, Iterator_Boundary::kEnd};
   }
 
   iterator nth(size_type index) {
@@ -1156,7 +1218,7 @@ class Btree_Set {
   }
 
   size_type order_of_key(const Key& key) const {
-    Node* node = root_;
+    Node* node = header_.root;
     size_type result = 0;
     while (node != nullptr) {
       const std::size_t key_index = lower_bound_index(node, key);
@@ -1183,6 +1245,7 @@ class Btree_Set {
 
   size_type index_of(const_iterator it) const {
     assert(it.owner_ == this);
+    assert(it.boundary_ == Iterator_Boundary::kValid);
     return index_of_node(it.node_, it.key_index_);
   }
 };
