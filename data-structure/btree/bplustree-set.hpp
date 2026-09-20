@@ -603,12 +603,12 @@ class Bplustree_Set {
     header_.end_iterator_.owner_ = this;
   }
 
-  friend void swap_tree(Bplustree_Set& lhs, Bplustree_Set& rhs) noexcept {
+  void swap_tree(Bplustree_Set& other) noexcept {
     using std::swap;
-    swap(lhs.size_, rhs.size_);
-    swap(lhs.header_, rhs.header_);
-    lhs.reset_iterator_owner();
-    rhs.reset_iterator_owner();
+    swap(size_, other.size_);
+    swap(header_, other.header_);
+    reset_iterator_owner();
+    other.reset_iterator_owner();
   }
 
  public:
@@ -749,7 +749,7 @@ class Bplustree_Set {
     if (this == &other) return *this;
 
     this->compare_ = std::move(other.compare_);
-    swap_tree(*this, other);
+    swap_tree(other);
     return *this;
   }
 
@@ -768,7 +768,7 @@ class Bplustree_Set {
   {
     using std::swap;
     swap(lhs.compare_, rhs.compare_);
-    swap_tree(lhs, rhs);
+    lhs.swap_tree(rhs);
   }
 
   /**
