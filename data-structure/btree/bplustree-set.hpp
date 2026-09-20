@@ -249,6 +249,14 @@ class Bplustree_Set {
       return ok;
     }
 
+    /**
+     * @brief 部分木内の index 番目の要素の位置を返す。
+     * @param index この Internal を根とする部分木内での 0-indexed の順位。
+     * @return 要素を格納する Leaf と Leaf 内の位置。
+     *
+     * ### 計算量
+     * O(NodeCapacity log_{NodeCapacity} N)
+     */
     std::pair<Leaf*, std::ptrdiff_t> nth(std::size_t index) {
       assert(index < this->size);
 
@@ -378,8 +386,9 @@ class Bplustree_Set {
         node = node->parent;
       }
 
-      std::tie(leaf_, key_index_) =
-          static_cast<Internal*>(node)->nth(key_index_);
+      auto [leaf, index] = node->nth(static_cast<std::size_t>(key_index_));
+      leaf_ = leaf;
+      key_index_ = index;
     }
 
     void advance_small(std::ptrdiff_t offset) {
