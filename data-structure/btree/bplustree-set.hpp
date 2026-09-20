@@ -248,6 +248,23 @@ class Bplustree_Set {
       }
       return ok;
     }
+
+    std::pair<Leaf*, std::ptrdiff_t> nth(std::size_t index) {
+      assert(index < this->size);
+
+      Node* node = this;
+      while (!node->is_leaf()) {
+        auto* internal = static_cast<Internal*>(node);
+        for (std::size_t i = 0; i < internal->count; ++i) {
+          if (index < internal->children[i]->size) {
+            node = internal->children[i].get();
+            break;
+          }
+          index -= internal->children[i]->size;
+        }
+      }
+      return {static_cast<Leaf*>(node), static_cast<std::ptrdiff_t>(index)};
+    }
   };
 
   /**
@@ -361,18 +378,8 @@ class Bplustree_Set {
         node = node->parent;
       }
 
-      Node* current = node;
-      while (!current->is_leaf()) {
-        auto& children = static_cast<Internal*>(current)->children;
-        for (std::size_t i = 0; i < current->count; ++i) {
-          if (key_index_ < static_cast<std::ptrdiff_t>(children[i]->size)) {
-            current = children[i].get();
-            break;
-          }
-          key_index_ -= children[i]->size;
-        }
-      }
-      leaf_ = static_cast<Leaf*>(current);
+      std::tie(leaf_, key_index_) =
+          static_cast<Internal*>(node)->nth(key_index_);
     }
 
     void advance_small(std::ptrdiff_t offset) {
@@ -1086,23 +1093,12 @@ class Bplustree_Set {
   iterator nth(std::size_t index) const {
     assert(index < size_);
 
-    Node* node = header_.root_.get();
-    while (!node->is_leaf()) {
-      auto* internal = static_cast<Internal*>(node);
-      for (std::size_t i = 0; i < internal->count; ++i) {
-        if (index < internal->children[i]->size) {
-          node = internal->children[i].get();
-          break;
-        }
-
-        index -= internal->children[i]->size;
-      }
-    }
-    return {
-        this,
-        static_cast<Leaf*>(node),
-        static_cast<std::ptrdiff_t>(index),
-    };
+    if (header_.root_->is_leaf())
+      return {this, static_cast<Leaf*>(header_.root_.get()),
+              static_cast<std::ptrdiff_t>(index)};
+    auto [leaf, key_index] =
+        static_cast<Internal*>(header_.root_.get())->nth(index);
+    return {this, leaf, key_index};
   }
 
   /**
