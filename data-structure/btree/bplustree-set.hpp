@@ -257,7 +257,7 @@ class Bplustree_Set {
      * ### 計算量
      * O(NodeCapacity log_{NodeCapacity} N)
      */
-    std::pair<Leaf*, std::ptrdiff_t> nth(std::size_t index) {
+    std::pair<Leaf*, std::ptrdiff_t> nth(std::size_t index) const {
       assert(index < this->size);
 
       Node* node = this;
@@ -293,13 +293,12 @@ class Bplustree_Set {
     using pointer = const Key*;
     using reference = const Key&;
 
-    const Bplustree_Set* owner_ = nullptr;
     Leaf* leaf_ = nullptr;
     std::ptrdiff_t key_index_ = 0;
 
     Iterator() = default;
-    Iterator(const Bplustree_Set* owner, Leaf* node, std::ptrdiff_t key_index)
-        : owner_(owner), leaf_(node), key_index_(key_index) {}
+    Iterator(Leaf* node, std::ptrdiff_t key_index)
+        : leaf_(node), key_index_(key_index) {}
 
     const Key& operator*() const {
       assert(leaf_ != nullptr);
@@ -313,7 +312,6 @@ class Bplustree_Set {
     }
 
     Iterator& operator++() {
-      assert(owner_ != nullptr);
       assert(!(leaf_->next == nullptr &&
                static_cast<std::ptrdiff_t>(leaf_->count) == key_index_));
       ++key_index_;
@@ -332,7 +330,6 @@ class Bplustree_Set {
     }
 
     Iterator& operator--() {
-      assert(owner_ != nullptr);
       assert(leaf_ != nullptr);
       assert(key_index_ >= 0);
       --key_index_;
@@ -371,11 +368,12 @@ class Bplustree_Set {
                key_index_ < static_cast<std::ptrdiff_t>(node->size))) {
         if (node->parent == nullptr) {
           if (key_index_ == -1) {
-            leaf_ = owner_->header_.bbegin_iterator_.leaf_;
+            leaf_ = node->nth(0).first;
+            key_index_ = -1;
             return;
           }
           assert(key_index_ == static_cast<std::ptrdiff_t>(node->size));
-          leaf_ = owner_->header_.end_iterator_.leaf_;
+          leaf_ = node->nth(node->size - 1).first;
           key_index_ = leaf_->count;
           return;
         }
@@ -432,8 +430,6 @@ class Bplustree_Set {
     }
 
     friend std::ptrdiff_t operator-(const Iterator& lhs, const Iterator& rhs) {
-      assert(lhs.owner_ != nullptr);
-      assert(lhs.owner_ == rhs.owner_);
       if (lhs.leaf_ == rhs.leaf_) return lhs.key_index_ - rhs.key_index_;
       Internal* lnode = lhs.leaf_->parent;
       std::ptrdiff_t lindex = lhs.key_index_;
@@ -462,8 +458,6 @@ class Bplustree_Set {
 
     friend std::strong_ordering operator<=>(const Iterator& lhs,
                                             const Iterator& rhs) {
-      assert(lhs.owner_ != nullptr);
-      assert(lhs.owner_ == rhs.owner_);
       return (lhs - rhs) <=> 0;
     }
 
@@ -487,9 +481,8 @@ class Bplustree_Set {
   std::size_t size_ = 0;
   struct Header {
     std::unique_ptr<Node> root_ = nullptr;
-    iterator bbegin_iterator_;
-    iterator begin_iterator_;
-    iterator end_iterator_;
+    Leaf* first_leaf_ = nullptr;
+    Leaf* last_leaf_ = nullptr;
   } header_;
 
   void init() {
@@ -498,9 +491,8 @@ class Bplustree_Set {
     Leaf* leaf = root.get();
 
     header_.root_ = std::move(root);
-    header_.bbegin_iterator_ = {this, leaf, -1};
-    header_.begin_iterator_ = {this, leaf, 0};
-    header_.end_iterator_ = {this, leaf, 0};
+    header_.first_leaf_ = leaf;
+    header_.last_leaf_ = leaf;
   }
   bool equivalent(const Key& lhs, const Key& rhs) const {
     return !compare_(lhs, rhs) && !compare_(rhs, lhs);
@@ -586,38 +578,14 @@ class Bplustree_Set {
     header_.root_ = std::move(level[0]);
     header_.root_->parent = nullptr;
     header_.root_->position = 0;
-    header_.bbegin_iterator_ = {
-        this,
-        first_leaf,
-        -1,
-    };
-    header_.begin_iterator_ = {
-        this,
-        first_leaf,
-        0,
-    };
-    header_.end_iterator_ = {
-        this,
-        last_leaf,
-        static_cast<std::ptrdiff_t>(last_leaf->count),
-    };
-  }
-
-  /**
-   * @brief Header が保持する Iterator の owner を現在のコンテナに設定する。
-   */
-  void reset_iterator_owner() noexcept {
-    header_.bbegin_iterator_.owner_ = this;
-    header_.begin_iterator_.owner_ = this;
-    header_.end_iterator_.owner_ = this;
+    header_.first_leaf_ = first_leaf;
+    header_.last_leaf_ = last_leaf;
   }
 
   void swap_tree(Bplustree_Set& other) noexcept {
     using std::swap;
     swap(size_, other.size_);
     swap(header_, other.header_);
-    reset_iterator_owner();
-    other.reset_iterator_owner();
   }
 
  public:
@@ -731,9 +699,7 @@ class Bplustree_Set {
     requires std::move_constructible<Compare>
       : compare_(std::move(other.compare_)),
         size_(other.size_),
-        header_(std::move(other.header_)) {
-    reset_iterator_owner();
-  }
+        header_(std::move(other.header_)) {}
 
   /**
    * @brief 別の B+ tree の内容をムーブ代入する。
@@ -845,7 +811,7 @@ class Bplustree_Set {
    * O(1)
    */
   iterator bbegin() const {
-    return header_.bbegin_iterator_;
+    return {header_.first_leaf_, -1};
   }
 
   /**
@@ -855,7 +821,7 @@ class Bplustree_Set {
    * O(1)
    */
   iterator begin() const noexcept {
-    return header_.begin_iterator_;
+    return {header_.first_leaf_, 0};
   }
 
   /**
@@ -865,7 +831,8 @@ class Bplustree_Set {
    * O(1)
    */
   iterator end() const noexcept {
-    return header_.end_iterator_;
+    return {header_.last_leaf_,
+            static_cast<std::ptrdiff_t>(header_.last_leaf_->count)};
   }
 
   /**
@@ -964,12 +931,12 @@ class Bplustree_Set {
         break;
       } else {
         index = static_cast<Internal*>(node)->max_lt(key, compare_);
-        if (index < 0) return header_.bbegin_iterator_;
+        if (index < 0) return bbegin();
         node = static_cast<Internal*>(node)->children[index].get();
       }
     }
 
-    return {this, static_cast<Leaf*>(node), index};
+    return {static_cast<Leaf*>(node), index};
   }
 
   /**
@@ -988,12 +955,12 @@ class Bplustree_Set {
         break;
       } else {
         index = static_cast<Internal*>(node)->max_le(key, compare_);
-        if (index < 0) return header_.bbegin_iterator_;
+        if (index < 0) return bbegin();
         node = static_cast<Internal*>(node)->children[index].get();
       }
     }
 
-    return {this, static_cast<Leaf*>(node), index};
+    return {static_cast<Leaf*>(node), index};
   }
 
   /**
@@ -1103,11 +1070,11 @@ class Bplustree_Set {
     assert(index < size_);
 
     if (header_.root_->is_leaf())
-      return {this, static_cast<Leaf*>(header_.root_.get()),
+      return {static_cast<Leaf*>(header_.root_.get()),
               static_cast<std::ptrdiff_t>(index)};
     auto [leaf, key_index] =
         static_cast<Internal*>(header_.root_.get())->nth(index);
-    return {this, leaf, key_index};
+    return {leaf, key_index};
   }
 
   /**
@@ -1163,10 +1130,9 @@ class Bplustree_Set {
       right = std::move(right_leaf);
     }
 
-    auto end_leaf = header_.end_iterator_.leaf_;
+    auto end_leaf = header_.last_leaf_;
     if (end_leaf->next != nullptr) end_leaf = end_leaf->next;
-    header_.end_iterator_ = {this, end_leaf,
-                             static_cast<std::ptrdiff_t>(end_leaf->count)};
+    header_.last_leaf_ = end_leaf;
 
     Internal* parent = leaf->parent;
     Node* left = leaf;
@@ -1190,7 +1156,7 @@ class Bplustree_Set {
       new_root->insert(std::move(right), 1);
       header_.root_ = std::move(new_root);
     }
-    return {{this, inserted_leaf, inserted_index}, true};
+    return {{inserted_leaf, inserted_index}, true};
   }
 
   /**
@@ -1239,14 +1205,13 @@ class Bplustree_Set {
    * O(NodeCapacity log_{NodeCapacity} N)
    */
   iterator erase(const iterator it) {
-    assert(this == it.owner_);
     assert(it != bbegin());
     assert(it != end());
 
     --size_;
     if (size_ == 0) {
       init();
-      return header_.end_iterator_;
+      return begin();
     }
 
     Leaf* leaf = it.leaf_;
@@ -1259,20 +1224,14 @@ class Bplustree_Set {
     const bool result_is_end = result == end();
     bool need_erase = leaf->erase(index);
 
-    auto end_leaf = header_.end_iterator_.leaf_;
+    auto end_leaf = header_.last_leaf_;
 
     if (need_erase) {
-      if (leaf == header_.begin_iterator_.leaf_) {
-        header_.begin_iterator_.leaf_ = leaf->next;
-        header_.bbegin_iterator_.leaf_ = leaf->next;
-      }
-      if (leaf == end_leaf) {
-        end_leaf = leaf->prev;
-      }
+      if (leaf == header_.first_leaf_) header_.first_leaf_ = leaf->next;
+      if (leaf == end_leaf) end_leaf = leaf->prev;
     }
 
-    header_.end_iterator_ = {this, end_leaf,
-                             static_cast<std::ptrdiff_t>(end_leaf->count)};
+    header_.last_leaf_ = end_leaf;
 
     Internal* parent = leaf->parent;
     Node* child = leaf;
