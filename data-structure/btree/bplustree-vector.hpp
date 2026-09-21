@@ -14,7 +14,22 @@
 #include <utility>
 #include <vector>
 #include <iostream>
+#include <initializer_list>
 
+/**
+ * @brief B+ tree で実装した動的配列。
+ * @tparam T 要素型。
+ * @tparam NodeCapacity 1 Node が保持できる要素または子 Node の最大数。
+ * @details
+ * 要素を順序付き列として保持し、添字アクセス、任意位置への挿入・削除、
+ * 分割・結合・区間反転をサポートする。
+ *
+ * 区間反転は遅延伝搬によって処理する。
+ * `split()` では分割境界付近の疎な Node を可能な範囲で統合する。
+ *
+ * `NodeCapacity` を大きくすると木は浅くなりやすい一方、
+ * 各 Node に対する操作量と Node 自体のサイズは増加する。
+ */
 template <class T = long long, std::size_t NodeCapacity = 64>
 class Bplustree_Vector {
   static_assert(NodeCapacity >= 3);
@@ -631,6 +646,42 @@ class Bplustree_Vector {
   }
 
   /**
+   * @brief `count` 個の値初期化された要素を持つ B+ tree を構築する。
+   * @param count 要素数。
+   * @details
+   * 各要素は `T{}` で初期化される。
+   *
+   * ### 計算量
+   * O(count)
+   */
+  explicit Bplustree_Vector(size_type count) {
+    assign(count);
+  };
+
+  /**
+   * @brief `value` を `count` 個持つ B+ tree を構築する。
+   * @param count 要素数。
+   * @param value 各要素の初期値。
+   *
+   * ### 計算量
+   * O(count)
+   */
+  Bplustree_Vector(size_type count, const T& value) {
+    assign(count, value);
+  };
+
+  /**
+   * @brief 初期化子リストの要素から B+ tree を構築する。
+   * @param init 初期要素。
+   *
+   * ### 計算量
+   * O(init.size())
+   */
+  Bplustree_Vector(std::initializer_list<T> init) {
+    assign(init.begin(), init.end());
+  };
+
+  /**
    * @brief 別の B+ tree をコピーして構築する。
    * @param other コピー元。
    * @details
@@ -739,6 +790,76 @@ class Bplustree_Vector {
     std::vector<T> values;
     for (; first != last; ++first) values.push_back(*first);
     build(values);
+  }
+
+  /**
+   * @brief `value` を `count` 個持つ列で内容を置き換える。
+   * @param count 新しい要素数。
+   * @param value 各要素の値。
+   * @details
+   * この操作によって既存の Iterator はすべて無効化される。
+   *
+   * ### 計算量
+   * 変更前の要素数を N として O(N + count)。
+   */
+  void assign(std::size_t count, const T& value) {
+    std::vector<T> values(count, value);
+    build(values);
+  }
+
+  /**
+   * @brief `count` 個の値初期化された要素を持つ列で内容を置き換える。
+   * @param count 新しい要素数。
+   * @details
+   * 各要素は `T{}` で初期化される。
+   * この操作によって既存の Iterator はすべて無効化される。
+   *
+   * ### 計算量
+   * 変更前の要素数を N として O(N + count)。
+   */
+  void assign(std::size_t count) {
+    std::vector<T> values(count);
+    build(values);
+  }
+
+  /**
+   * @brief 要素数を `count` に変更する。
+   * @param count 変更後の要素数。
+   * @param value 拡張時に追加される要素の値。
+   * @details
+   * `count < size()` の場合は末尾の要素を削除する。
+   * `count > size()` の場合は末尾に `value` を追加する。
+   *
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * 追加または削除する要素数を K として、
+   * O(K + NodeCapacity log_{NodeCapacity} N)。
+   */
+  void resize(std::size_t size, const T& value) {
+    if (size < size_) {
+      split(size);
+      return;
+    }
+
+    Bplustree_Vector right(size - size_, value);
+    merge(right);
+  }
+
+  /**
+   * @brief 要素数を `count` に変更する。
+   * @param count 変更後の要素数。
+   * @details
+   * 拡張する場合、新しい要素は `T{}` で初期化される。
+   *
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * 追加または削除する要素数を K として、
+   * O(K + NodeCapacity log_{NodeCapacity} N)。
+   */
+  void resize(size_type size) {
+    resize(size, T{});
   }
 
   /**
@@ -943,6 +1064,54 @@ class Bplustree_Vector {
   }
 
   /**
+   * @brief 先頭要素への参照を返す。
+   * @return 先頭要素への参照。
+   * @details `empty() == false` を満たす必要がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
+  T& front() {
+    return *nth(0);
+  }
+
+  /**
+   * @brief 先頭要素への const 参照を返す。
+   * @return 先頭要素への const 参照。
+   * @details `empty() == false` を満たす必要がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
+  const T& front() const {
+    return *nth(0);
+  }
+
+  /**
+   * @brief 末尾要素への参照を返す。
+   * @return 末尾要素への参照。
+   * @details `empty() == false` を満たす必要がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
+  T& back() {
+    return *nth(size_ - 1);
+  }
+
+  /**
+   * @brief 末尾要素への const 参照を返す。
+   * @return 末尾要素への const 参照。
+   * @details `empty() == false` を満たす必要がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
+  const T& back() const {
+    return *nth(size_ - 1);
+  }
+
+  /**
    * @brief 要素をi番目に挿入する。挿入後に `value` は `index` の位置になる。
    * @details 更新により既存イテレータは
    * 無効化される場合がある。
@@ -979,6 +1148,45 @@ class Bplustree_Vector {
     return {inserted_leaf, inserted_index};
   }
 
+  /**
+   * @brief `pos` の直前に `value` を挿入する。
+   * @param pos 挿入位置を表す Iterator。
+   * @param value 挿入する値。
+   * @return 挿入された要素を指す Iterator。
+   * @details
+   * `pos` は `*this` に属する Iterator である必要がある。
+   * `end()` も指定できる。
+   *
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
+  iterator insert(iterator pos, const T& value) {
+    return insert(static_cast<std::size_t>(pos - begin()), value);
+  }
+
+  /**
+   * @brief 先頭に要素を追加する。
+   * @param value 追加する値。
+   * @details 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
+  void push_front(const T& value) {
+    insert(0, value);
+  }
+
+  /**
+   * @brief 末尾に要素を追加する。
+   * @param value 追加する値。
+   * @details
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
   void push_back(const T& value) {
     insert(size_, value);
   }
@@ -991,17 +1199,17 @@ class Bplustree_Vector {
    * ### 計算量
    * O(NodeCapacity log_{NodeCapacity} N)
    */
-  iterator erase(const iterator it) {
+  iterator erase(const iterator pos) {
     --size_;
     if (size_ == 0) {
       init();
       return begin();
     }
 
-    Leaf* leaf = it.leaf_;
-    std::size_t index = it.index_;
+    Leaf* leaf = pos.leaf_;
+    std::size_t index = pos.index_;
 
-    iterator result = it;
+    iterator result = pos;
     if (index == leaf->count - 1) ++result;
 
     const bool result_is_end = result.index_ == result.leaf_->count;
@@ -1024,28 +1232,105 @@ class Bplustree_Vector {
     return result;
   }
 
+  /**
+   * @brief 0-indexed で `index` 番目の要素を削除する。
+   * @param index 削除する要素の位置。`index < size()` を満たす必要がある。
+   * @return 削除した要素の次を指す Iterator。
+   * @details
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
   iterator erase(size_type index) {
     return erase(nth(index));
   }
 
+  /**
+   * @brief 添字範囲 `[first, last)` の要素を削除する。
+   * @param first 削除範囲の先頭。
+   * @param last 削除範囲の終端。
+   * @return 削除後に `first` の位置となる要素を指す Iterator。
+   * 末尾まで削除した場合は `end()`。
+   * @details
+   * `first <= last <= size()` を満たす必要がある。
+   *
+   * 内部では範囲の前後で木を分割し、削除範囲の木を破棄して再結合する。
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * 削除される要素数を K として、
+   * O(K + NodeCapacity log_{NodeCapacity} N)。
+   */
+  iterator erase(size_type first, size_type last) {
+    assert(first <= last);
+    assert(last <= size_);
+    auto right = split(last);
+    split(first);
+    merge(right);
+    return nth(first);
+  };
+
+  /**
+   * @brief Iterator 範囲 `[first, last)` の要素を削除する。
+   * @param first 削除範囲の先頭。
+   * @param last 削除範囲の終端。
+   * @return 削除後に `first` の位置となる要素を指す Iterator。
+   * 末尾まで削除した場合は `end()`。
+   * @details
+   * `first` と `last` は `*this` に属し、`first <= last` を満たす必要がある。
+   *
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * 削除される要素数を K として、
+   * O(K + NodeCapacity log_{NodeCapacity} N)。
+   */
+  iterator erase(iterator first, iterator last) {
+    std::size_t lidx = first - begin();
+    std::size_t ridx = last - begin();
+
+    return erase(lidx, ridx);
+  };
+
+  /**
+   * @brief 先頭の要素を削除する。
+   * @details
+   * `empty() == false` を満たす必要がある。
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
+  void pop_front() {
+    erase(begin());
+  }
+
+  /**
+   * @brief 末尾の要素を削除する。
+   * @details
+   * `empty() == false` を満たす必要がある。
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
   void pop_back() {
     erase(--end());
   }
 
   /**
    * @brief 指定した位置で B+ tree を2つに分割する。
-   * @param index 分割位置。`0 <= index <= size()` を満たす必要がある。
-   * @return `index` 以降の要素を保持する B+ tree。
+   * @param index 分割位置。`index <= size()` を満たす必要がある。
+   * @return 分割前の `[index, size())` を保持する B+ tree。
    * @details
-   * 分割後、`*this` には分割前の `[0, index)` の要素が残り、
-   * 戻り値には `[index, size())` の要素が格納される。
+   * 操作後、`*this` には `[0, index)` の要素が残る。
    *
-   * `index == 0` の場合は全要素を戻り値へ移し、`*this` は空になる。
-   * `index == size()` の場合は `*this` を変更せず、空の B+ tree を返す。
+   * `index == 0` の場合は全要素を戻り値へ移し、
+   * `index == size()` の場合は空の B+ tree を返す。
    *
-   * Node 自体のアドレスが変化しない部分については既存の Iterator は
-   * 同じ要素を指し続ける。ただし、分割位置を含む Leaf の途中で分割する場合、
-   * 右側へ移動された要素を指す Iterator は無効化される。
+   * 分割境界付近では、疎な Node を可能な範囲で統合する。
+   * この操作によって既存の Iterator は無効化される場合がある。
    *
    * ### 計算量
    * O(NodeCapacity log_{NodeCapacity} N)
@@ -1065,40 +1350,33 @@ class Bplustree_Vector {
 
   /**
    * @brief 指定した Iterator の位置で B+ tree を2つに分割する。
-   * @param it 戻り値側の先頭要素を指す Iterator。
-   * `*this` の要素を指し、`begin()` および `end()` でない必要がある。
-   * @return `it` 以降の要素を保持する B+ tree。
+   * @param it 戻り値側の先頭を表す Iterator。
+   * @return 分割前の `[it, end())` を保持する B+ tree。
    * @details
-   * 分割後、`*this` には分割前の `[begin(), it)` の要素が残り、
-   * 戻り値には `[it, end())` の要素が格納される。
+   * `it` は `*this` に属する Iterator である必要がある。
    *
-   * 分割位置が Leaf の先頭である場合、その Leaf 以降をそのまま右側の木へ移す。
-   * Leaf の途中である場合は、分割位置以降の要素を新しい Leaf へ移してから、
-   * root に向かって各階層の右側の部分木を切り離す。
+   * 操作後、`*this` には `[begin(), it)` に存在した要素が残る。
+   * `it == begin()` および `it == end()` も指定できる。
    *
-   * Node 自体のアドレスが変化しない部分については既存の Iterator は
-   * 同じ要素を指し続ける。右側の木へ移動した Node を指す Iterator は、
-   * 分割後は戻り値側の要素を指す。
-   *
-   * ただし、分割位置を含む Leaf の途中で分割する場合、
-   * 新しい Leaf へ移動された要素を指す Iterator は無効化される。
+   * 分割境界付近では、疎な Node を可能な範囲で統合する。
+   * この操作によって既存の Iterator は無効化される場合がある。
    *
    * ### 計算量
    * O(NodeCapacity log_{NodeCapacity} N)
    */
-  Bplustree_Vector split(iterator it) {
+  Bplustree_Vector split(iterator pos) {
     Bplustree_Vector right;
     auto right_leaf = std::make_unique<Leaf>();
-    if (it == begin()) {
+    if (pos == begin()) {
       swap_state(right);
       return right;
     }
-    if (it == end()) return right;
+    if (pos == end()) return right;
 
-    Leaf* leaf = it.leaf_;
-    std::size_t index = it.index_;
+    Leaf* leaf = pos.leaf_;
+    std::size_t index = pos.index_;
     if (index == 0) {
-      leaf = (--it).leaf_;
+      leaf = (--pos).leaf_;
       index = leaf->count;
     } else {
       for (std::size_t i = index; i < leaf->count; ++i) {
@@ -1147,8 +1425,27 @@ class Bplustree_Vector {
     return right;
   };
 
+  /**
+   * @brief `right` の全要素を末尾に連結する。
+   * @param right 右側に連結する B+ tree。
+   * @details
+   * 操作前の列をそれぞれ `L`, `R` とすると、
+   * 操作後の `*this` は `L + R` となり、`right` は空になる。
+   *
+   * Node は可能な場合に境界で統合される。
+   * `this != &right` を満たす必要がある。
+   *
+   * この操作によって `*this` および `right` の既存の Iterator は
+   * 無効化される場合がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
   void merge(Bplustree_Vector& right) {
     assert(this != &right);
+    if (!root_->is_leaf()) static_cast<Internal*>(root_.get())->shrink(true);
+    if (!right.root_->is_leaf())
+      static_cast<Internal*>(right.root_.get())->shrink(false);
 
     if (size_ == 0) {
       swap_state(right);
@@ -1209,25 +1506,65 @@ class Bplustree_Vector {
     size_ = merged_size;
   }
 
-  void reverse(iterator lit, iterator rit) {
-    auto first = begin();
+  /**
+   * @brief Iterator 範囲 `[first, last)` の要素順を反転する。
+   * @param first 反転範囲の先頭。
+   * @param last 反転範囲の終端。
+   * @details
+   * `first` と `last` は `*this` に属し、`first <= last` を満たす必要がある。
+   *
+   * 内部で Iterator を添字へ変換した後、添字版 `reverse()` を使用する。
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
+  void reverse(iterator first, iterator last) {
+    auto first_ = begin();
 
-    const std::size_t lidx = static_cast<std::size_t>(lit - first);
-    const std::size_t ridx = static_cast<std::size_t>(rit - first);
+    const std::size_t lidx = static_cast<std::size_t>(first - first_);
+    const std::size_t ridx = static_cast<std::size_t>(last - first_);
 
     reverse(lidx, ridx);
   }
 
-  void reverse(std::size_t lidx, std::size_t ridx) {
-    assert(lidx <= ridx);
-    assert(ridx <= size_);
-    if (ridx - lidx < 2) return;
-    if (lidx == 0 && ridx == size_) {
+  /**
+   * @brief 全要素の順序を反転する。
+   * @details
+   * root の遅延反転フラグのみを更新する。
+   * この操作によって既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * O(1)
+   */
+  void reverse() {
+    root_->is_reversed ^= true;
+  }
+
+  /**
+   * @brief 添字範囲 `[first, last)` の要素順を反転する。
+   * @param first 反転する範囲の先頭。
+   * @param last 反転する範囲の終端。
+   * @details
+   * `0 <= first <= last <= size()` を満たす必要がある。
+   *
+   * 全要素を反転する場合は lazy flag の反転のみで処理する。
+   * 更新により既存の Iterator は無効化される場合がある。
+   *
+   * ### 計算量
+   * 通常は O(NodeCapacity log_{NodeCapacity} N)。
+   * `[0, size())` 全体の反転は O(1)。
+   */
+  void reverse(std::size_t first, std::size_t last) {
+    assert(first <= last);
+    assert(last <= size_);
+    if (last - first < 2) return;
+    if (first == 0 && last == size_) {
       root_->is_reversed ^= true;
       return;
     }
-    auto right = split(ridx);
-    auto mid = split(lidx);
+    auto right = split(last);
+    auto mid = split(first);
 
     mid.root_->is_reversed ^= true;
 
@@ -1263,15 +1600,21 @@ class Bplustree_Vector {
   }
 
   /**
-   * @brief Node数の統計をerror出力する。
-   * この木はlazy_eraseなので、特にsplit時に大量のcountが1のNodeを作る可能性がある。
-   * その問題はshrinkの実装によってケアしたが、万一メモリや実行時間に不満が出た場合、
-   * この関数によってNodeの状態を観測できる。
-   * もしNode数やcount_1_nodeが極めて多いなら、別のライブラリの仕様を検討する。
+   * @brief Node の使用状況を標準エラー出力へ出力する。
+   * @details
+   * 現在および最大同時生存 Node 数、Leaf / Internal の Node 数、
+   * この木から到達可能な Node 数、`count == 1` の Node 数を出力する。
+   *
+   * `split()` や lazy erase によって木が過度に疎になっていないかを
+   * デバッグするために使用する。
+   *
+   * `live_nodes` などの static counter は、同じテンプレート特殊化を持つ
+   * 全インスタンスの合計値であることに注意する。
+   *
    * ### 計算量
-   * O(N)
+   * O(Node 数)
    */
-  void test() {
+  void debug_node_stats() {
     std::cerr << "node: " << Node::live_nodes << " / " << Node::peak_nodes
               << '\n';
 
@@ -1298,5 +1641,5 @@ class Bplustree_Vector {
   }
 };
 
-template <class T = long long>
-using BVector = Bplustree_Vector<T>;
+template <class T = long long, std::size_t NodeCapacity = 64>
+using BVector = Bplustree_Vector<T, NodeCapacity>;
