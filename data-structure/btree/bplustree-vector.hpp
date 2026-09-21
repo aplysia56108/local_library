@@ -13,9 +13,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-using T = long long;
-const std::size_t NodeCapacity = 64;
+#include <iostream>
 
 template <class T = long long, std::size_t NodeCapacity = 64>
 class Bplustree_Vector {
@@ -38,8 +36,16 @@ class Bplustree_Vector {
     bool is_reversed = false;
     const NodeKind kind;
 
-    explicit Node(NodeKind kind) : kind(kind) {}
-    virtual ~Node() = default;
+    inline static long long live_nodes = 0;
+    inline static long long peak_nodes = 0;
+
+    explicit Node(NodeKind kind) : kind(kind) {
+      ++live_nodes;
+      peak_nodes = std::max(peak_nodes, live_nodes);
+    }
+    virtual ~Node() {
+      --live_nodes;
+    }
 
     bool is_leaf() const {
       return kind == NodeKind::kLeaf;
@@ -51,12 +57,27 @@ class Bplustree_Vector {
       if (is_leaf()) return static_cast<Leaf*>(this)->nth(index);
       return static_cast<Internal*>(this)->nth(index);
     }
+
+    void push_reverse() {
+      if (is_leaf()) return static_cast<Leaf*>(this)->apply_reverse();
+      return static_cast<Internal*>(this)->push_reverse();
+    }
   };
 
   struct Leaf final : Node {
+    inline static long long leaf_count = 0;
+    inline static long long peak_leaf_count = 0;
+
     std::array<T, kNodeCapacity> keys{};
 
-    Leaf() : Node(NodeKind::kLeaf) {}
+    Leaf() : Node(NodeKind::kLeaf) {
+      ++leaf_count;
+      peak_leaf_count = std::max(peak_leaf_count, leaf_count);
+    }
+
+    ~Leaf() {
+      --leaf_count;
+    }
 
     bool insert(T key, std::size_t key_index) {
       assert(key_index <= this->count);
@@ -103,19 +124,31 @@ class Bplustree_Vector {
       return this->count == 0;
     }
 
-    std::pair<Leaf*, std::size_t> nth(std::size_t index) {
+    void apply_reverse() {
       if (this->is_reversed) {
         std::reverse(keys.begin(), keys.begin() + this->count);
         this->is_reversed = false;
       }
+    }
+
+    std::pair<Leaf*, std::size_t> nth(std::size_t index) {
+      apply_reverse();
       return {this, index};
     }
   };
 
   struct Internal final : Node {
+    inline static long long internal_count = 0;
+    inline static long long peak_internal_count = 0;
     std::array<std::unique_ptr<Node>, kNodeCapacity> children{};
 
-    Internal() : Node(NodeKind::kInternal) {}
+    Internal() : Node(NodeKind::kInternal) {
+      ++internal_count;
+      peak_internal_count = std::max(peak_internal_count, internal_count);
+    }
+    ~Internal() {
+      --internal_count;
+    }
 
     void sync() {
       this->size = 0;
@@ -173,6 +206,17 @@ class Bplustree_Vector {
       return this->count == 0;
     }
 
+    void push_reverse() {
+      if (this->is_reversed) {
+        this->is_reversed = false;
+        std::reverse(children.begin(), children.begin() + this->count);
+        for (std::size_t i = 0; i < this->count; ++i) {
+          children[i]->is_reversed ^= true;
+          children[i]->position = i;
+        }
+      }
+    }
+
     /**
      * @brief 部分木内の index 番目の要素の位置を返す。
      * @param index この Internal を根とする部分木内での 0-indexed の順位。
@@ -182,14 +226,7 @@ class Bplustree_Vector {
      * O(NodeCapacity log_{NodeCapacity} N)
      */
     std::pair<Leaf*, std::size_t> nth(std::size_t index) {
-      if (this->is_reversed) {
-        this->is_reversed = false;
-        std::reverse(children.begin(), children.begin() + this->count);
-        for (std::size_t i = 0; i < this->count; ++i) {
-          children[i]->is_reversed ^= true;
-          children[i]->position = i;
-        }
-      }
+      push_reverse();
       if (index == this->size)
         return children[this->count - 1]->nth(children[this->count - 1]->size);
 
@@ -201,6 +238,49 @@ class Bplustree_Vector {
       }
       assert(false);
       return {nullptr, 0};
+    }
+
+    // 端の部分木のchildを再帰的にまとめる。
+    // split時に疎なnodeをなるべく作らないための工夫
+    void shrink(const bool right_end) {
+      push_reverse();
+      if (this->count == 1) {
+        if (children[0]->is_leaf()) return;
+        return static_cast<Internal*>(children[0].get())->shrink(right_end);
+      }
+      std::size_t i = right_end ? this->count - 2 : 0;
+      Node* left_ = children[i].get();
+      Node* right_ = children[i + 1].get();
+
+      if (left_->count + right_->count >= kNodeCapacity) {
+        if (left_->is_leaf()) return;
+        auto* edge = right_end ? right_ : left_;
+        return static_cast<Internal*>(edge)->shrink(right_end);
+      }
+
+      left_->push_reverse();
+      right_->push_reverse();
+
+      if (left_->is_leaf()) {
+        auto* left = static_cast<Leaf*>(left_);
+        auto* right = static_cast<Leaf*>(right_);
+        for (std::size_t i = 0; i < right->count; ++i)
+          left->keys[i + left->count] = std::move(right->keys[i]);
+        left->count += right->count;
+        left->size += right->size;
+      } else {
+        auto* left = static_cast<Internal*>(left_);
+        auto* right = static_cast<Internal*>(right_);
+        for (std::size_t i = 0; i < right->count; ++i)
+          left->children[i + left->count] = std::move(right->children[i]);
+        left->count += right->count;
+        left->sync();
+      }
+      erase(i + 1);
+
+      if (!left_->is_leaf()) {
+        static_cast<Internal*>(left_)->shrink(right_end);
+      }
     }
   };
 
@@ -359,10 +439,12 @@ class Bplustree_Vector {
 
  private:
   std::size_t size_ = 0;
+  std::size_t level_ = 0;
   std::unique_ptr<Node> root_ = nullptr;
 
   void init() {
     size_ = 0;
+    level_ = 0;
     root_ = std::make_unique<Leaf>();
   }
 
@@ -373,6 +455,7 @@ class Bplustree_Vector {
       if (root_->is_leaf()) return;
       Internal* root = static_cast<Internal*>(root_.get());
       if (root->count > 1) return;
+      --level_;
       auto new_root = std::move(root->children[0]);
       new_root->parent = nullptr;
       new_root->position = 0;
@@ -387,6 +470,7 @@ class Bplustree_Vector {
     }
 
     size_ = values.size();
+    level_ = 0;
     constexpr std::size_t kMaxCount = kNodeCapacity - 1;
     const std::size_t leaf_count = (values.size() + kMaxCount - 1) / kMaxCount;
     const std::size_t base_leaf_size = values.size() / leaf_count;
@@ -409,6 +493,7 @@ class Bplustree_Vector {
     }
 
     while (level.size() > 1) {
+      ++level_;
       const std::size_t parent_count =
           (level.size() + kMaxCount - 1) / kMaxCount;
       const std::size_t base_child_count = level.size() / parent_count;
@@ -442,18 +527,8 @@ class Bplustree_Vector {
   void swap_state(Bplustree_Vector& other) noexcept {
     using std::swap;
     swap(this->size_, other.size_);
+    swap(this->level_, other.level_);
     swap(this->root_, other.root_);
-  }
-
-  std::size_t calc_level() {
-    std::size_t level = 0;
-
-    Node* node = root_.get();
-    while (!node->is_leaf()) {
-      node = static_cast<Internal*>(node)->children[0].get();
-      ++level;
-    }
-    return level;
   }
 
   void internal_insert(Internal* parent, std::unique_ptr<Node> child,
@@ -476,6 +551,54 @@ class Bplustree_Vector {
       new_root->insert(std::move(root_), 0);
       new_root->insert(std::move(child), 1);
       root_ = std::move(new_root);
+      ++level_;
+    }
+  }
+
+  // 子Nodeを一括でinsertしてマージする。
+  // この操作でsplitが必要にならないことを条件とする
+  // lds と rdsは同じlevelであることに注意
+  void merge_node(Node* lds_, Node* rds_, const bool rds_on_right) {
+    assert(lds_->kind == rds_->kind);
+    assert(lds_->count + rds_->count < kNodeCapacity);
+    lds_->push_reverse();
+    rds_->push_reverse();
+
+    std::size_t start_from = 0;
+    std::size_t size_diff = rds_->size;
+    if (rds_->is_leaf()) {
+      auto* lds = static_cast<Leaf*>(lds_);
+      auto* rds = static_cast<Leaf*>(rds_);
+      if (!rds_on_right)
+        for (std::size_t i = lds->count; i > 0; --i)
+          lds->keys[i + rds->count - 1] = std::move(lds->keys[i - 1]);
+      else
+        start_from = lds->count;
+
+      for (std::size_t i = 0; i < rds->count; ++i)
+        lds->keys[start_from + i] = std::move(rds->keys[i]);
+
+      lds->count += rds->count;
+      lds->size += rds->size;
+    } else {
+      auto* lds = static_cast<Internal*>(lds_);
+      auto* rds = static_cast<Internal*>(rds_);
+      if (!rds_on_right)
+        for (std::size_t i = lds->count; i > 0; --i)
+          lds->children[i + rds->count - 1] = std::move(lds->children[i - 1]);
+      else
+        start_from = lds->count;
+
+      for (std::size_t i = 0; i < rds->count; ++i)
+        lds->children[start_from + i] = std::move(rds->children[i]);
+
+      lds->count += rds->count;
+      lds->sync();
+    }
+    lds_ = lds_->parent;
+    while (lds_ != nullptr) {
+      lds_->size += size_diff;
+      lds_ = lds_->parent;
     }
   }
 
@@ -555,7 +678,9 @@ class Bplustree_Vector {
    * O(1)
    */
   Bplustree_Vector(Bplustree_Vector&& other)
-      : size_(other.size_), root_(std::move(other.root_)) {}
+      : size_(other.size_),
+        level_(other.level_),
+        root_(std::move(other.root_)) {}
 
   /**
    * @brief 別の B+ tree の内容をムーブ代入する。
@@ -968,9 +1093,8 @@ class Bplustree_Vector {
       swap_state(right);
       return right;
     }
-    if (it == end()) {
-      return right;
-    }
+    if (it == end()) return right;
+
     Leaf* leaf = it.leaf_;
     std::size_t index = it.index_;
     if (index == 0) {
@@ -1012,8 +1136,14 @@ class Bplustree_Vector {
 
     size_ = root_->size;
 
+    right.level_ = level_;
+    if (!root_->is_leaf()) static_cast<Internal*>(root_.get())->shrink(true);
     cut_invalid_root();
+
+    if (!right.root_->is_leaf())
+      static_cast<Internal*>(right.root_.get())->shrink(false);
     right.cut_invalid_root();
+
     return right;
   };
 
@@ -1028,60 +1158,81 @@ class Bplustree_Vector {
 
     const std::size_t merged_size = size_ + right.size_;
 
-    std::size_t left_level = calc_level();
-    std::size_t right_level = right.calc_level();
+    std::size_t left_level = level_;
+    std::size_t right_level = right.level_;
 
     if (left_level > right_level) {
-      root_->nth(size_);  // 左木の論理的な右端 path を正規化
-
       Internal* target = static_cast<Internal*>(root_.get());
       while (left_level > right_level + 1) {
+        target->push_reverse();
         target =
             static_cast<Internal*>(target->children[target->count - 1].get());
         --left_level;
       }
-      internal_insert(target, std::move(right.root_), target->count,
-                      right.size_);
+      target->push_reverse();
+
+      if (target->children[target->count - 1]->count + right.root_->count <
+          kNodeCapacity)
+        merge_node(target->children[target->count - 1].get(), right.root_.get(),
+                   true);
+      else
+        internal_insert(target, std::move(right.root_), target->count,
+                        right.size_);
     } else if (left_level < right_level) {
-      right.root_->nth(0);  // 右木の論理的な左端 path を正規化
       Internal* target = static_cast<Internal*>(right.root_.get());
       while (left_level + 1 < right_level) {
+        target->push_reverse();
         target = static_cast<Internal*>(target->children[0].get());
         --right_level;
       }
-      right.internal_insert(target, std::move(root_), 0, size_);
-      root_ = std::move(right.root_);
-    } else {
-      auto new_root = std::make_unique<Internal>();
-      new_root->insert(std::move(root_), 0);
-      new_root->insert(std::move(right.root_), 1);
+      target->push_reverse();
 
-      root_ = std::move(new_root);
+      if (target->children[0]->count + root_->count < kNodeCapacity)
+        merge_node(target->children[0].get(), root_.get(), false);
+      else
+        right.internal_insert(target, std::move(root_), 0, size_);
+      root_ = std::move(right.root_);
+      level_ = right.level_;
+    } else {
+      if (right.root_->count + root_->count < kNodeCapacity)
+        merge_node(root_.get(), right.root_.get(), true);
+      else {
+        auto new_root = std::make_unique<Internal>();
+        new_root->insert(std::move(root_), 0);
+        new_root->insert(std::move(right.root_), 1);
+
+        root_ = std::move(new_root);
+        ++level_;
+      }
     }
     right.init();
     size_ = merged_size;
   }
 
   void reverse(iterator lit, iterator rit) {
-    assert(lit <= rit);
-    if (lit == rit) return;
+    auto first = begin();
 
-    auto right = split(rit);
-    auto mid = split(lit);
+    const std::size_t lidx = static_cast<std::size_t>(lit - first);
+    const std::size_t ridx = static_cast<std::size_t>(rit - first);
 
-    mid.root_->is_reversed ^= true;
-
-    merge(mid);
-    merge(right);
+    reverse(lidx, ridx);
   }
 
   void reverse(std::size_t lidx, std::size_t ridx) {
+    assert(lidx <= ridx);
+    assert(ridx <= size_);
     if (ridx - lidx < 2) return;
     if (lidx == 0 && ridx == size_) {
       root_->is_reversed ^= true;
       return;
     }
-    reverse(nth(lidx), nth(ridx));
+    auto right = split(ridx);
+    auto mid = split(lidx);
+
+    mid.root_->is_reversed ^= true;
+
+    merge(mid);
+    merge(right);
   }
 
   /**
@@ -1110,7 +1261,42 @@ class Bplustree_Vector {
   void clear() {
     init();
   }
+
+  /**
+   * @brief Node数の統計をerror出力する。
+   * この木はlazy_eraseなので、特にsplit時に大量のcountが1のNodeを作る可能性がある。
+   * その問題はshrinkの実装によってケアしたが、万一メモリや実行時間に不満が出た場合、
+   * この関数によってNodeの状態を観測できる。
+   * もしNode数やcount_1_nodeが極めて多いなら、別のライブラリの仕様を検討する。
+   * ### 計算量
+   * O(N)
+   */
+  void test() {
+    std::cerr << "node: " << Node::live_nodes << " / " << Node::peak_nodes
+              << '\n';
+
+    std::cerr << "leaf: " << Leaf::leaf_count << " / " << Leaf::peak_leaf_count
+              << '\n';
+
+    std::cerr << "internal: " << Internal::internal_count << " / "
+              << Internal::peak_internal_count << '\n';
+
+    std::size_t cnt = 0;
+    std::size_t cnt_one = 0;
+    auto f = [&](auto f, Node* now) -> void {
+      if (now->count == 1) cnt_one++;
+      cnt++;
+
+      if (!now->is_leaf())
+        for (int i = 0; i < now->count; ++i) {
+          f(f, (static_cast<Internal*>(now)->children[i]).get());
+        }
+    };
+    f(f, root_.get());
+    std::cerr << "recursive node count: " << cnt << std::endl;
+    std::cerr << "recursive node count count is one: " << cnt_one << std::endl;
+  }
 };
 
-// template <class T = long long>
-// using BVector = Bplustree_Vector<T>;
+template <class T = long long>
+using BVector = Bplustree_Vector<T>;
