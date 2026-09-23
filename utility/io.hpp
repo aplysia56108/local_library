@@ -26,8 +26,6 @@
 // --- 基本型 / ACL ---
 template <int m>
 std::istream& operator>>(std::istream& is, atcoder::static_modint<m>& a);
-template <int m>
-std::ostream& operator<<(std::ostream& os, const atcoder::static_modint<m>& a);
 
 inline std::ostream& operator<<(std::ostream& s, const __int128_t& p);
 inline std::istream& operator>>(std::istream& is, __int128_t& v);
@@ -89,6 +87,28 @@ inline void out(const T& a, const Ts&... b);
 // 実装 (Implementations)
 // ==========================================
 
+template <class T>
+inline constexpr bool io_via_val_v = false;
+
+template <int m>
+inline constexpr bool io_via_val_v<atcoder::static_modint<m>> = true;
+
+template <int id>
+inline constexpr bool io_via_val_v<atcoder::dynamic_modint<id>> = true;
+
+// io_via_val が　タグとして存在する場合、val()を経由して出力する。
+template <class T>
+concept HasIOByValTag = requires { typename T::io_via_val; };
+
+template <class T>
+concept IOByVal =
+    (HasIOByValTag<T> || io_via_val_v<T>) && requires(const T& x) { x.val(); };
+
+template <IOByVal T>
+std::ostream& operator<<(std::ostream& os, const T& x) {
+  return os << x.val();
+}
+
 // --- AtCoder Modint 入出力 ---
 template <int m>
 inline std::istream& operator>>(std::istream& is,
@@ -97,12 +117,6 @@ inline std::istream& operator>>(std::istream& is,
   is >> v;
   a = v;
   return is;
-}
-
-template <int m>
-inline std::ostream& operator<<(std::ostream& os,
-                                const atcoder::static_modint<m>& a) {
-  return os << a.val();
 }
 
 // --- __int128_t 入出力 ---
