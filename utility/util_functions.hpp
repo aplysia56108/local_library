@@ -436,6 +436,22 @@ inline long long sz(std::initializer_list<T> x) {
   return static_cast<long long>(x.size());
 }
 
+// 2つの値を受け取り、昇順に変換して返す。
+template <class T>
+inline void sort2(T& x, T& y) {
+  if (unwrap_value(y) < unwrap_value(x)) {
+    std::swap(x, y);
+  }
+}
+
+// 3つの値を受け取り、昇順に変換して返す。
+template <class T>
+inline void sort3(T& x, T& y, T& z) {
+  sort2(x, y);
+  sort2(y, z);
+  sort2(x, y);
+}
+
 // ==========================================
 // 4. 文字・文字列・数値相互変換
 // ==========================================
