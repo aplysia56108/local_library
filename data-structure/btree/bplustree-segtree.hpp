@@ -1175,6 +1175,10 @@ class Bplustree_Segtree {
     return root_->node_prod(first, last);
   }
 
+  T all_prod() {
+    return root_->evaluated_monoid;
+  }
+
   /**
    * @brief 0-indexed で index 番目の要素を指す Iterator を返す。
    * @param index 要素の順位。
@@ -1257,6 +1261,108 @@ class Bplustree_Segtree {
    */
   const T& back() const {
     return *nth(size_ - 1);
+  }
+
+  template <class F>
+  std::size_t max_right(std::size_t left, F&& f) {
+    assert(left <= size_);
+    if (left == size_) return size_;
+
+    auto [leaf, index] = nth(left);
+
+    T current_value = Monoid::e();
+    Node* current = leaf;
+    std::size_t result = left;
+    while (true) {
+      current->push_reverse();
+      if (current->is_leaf()) {
+        auto* leaf = static_cast<Leaf*>(current);
+        for (std::size_t i = index; i < leaf->count; ++i) {
+          T next_value = Monoid::op(current_value, leaf->values[i]);
+          if (!f(next_value)) return result;
+
+          current_value = std::move(next_value);
+          ++result;
+        }
+      } else {
+        auto* internal = static_cast<Internal*>(current);
+        bool descend = false;
+
+        for (std::size_t i = index; i < internal->count; ++i) {
+          Node* child = internal->children[i].get();
+          T next_value = Monoid::op(current_value, child->evaluated_monoid);
+
+          if (!f(next_value)) {
+            current = child;
+            index = 0;
+            descend = true;
+            break;
+          }
+
+          current_value = std::move(next_value);
+          result += child->size;
+        }
+
+        if (descend) continue;
+      }
+      if (result == size_) return size_;
+
+      index = current->position + 1;
+      current = current->parent;
+    }
+    assert(false);
+    return 0;
+  }
+
+  template <class F>
+  std::size_t min_left(std::size_t right, F&& f) {
+    assert(right <= size_);
+    if (right == 0) return 0;
+
+    auto [leaf, index] = nth(right);
+
+    T current_value = Monoid::e();
+    Node* current = leaf;
+    std::size_t result = right;
+    while (true) {
+      current->push_reverse();
+      if (current->is_leaf()) {
+        auto* leaf = static_cast<Leaf*>(current);
+        for (std::size_t i = index; i > 0; --i) {
+          T next_value = Monoid::op(leaf->values[i - 1], current_value);
+          if (!f(next_value)) return result;
+
+          current_value = std::move(next_value);
+          --result;
+        }
+      } else {
+        auto* internal = static_cast<Internal*>(current);
+        bool descend = false;
+
+        for (std::size_t i = index; i > 0; --i) {
+          Node* child = internal->children[i - 1].get();
+          T next_value = Monoid::op(child->evaluated_monoid, current_value);
+
+          if (!f(next_value)) {
+            current = child;
+            index = child->count;
+            descend = true;
+            break;
+          }
+
+          current_value = std::move(next_value);
+          result -= child->size;
+        }
+
+        if (descend) continue;
+      }
+      if (result == 0) return 0;
+
+      index = current->position;
+      current = current->parent;
+    }
+    assert(false);
+    return 0;
   }
 
   /**
