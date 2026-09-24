@@ -1315,6 +1315,11 @@ class Bplustree_Segtree {
   }
 
   template <class F>
+  std::size_t upper_bound(std::size_t left, F&& f) {
+    return max_right(left, f);
+  }
+
+  template <class F>
   std::size_t min_left(std::size_t right, F&& f) {
     assert(right <= size_);
     if (right == 0) return 0;
@@ -1363,6 +1368,11 @@ class Bplustree_Segtree {
     }
     assert(false);
     return 0;
+  }
+
+  template <class F>
+  std::size_t lower_bound(std::size_t right, F&& f) {
+    return min_left(right, f);
   }
 
   /**
