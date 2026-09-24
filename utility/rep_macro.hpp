@@ -18,13 +18,15 @@
 #define rrep4(i, a, b, c)                                                    \
   for (long long i = (a) + ((b) - (a) - 1) / (c) * (c); i >= (long long)(a); \
        i -= (c))
-#define rrep(...) \
-  overload4(__VA_ARGS__, rrep4, rrep3, rrep2, rrep1)(__VA_ARGS__)
+// clang-format off
+#define rrep(...) overload4(__VA_ARGS__, rrep4, rrep3, rrep2, rrep1)(__VA_ARGS__)
+// clang-format on
 
 // --- fore (レンジベース for / 構造化束縛) ---
 #define fore1(a) for (auto&& x : a)
 #define fore2(x, a) for (auto&& x : a)
 #define fore3(x, y, a) for (auto&& [x, y] : a)
 #define fore4(x, y, z, a) for (auto&& [x, y, z] : a)
-#define fore(...) \
-  overload4(__VA_ARGS__, fore4, fore3, fore2, fore1)(__VA_ARGS__)
+// clang-format off
+#define fore(...) overload4(__VA_ARGS__, fore4, fore3, fore2, fore1)(__VA_ARGS__)
+// clang-format on
