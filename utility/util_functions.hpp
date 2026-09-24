@@ -11,6 +11,22 @@
 #include <utility>
 #include <variant>
 #include <vector>
+#include <concepts>
+#include <type_traits>
+
+template <class T>
+concept UnwrapViaVal = requires {
+  typename std::remove_cvref_t<T>::unwrap_via_val;
+} && requires(const std::remove_reference_t<T>& x) { x.val(); };
+
+template <class T>
+decltype(auto) unwrap_value(const T& value) {
+  if constexpr (UnwrapViaVal<T>) {
+    return value.val();
+  } else {
+    return value;
+  }
+}
 
 // ==========================================
 // 1. vector / pair 演算子オーバーロード
@@ -281,6 +297,34 @@ long long argmin(const Container& a) {
   return std::distance(a.begin(), std::min_element(a.begin(), a.end()));
 }
 
+template <class T>
+inline auto max(const T& x, const T& y)
+  requires UnwrapViaVal<T>
+{
+  return std::max(unwrap_value(x), unwrap_value(y));
+}
+
+template <class T, class U>
+inline auto max(const T& x, const U& y)
+  requires(UnwrapViaVal<T> || UnwrapViaVal<U>)
+{
+  return max(unwrap_value(x), unwrap_value(y));
+}
+
+template <class T>
+inline auto min(const T& x, const T& y)
+  requires UnwrapViaVal<T>
+{
+  return std::min(unwrap_value(x), unwrap_value(y));
+}
+
+template <class T, class U>
+inline auto min(const T& x, const U& y)
+  requires(UnwrapViaVal<T> || UnwrapViaVal<U>)
+{
+  return min(unwrap_value(x), unwrap_value(y));
+}
+
 // int と long long の混用時用 max / min オーバーロード
 inline long long max(signed x, long long y) {
   return std::max((long long)x, y);
@@ -293,6 +337,50 @@ inline long long min(signed x, long long y) {
 }
 inline long long min(long long x, signed y) {
   return std::min(x, (long long)y);
+}
+
+template <class T, class U>
+inline bool operator<(const T& x, const U& y)
+  requires(UnwrapViaVal<T> || UnwrapViaVal<U>)
+{
+  return unwrap_value(x) < unwrap_value(y);
+}
+
+template <class T, class U>
+inline bool operator>(const T& x, const U& y)
+  requires(UnwrapViaVal<T> || UnwrapViaVal<U>)
+{
+  return unwrap_value(y) < unwrap_value(x);
+}
+
+template <class T, class U>
+inline bool operator==(const T& x, const U& y)
+  requires(UnwrapViaVal<T> || UnwrapViaVal<U>)
+{
+  return unwrap_value(x) == unwrap_value(y);
+}
+
+template <class T, class U>
+inline bool operator<=(const T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) <= unwrap_value(y); })
+{
+  return unwrap_value(x) <= unwrap_value(y);
+}
+
+template <class T, class U>
+inline bool operator>=(const T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) >= unwrap_value(y); })
+{
+  return unwrap_value(x) >= unwrap_value(y);
+}
+
+template <class T, class L, class R>
+inline auto clamp(const T& x, const L& low, const R& high)
+  requires(UnwrapViaVal<T> || UnwrapViaVal<L> || UnwrapViaVal<R>)
+{
+  return max(unwrap_value(low), min(unwrap_value(x), unwrap_value(high)));
 }
 
 /**
