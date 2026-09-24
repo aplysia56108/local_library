@@ -303,16 +303,28 @@ inline std::ostream& operator<<(
 
 // --- 出力ユーティリティ関数 ---
 inline void out() {
+#ifdef LOCAL
+  std::cerr << "[out]" << std::endl;
+#endif
   std::cout << std::endl;
 }
 
 template <class T>
 inline void out(const T& a) {
+#ifdef LOCAL
+  std::cerr << "[out] " << a << std::endl;
+#endif
   std::cout << a << std::endl;
 }
 
 template <class T, class... Ts>
 inline void out(const T& a, const Ts&... b) {
+#ifdef LOCAL
+  std::cerr << "[out] " << a;
+  (..., (std::cerr << ' ' << b));
+  std::cerr << std::endl;
+#endif
+
   std::cout << a;
   (..., (std::cout << ' ' << b));
   std::cout << std::endl;
