@@ -20,6 +20,15 @@ concept UnwrapViaVal = requires {
 } && requires(const std::remove_reference_t<T>& x) { x.val(); };
 
 template <class T>
+decltype(auto) unwrap_value(T& x) {
+  if constexpr (UnwrapViaVal<T>) {
+    return x.val();
+  } else {
+    return (x);
+  }
+}
+
+template <class T>
 decltype(auto) unwrap_value(const T& value) {
   if constexpr (UnwrapViaVal<T>) {
     return value.val();
@@ -450,6 +459,226 @@ inline void sort3(T& x, T& y, T& z) {
   sort2(x, y);
   sort2(y, z);
   sort2(x, y);
+}
+
+// unwrap_via_val用の演算子定義
+template <class T, class U>
+inline decltype(auto) operator+(const T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) + unwrap_value(y); })
+{
+  return unwrap_value(x) + unwrap_value(y);
+}
+
+template <class T, class U>
+inline decltype(auto) operator-(const T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) - unwrap_value(y); })
+{
+  return unwrap_value(x) - unwrap_value(y);
+}
+
+template <class T, class U>
+inline decltype(auto) operator*(const T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) * unwrap_value(y); })
+{
+  return unwrap_value(x) * unwrap_value(y);
+}
+
+template <class T, class U>
+inline decltype(auto) operator/(const T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) / unwrap_value(y); })
+{
+  return unwrap_value(x) / unwrap_value(y);
+}
+
+template <class T, class U>
+inline decltype(auto) operator%(const T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) % unwrap_value(y); })
+{
+  return unwrap_value(x) % unwrap_value(y);
+}
+
+template <class T, class U>
+inline decltype(auto) operator&(const T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) & unwrap_value(y); })
+{
+  return unwrap_value(x) & unwrap_value(y);
+}
+
+template <class T, class U>
+inline decltype(auto) operator|(const T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) | unwrap_value(y); })
+{
+  return unwrap_value(x) | unwrap_value(y);
+}
+
+template <class T, class U>
+inline decltype(auto) operator^(const T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) ^ unwrap_value(y); })
+{
+  return unwrap_value(x) ^ unwrap_value(y);
+}
+
+template <class T, class U>
+inline T& operator+=(T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) += unwrap_value(y); })
+{
+  unwrap_value(x) += unwrap_value(y);
+  return x;
+}
+
+template <class T, class U>
+inline T& operator-=(T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) -= unwrap_value(y); })
+{
+  unwrap_value(x) -= unwrap_value(y);
+  return x;
+}
+
+template <class T, class U>
+inline T& operator*=(T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) *= unwrap_value(y); })
+{
+  unwrap_value(x) *= unwrap_value(y);
+  return x;
+}
+
+template <class T, class U>
+inline T& operator/=(T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) /= unwrap_value(y); })
+{
+  unwrap_value(x) /= unwrap_value(y);
+  return x;
+}
+
+template <class T, class U>
+inline T& operator%=(T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) %= unwrap_value(y); })
+{
+  unwrap_value(x) %= unwrap_value(y);
+  return x;
+}
+
+template <class T, class U>
+inline T& operator&=(T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) &= unwrap_value(y); })
+{
+  unwrap_value(x) &= unwrap_value(y);
+  return x;
+}
+
+template <class T, class U>
+inline T& operator|=(T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) |= unwrap_value(y); })
+{
+  unwrap_value(x) |= unwrap_value(y);
+  return x;
+}
+
+template <class T, class U>
+inline T& operator^=(T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) ^= unwrap_value(y); })
+{
+  unwrap_value(x) ^= unwrap_value(y);
+  return x;
+}
+
+template <class T, class U>
+inline T& operator<<=(T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) <<= unwrap_value(y); })
+{
+  unwrap_value(x) <<= unwrap_value(y);
+  return x;
+}
+
+template <class T, class U>
+inline T& operator>>=(T& x, const U& y)
+  requires((UnwrapViaVal<T> || UnwrapViaVal<U>) &&
+           requires { unwrap_value(x) >>= unwrap_value(y); })
+{
+  unwrap_value(x) >>= unwrap_value(y);
+  return x;
+}
+
+template <class T>
+inline T& operator++(T& x)
+  requires(UnwrapViaVal<T> && requires { ++unwrap_value(x); })
+{
+  ++unwrap_value(x);
+  return x;
+}
+
+template <class T>
+inline T operator++(T& x, signed)
+  requires(UnwrapViaVal<T> && std::copy_constructible<T> &&
+           requires { ++unwrap_value(x); })
+{
+  T old = x;
+  ++x;
+  return old;
+}
+
+template <class T>
+inline T& operator--(T& x)
+  requires(UnwrapViaVal<T> && requires { --unwrap_value(x); })
+{
+  --unwrap_value(x);
+  return x;
+}
+
+template <class T>
+inline T operator--(T& x, signed)
+  requires(UnwrapViaVal<T> && std::copy_constructible<T> &&
+           requires { --unwrap_value(x); })
+{
+  T old = x;
+  --x;
+  return old;
+}
+
+// 単項演算子
+template <class T>
+inline decltype(auto) operator+(const T& x)
+  requires(UnwrapViaVal<T> && requires { +unwrap_value(x); })
+{
+  return +unwrap_value(x);
+}
+
+template <class T>
+inline decltype(auto) operator-(const T& x)
+  requires(UnwrapViaVal<T> && requires { -unwrap_value(x); })
+{
+  return -unwrap_value(x);
+}
+
+template <class T>
+inline decltype(auto) operator~(const T& x)
+  requires(UnwrapViaVal<T> && requires { ~unwrap_value(x); })
+{
+  return ~unwrap_value(x);
+}
+
+template <class T>
+inline bool operator!(const T& x)
+  requires(UnwrapViaVal<T> && requires { !unwrap_value(x); })
+{
+  return !unwrap_value(x);
 }
 
 // ==========================================
