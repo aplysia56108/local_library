@@ -20,20 +20,24 @@
 #include "data-structure/identity-value/identity-value.hpp"
 
 /**
- * @brief B+ tree で実装した動的配列。
- * @tparam T 要素型。
+ * @brief B+ tree 上に構築した動的セグメント木。
+ * @tparam Monoid モノイドを表す型。
+ * `value_type`, `op(lhs, rhs)`, `e()` を持つ必要がある。
  * @tparam NodeCapacity 1 Node が保持できる要素または子 Node の最大数。
+ *
  * @details
  * 要素を順序付き列として保持し、添字アクセス、任意位置への挿入・削除、
- * 分割・結合・区間反転をサポートする。
+ * 区間反転、区間積、点更新、セグ木上の二分探索をサポートする。
  *
- * 区間反転は遅延伝搬によって処理する。
- * `split()` では分割境界付近の疎な Node を可能な範囲で統合する。
+ * 要素の集約値として `Monoid::op()` による積を各 Node に保持する。
+ * 非可換モノイドにも対応し、区間反転のために正順・逆順の積をそれぞれ管理する。
+ *
+ * `operator[]` および Iterator から得られる要素は読み取り専用である。
+ * 点更新には `set()` または `operator()` が返す Setter を使用する。
  *
  * `NodeCapacity` を大きくすると木は浅くなりやすい一方、
  * 各 Node に対する操作量と Node 自体のサイズは増加する。
  */
-
 template <class Monoid, std::size_t NodeCapacity = 64>
 class Bplustree_Segtree {
   using T = Monoid::value_type;
@@ -522,6 +526,20 @@ class Bplustree_Segtree {
     friend bool operator==(const Iterator&, const Iterator&) = default;
   };
 
+  /**
+   * @brief 1要素を更新するための一時的な Proxy。
+   * @details
+   * `operator()(index)`
+   * から取得し、代入またはモノイド演算による点更新に使用する。
+   *
+   * コピー・ムーブはできず、一時オブジェクトとしてのみ使用できる。
+   *
+   * @code
+   * seg(i) = value;
+   * seg(i).apply(value);
+   * seg(i).apply_left(value);
+   * @endcode
+   */
   class Setter {
     friend class Bplustree_Segtree;
 
@@ -538,24 +556,59 @@ class Bplustree_Segtree {
     Setter(Setter&&) = delete;
     Setter& operator=(Setter&&) = delete;
 
+    /**
+     * @brief index 番目の要素を `value` に置き換える。
+     * @param value 新しい値。
+     *
+     * ### 計算量
+     * O(NodeCapacity log_{NodeCapacity} N)
+     */
     void operator=(const T& value) && {
       tree_->set(index_, value);
     }
 
+    /**
+     * @brief index 番目の要素の右側から `value` を作用させる。
+     * @param value 作用させる値。
+     * @details
+     * 現在値を `x` とすると、`x = Monoid::op(x, value)` と更新する。
+     *
+     * ### 計算量
+     * O(NodeCapacity log_{NodeCapacity} N)
+     */
     void apply(const T& value) && {
       tree_->apply_right(index_, value);
     }
 
+    /**
+     * @brief index 番目の要素の右側から `value` を作用させる。
+     * @param value 作用させる値。
+     * @details
+     * 現在値を `x` とすると、`x = Monoid::op(x, value)` と更新する。
+     *
+     * ### 計算量
+     * O(NodeCapacity log_{NodeCapacity} N)
+     */
     void apply_right(const T& value) && {
       tree_->apply_right(index_, value);
     }
 
+    /**
+     * @brief index 番目の要素の左側から `value` を作用させる。
+     * @param value 作用させる値。
+     * @details
+     * 現在値を `x` とすると、`x = Monoid::op(value, x)` と更新する。
+     *
+     * ### 計算量
+     * O(NodeCapacity log_{NodeCapacity} N)
+     */
     void apply_left(const T& value) && {
       tree_->apply_left(index_, value);
     }
   };
 
  public:
+  // 値の更新にはsetを経由する必要があるため、更新可能なiteratorは提供しない
   using iterator = Iterator<true>;
   using const_iterator = Iterator<true>;
 
@@ -565,8 +618,8 @@ class Bplustree_Segtree {
   using size_type = std::size_t;
   using difference_type = std::ptrdiff_t;
 
-  // static_assert(std::random_access_iterator<iterator>);
-  // static_assert(std::random_access_iterator<const_iterator>);
+  static_assert(std::random_access_iterator<iterator>);
+  static_assert(std::random_access_iterator<const_iterator>);
 
  private:
   std::size_t size_ = 0;
@@ -993,9 +1046,6 @@ class Bplustree_Segtree {
    * ### 計算量
    * O(NodeCapacity log_{NodeCapacity} N)
    */
-  //   iterator begin() {
-  //     return nth(0);
-  //   }
   iterator begin() const {
     return nth(0);
   }
@@ -1006,9 +1056,6 @@ class Bplustree_Segtree {
    * ### 計算量
    * O(NodeCapacity log_{NodeCapacity} N)
    */
-  //   iterator end() {
-  //     return nth(size_);
-  //   }
   iterator end() const {
     return nth(size_);
   }
@@ -1043,10 +1090,6 @@ class Bplustree_Segtree {
     return const_reverse_iterator(end());
   }
 
-  //   reverse_iterator rbegin() {
-  //     return reverse_iterator(end());
-  //   }
-
   /**
    * @brief 逆順走査の末尾イテレータを返す。
    * @return `begin()` の直前を表す逆イテレータ。
@@ -1056,10 +1099,6 @@ class Bplustree_Segtree {
   const_reverse_iterator rend() const {
     return const_reverse_iterator(begin());
   }
-
-  //   reverse_iterator rend() {
-  //     return reverse_iterator(begin());
-  //   }
 
   /**
    * @brief `rbegin()` と同じ逆イテレータを返す。
@@ -1110,14 +1149,6 @@ class Bplustree_Segtree {
    * ### 計算量
    * O(N)
    */
-  //   iterator find(const T& value) {
-  //     auto last = end();
-  //     for (auto it = begin(); it != last; ++it) {
-  //       if (*it == value) return it;
-  //     }
-  //     return last;
-  //   }
-
   iterator find(const T& value) const {
     auto last = end();
     for (auto it = begin(); it != last; ++it) {
@@ -1153,28 +1184,78 @@ class Bplustree_Segtree {
     return find(value) != end();
   }
 
+  /**
+   * @brief `index` 番目の要素を `value` に置き換える。
+   * @param index 更新する要素の位置。
+   * @param value 新しい値。
+   * @details `index < size()` を満たす必要がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
   void set(std::size_t index, const T& value) {
     auto [leaf, index_] = root_->nth(index);
     leaf->values[index_] = value;
     sync_to_root(leaf);
   }
 
+  /**
+   * @brief `index` 番目の要素の右側から `value` を作用させる。
+   * @param index 更新する要素の位置。
+   * @param value 作用させる値。
+   * @details
+   * 現在値を `x` とすると、`x = Monoid::op(x, value)` と更新する。
+   * `index < size()` を満たす必要がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
   void apply_right(std::size_t index, const T& value) {
     auto [leaf, index_] = root_->nth(index);
     leaf->values[index_] = Monoid::op(leaf->values[index_], value);
     sync_to_root(leaf);
   }
 
+  /**
+   * @brief `index` 番目の要素の左側から `value` を作用させる。
+   * @param index 更新する要素の位置。
+   * @param value 作用させる値。
+   * @details
+   * 現在値を `x` とすると、`x = Monoid::op(value, x)` と更新する。
+   * `index < size()` を満たす必要がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
   void apply_left(std::size_t index, const T& value) {
     auto [leaf, index_] = root_->nth(index);
     leaf->values[index_] = Monoid::op(value, leaf->values[index_]);
     sync_to_root(leaf);
   }
 
+  /**
+   * @brief 区間 `[first, last)` のモノイド積を返す。
+   * @param first 区間の先頭。
+   * @param last 区間の終端。
+   * @return
+   * `Monoid::op(values[first], ..., values[last - 1])` を添字順に計算した値。
+   * 空区間の場合は `Monoid::e()`。
+   * @details `first <= last <= size()` を満たす必要がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
   T prod(std::size_t first, std::size_t last) {
     return root_->node_prod(first, last);
   }
 
+  /**
+   * @brief 全要素のモノイド積を返す。
+   * @return `prod(0, size())` と等価な値。
+   *
+   * ### 計算量
+   * O(1)
+   */
   T all_prod() {
     return root_->evaluated_monoid;
   }
@@ -1187,45 +1268,49 @@ class Bplustree_Segtree {
    * ### 計算量
    * O(kNodeCapacity log N)
    */
-  //   iterator nth(std::size_t index) {
-  //     auto [leaf, idx] = root_->nth(index);
-  //     return {leaf, idx};
-  //   }
   iterator nth(std::size_t index) const {
     auto [leaf, idx] = root_->nth(index);
     return {leaf, idx};
   }
 
   /**
-   * @brief 0-indexed で index 番目の要素を返す。
-   * @param index 要素の順位。
-   * @return index 番目の要素への const 参照。
+   * @brief 0-indexed で `index` 番目の要素を読み取る。
+   * @param index 要素の位置。
+   * @return `index` 番目の要素への const 参照。
    * @details
    * `index < size()` を満たす必要がある。
+   * 要素の更新には `operator()` または `set()` を使用する。
    *
    * ### 計算量
-   * O(kNodeCapacity log N)
+   * O(NodeCapacity log_{NodeCapacity} N)
    */
   const T& operator[](std::size_t index) const {
     return *nth(index);
   }
 
+  /**
+   * @brief 0-indexed で `index` 番目の要素を更新するための Setter を返す。
+   * @param index 更新する要素の位置。
+   * @return `index` 番目の要素を更新するための Setter。
+   * @details
+   * `index < size()` を満たす必要がある。
+   *
+   * @code
+   * seg(i) = value;
+   * seg(i).apply(value);
+   * seg(i).apply_left(value);
+   * @endcode
+   *
+   * ### 計算量
+   * O(1)
+   *
+   * Setter を用いた実際の更新は
+   * O(NodeCapacity log_{NodeCapacity} N)。
+   */
   [[nodiscard]] Setter operator()(std::size_t index) {
     assert(index < size_);
     return Setter(this, index);
   }
-
-  /**
-   * @brief 先頭要素への参照を返す。
-   * @return 先頭要素への参照。
-   * @details `empty() == false` を満たす必要がある。
-   *
-   * ### 計算量
-   * O(NodeCapacity log_{NodeCapacity} N)
-   */
-  //   T& front() {
-  //     return *nth(0);
-  //   }
 
   /**
    * @brief 先頭要素への const 参照を返す。
@@ -1240,18 +1325,6 @@ class Bplustree_Segtree {
   }
 
   /**
-   * @brief 末尾要素への参照を返す。
-   * @return 末尾要素への参照。
-   * @details `empty() == false` を満たす必要がある。
-   *
-   * ### 計算量
-   * O(NodeCapacity log_{NodeCapacity} N)
-   */
-  //   T& back() {
-  //     return *nth(size_ - 1);
-  //   }
-
-  /**
    * @brief 末尾要素への const 参照を返す。
    * @return 末尾要素への const 参照。
    * @details `empty() == false` を満たす必要がある。
@@ -1263,6 +1336,28 @@ class Bplustree_Segtree {
     return *nth(size_ - 1);
   }
 
+  /**
+   * @brief `left` から右方向へモノイド積を取り、条件を満たす最大の右端を返す。
+   * @tparam F モノイド積に対する述語の型。
+   * @param left 探索を開始する左端。
+   * @param f モノイド積を受け取り `bool` を返す述語。
+   * @return
+   * `f(prod(left, right))` が成り立つ最大の `right`。
+   * `left <= right <= size()`。
+   *
+   * @details
+   * `left <= size()` を満たす必要がある。
+   *
+   * `[left, r)` を右へ拡張したとき、`f(prod(left, r))` は
+   * `true` から `false` へ高々1回だけ変化する必要がある。
+   *
+   * `left == size()` の場合は `size()` を返す。
+   * `f(Monoid::e())` は呼び出さない。
+   *
+   * ### 計算量
+   * `Monoid::op()` と `f()` を O(1) として
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
   template <class F>
   std::size_t max_right(std::size_t left, F&& f) {
     assert(left <= size_);
@@ -1314,11 +1409,36 @@ class Bplustree_Segtree {
     return 0;
   }
 
+  // max_rightと同じ。fがtrueを返す範囲の右側の境界を返す。
   template <class F>
-  std::size_t upper_bound(std::size_t left, F&& f) {
+  std::size_t right_bound(std::size_t left, F&& f) {
     return max_right(left, f);
   }
 
+  /**
+   * @brief `right` から左方向へモノイド積を取り、条件を満たす最小の左端を返す。
+   * @tparam F モノイド積に対する述語の型。
+   * @param right 探索を開始する右端。
+   * @param f モノイド積を受け取り `bool` を返す述語。
+   * @return
+   * `f(prod(left, right))` が成り立つ最小の `left`。
+   * `0 <= left <= right`。
+   *
+   * @details
+   * `right <= size()` を満たす必要がある。
+   *
+   * `[l, right)` を左へ拡張したとき、`f(prod(l, right))` は
+   * `true` から `false` へ高々1回だけ変化する必要がある。
+   *
+   * `right == 0` の場合は `0` を返す。
+   * `f(Monoid::e())` は呼び出さない。
+   *
+   * 非可換モノイドでも要素順を保って積を計算する。
+   *
+   * ### 計算量
+   * `Monoid::op()` と `f()` を O(1) として
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
   template <class F>
   std::size_t min_left(std::size_t right, F&& f) {
     assert(right <= size_);
@@ -1370,8 +1490,9 @@ class Bplustree_Segtree {
     return 0;
   }
 
+  // min_leftと同じ。fがtrueを返す範囲の左側の境界を返す。
   template <class F>
-  std::size_t lower_bound(std::size_t right, F&& f) {
+  std::size_t left_bound(std::size_t right, F&& f) {
     return min_left(right, f);
   }
 
@@ -1976,6 +2097,12 @@ using GcdSegtree = Bplustree_Segtree<GcdMonoid>;
 template <class mint>
 using AffineSegtree = Bplustree_Segtree<AffineMonoid<mint>>;
 
+/**
+ * @brief 関数をテンプレート引数として指定するモノイド定義。
+ * @tparam T 値型。
+ * @tparam Op 結合則を満たす二項演算。
+ * @tparam E 単位元を返す引数なし関数。
+ */
 template <class T, auto Op, auto E>
 struct Monoid {
   using value_type = T;
@@ -1989,9 +2116,22 @@ struct Monoid {
   }
 };
 
+/**
+ * @brief `Op` と `E` を直接指定して構築する B+ tree セグメント木。
+ */
 template <class T, auto Op, auto E, std::size_t NodeCapacity = 64>
 using BSegtree = Bplustree_Segtree<Monoid<T, Op, E>, NodeCapacity>;
 
+/**
+ * @brief 単位元を明示せずに使用するモノイド定義。
+ * @tparam T 値型。
+ * @tparam Op 結合則を満たす二項演算。
+ * @details
+ * `IdentityValue<T>` に人工的な単位元を追加してモノイド化する。
+ *
+ * 格納する各要素には通常 `T` の実値を与えて使用することを想定する。
+ * 人工的な単位元を実値として取り出す操作はできない。
+ */
 template <class T, auto Op>
 struct MonoidWithoutE {
   using value_type = IdentityValue<T>;
@@ -2007,5 +2147,10 @@ struct MonoidWithoutE {
   }
 };
 
+/**
+ * @brief 単位元を指定せずに構築する B+ tree セグメント木。
+ * @details
+ * 各要素を通常の `T` として扱いつつ、内部では人工的な単位元を使用する。
+ */
 template <class T, auto Op, std::size_t NodeCapacity = 64>
 using BSegtreeWithoutE = Bplustree_Segtree<MonoidWithoutE<T, Op>, NodeCapacity>;
