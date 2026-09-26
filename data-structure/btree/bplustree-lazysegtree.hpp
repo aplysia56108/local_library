@@ -1942,17 +1942,15 @@ class Bplustree_LazySegtree {
    */
   Bplustree_LazySegtree split(iterator pos) {
     Bplustree_LazySegtree right;
-    auto right_leaf = std::make_unique<Leaf>();
     if (pos == begin()) {
       swap_state(right);
       return right;
     }
     if (pos == end()) return right;
+    auto right_leaf = std::make_unique<Leaf>();
 
     Leaf* leaf = pos.leaf_;
     std::size_t index = pos.index_;
-
-    leaf->push_action_to_root();
 
     if (index == 0) {
       leaf = (--pos).leaf_;
@@ -1962,31 +1960,32 @@ class Bplustree_LazySegtree {
         right_leaf->values[i - index] = std::move(leaf->values[i]);
       }
       right_leaf->count = leaf->count - index;
+      right_leaf->action = leaf->action;
       right_leaf->sync();
       leaf->count = index;
       leaf->sync();
     }
 
     std::unique_ptr<Node> right_child = std::move(right_leaf);
-    std::unique_ptr<Internal> parent = nullptr;
     Internal* node = leaf->parent;
     index = leaf->position + 1;
     while (node != nullptr) {
-      parent = std::make_unique<Internal>();
+      auto right_node = std::make_unique<Internal>();
 
       if (right_child->count) {
-        parent->children[0] = std::move(right_child);
-        ++parent->count;
+        right_node->children[0] = std::move(right_child);
+        ++right_node->count;
       }
       for (std::size_t i = index; i < node->count; ++i) {
-        parent->children[parent->count] = std::move(node->children[i]);
-        ++parent->count;
+        right_node->children[right_node->count] = std::move(node->children[i]);
+        ++right_node->count;
       }
       node->count = index;
       node->sync();
-      parent->sync();
+      right_node->action = node->action;
+      right_node->sync();
 
-      right_child = std::move(parent);
+      right_child = std::move(right_node);
       index = node->position + 1;
       node = node->parent;
     }
@@ -1996,11 +1995,7 @@ class Bplustree_LazySegtree {
     size_ = root_->size;
 
     right.level_ = level_;
-    // if (!root_->is_leaf()) static_cast<Internal*>(root_.get())->shrink(true);
     cut_invalid_root();
-
-    // if (!right.root_->is_leaf())
-    //   static_cast<Internal*>(right.root_.get())->shrink(false);
     right.cut_invalid_root();
 
     return right;
