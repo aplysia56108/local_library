@@ -39,14 +39,15 @@
  * `NodeCapacity` を大きくすると木は浅くなりやすい一方、
  * 各 Node に対する操作量と Node 自体のサイズは増加する。
  */
-template <class Monoid, class Action, std::size_t NodeCapacity = 16>
+template <class Monoid, class Action, bool ReverseInvariant = false,
+          std::size_t NodeCapacity = 15>
 class Bplustree_LazySegtree {
   using T = Monoid::value_type;
   using F = Action::action_type;
   static_assert(NodeCapacity >= 3);
 
   static constexpr std::size_t kNodeCapacity = NodeCapacity;
-  static constexpr std::size_t kNodeHalf = kNodeCapacity / 2;
+  static constexpr std::size_t kNodeHalf = (kNodeCapacity + 1) / 2;
 
   enum class NodeKind { kLeaf, kInternal };
 
@@ -55,6 +56,8 @@ class Bplustree_LazySegtree {
 
   struct Node {
     Internal* parent = nullptr;
+    T base_monoid = Monoid::e();
+    T reverse_base_monoid = Monoid::e();
     T evaluated_monoid = Monoid::e();
     T reverse_evaluated_monoid = Monoid::e();
     std::size_t position = 0;
@@ -79,6 +82,21 @@ class Bplustree_LazySegtree {
       return kind == NodeKind::kLeaf;
     }
 
+    T eval() const {
+      return evaluated_monoid;
+    }
+
+    T reverse_eval() const {
+      return reverse_evaluated_monoid;
+    }
+
+    // monoidのactionの更新は行わず、位置だけを特定する。
+    std::pair<Leaf*, std::size_t> locate(std::size_t index) {
+      assert(index <= size);
+      if (is_leaf()) return static_cast<Leaf*>(this)->locate(index);
+      return static_cast<Internal*>(this)->locate(index);
+    }
+
     std::pair<Leaf*, std::size_t> nth(std::size_t index) {
       assert(index <= size);
       if (is_leaf()) return static_cast<Leaf*>(this)->nth(index);
@@ -88,8 +106,8 @@ class Bplustree_LazySegtree {
     T node_prod(std::size_t first, std::size_t last) {
       assert(first <= last && last <= this->size);
       if (first == last) return Monoid::e();
-      if (first == 0 && last == this->size) return evaluated_monoid;
-      push();
+      if (first == 0 && last == this->size) return eval();
+      push_reverse();
       if (is_leaf()) return static_cast<Leaf*>(this)->prod(first, last);
       return static_cast<Internal*>(this)->prod(first, last);
     }
@@ -110,8 +128,10 @@ class Bplustree_LazySegtree {
 
     void apply_reverse() {
       is_reversed ^= true;
-      using std::swap;
-      swap(evaluated_monoid, reverse_evaluated_monoid);
+      if constexpr (!ReverseInvariant) {
+        using std::swap;
+        swap(evaluated_monoid, reverse_evaluated_monoid);
+      }
     }
 
     void push_reverse() {
@@ -125,13 +145,27 @@ class Bplustree_LazySegtree {
       else
         action = Action::composition(f, action.value());
       evaluated_monoid = Action::mapping(f, evaluated_monoid, size);
-      reverse_evaluated_monoid =
-          Action::mapping(f, reverse_evaluated_monoid, size);
     }
 
     void push_action() {
-      if (is_leaf()) return static_cast<Leaf*>(this)->push_action();
-      return static_cast<Internal*>(this)->push_action();
+      if (!action.has_value()) return;
+      const F f = action.value();
+
+      evaluated_monoid = eval();
+      if constexpr (ReverseInvariant)
+        reverse_evaluated_monoid = evaluated_monoid;
+      else
+        reverse_evaluated_monoid = reverse_eval();
+      if (is_leaf())
+        static_cast<Leaf*>(this)->push_action(f);
+      else
+        static_cast<Internal*>(this)->push_action(f);
+      action.reset();
+    }
+
+    void push_action_to_root() {
+      if (parent != nullptr) parent->push_action_to_root();
+      push_action();
     }
   };
 
@@ -150,7 +184,7 @@ class Bplustree_LazySegtree {
       --leaf_count;
     }
 
-    bool insert(T value, std::size_t index) {
+    void insert(T value, std::size_t index) {
       assert(index <= this->count);
       assert(this->count < kNodeCapacity);
       for (std::size_t i = this->count; i > index; --i) {
@@ -160,33 +194,40 @@ class Bplustree_LazySegtree {
 
       ++this->count;
       sync();
-
-      return this->count == kNodeCapacity;
     }
 
-    std::unique_ptr<Leaf> split() {
+    std::unique_ptr<Leaf> insert_and_split(T value, std::size_t index) {
       assert(this->count == kNodeCapacity);
 
       const std::size_t left_count = kNodeHalf;
-      const std::size_t right_count = kNodeCapacity - left_count;
+      const std::size_t right_count = kNodeCapacity - left_count + 1;
       auto right = std::make_unique<Leaf>();
 
-      right->count = right_count;
-
-      for (std::size_t i = 0; i < right_count; ++i) {
-        right->values[i] = std::move(values[left_count + i]);
-      }
       this->count = left_count;
+      right->count = right_count;
+      for (std::size_t i = kNodeCapacity; i > 0; --i) {
+        std::size_t j = (i - 1 >= index) ? i : i - 1;
+        if (j < left_count) {
+          if (j == i - 1) break;
+          values[j] = std::move(values[i - 1]);
+          continue;
+        }
+        right->values[j - left_count] = std::move(values[i - 1]);
+      }
+      if (index < left_count)
+        values[index] = std::move(value);
+      else
+        right->values[index - left_count] = std::move(value);
+
       sync();
       right->sync();
-
       return right;
     }
 
     bool erase(std::size_t index) {
-      assert(this->count < kNodeCapacity);
+      assert(this->count <= kNodeCapacity);
       assert(index < this->count);
-      for (std::size_t i = index + 1; i <= this->count; ++i) {
+      for (std::size_t i = index + 1; i < this->count; ++i) {
         values[i - 1] = std::move(values[i]);
       }
       --this->count;
@@ -200,17 +241,20 @@ class Bplustree_LazySegtree {
       std::reverse(values.begin(), values.begin() + this->count);
     }
 
-    void push_action() {
-      if (!this->action.has_value()) return;
-
+    void push_action(const F& f) {
       for (std::size_t i = 0; i < this->count; ++i) {
-        values[i] = Action::mapping(this->action.value(), values[i], 1);
+        values[i] = Action::mapping(f, values[i], 1);
       }
-      this->action.reset();
+    }
+
+    std::pair<Leaf*, std::size_t> locate(std::size_t index) {
+      push_reverse();
+      return {this, index};
     }
 
     std::pair<Leaf*, std::size_t> nth(std::size_t index) {
-      this->push();
+      push_reverse();
+      push_action();
       return {this, index};
     }
 
@@ -218,6 +262,8 @@ class Bplustree_LazySegtree {
       T result = Monoid::e();
       for (std::size_t i = first; i < last; ++i)
         result = Monoid::op(result, values[i]);
+      if (this->action.has_value())
+        return Action::mapping(this->action.value(), result, (last - first));
       return result;
     }
 
@@ -229,16 +275,32 @@ class Bplustree_LazySegtree {
 
     void sync() {
       this->size = this->count;
-      this->evaluated_monoid = Monoid::e();
-      this->reverse_evaluated_monoid = Monoid::e();
+      this->base_monoid = Monoid::e();
+      this->reverse_base_monoid = Monoid::e();
 
       for (std::size_t i = 0; i < this->count; ++i) {
-        this->evaluated_monoid = Monoid::op(this->evaluated_monoid, values[i]);
+        this->base_monoid = Monoid::op(this->base_monoid, values[i]);
       }
-      for (std::size_t i = this->count; i > 0; --i) {
+      if constexpr (ReverseInvariant)
+        this->reverse_base_monoid = this->base_monoid;
+      else
+        for (std::size_t i = this->count; i > 0; --i) {
+          this->reverse_base_monoid =
+              Monoid::op(this->reverse_base_monoid, values[i - 1]);
+        }
+      this->evaluated_monoid =
+          this->action.has_value()
+              ? Action::mapping(this->action.value(), this->base_monoid,
+                                this->size)
+              : this->base_monoid;
+      if constexpr (ReverseInvariant)
+        this->reverse_evaluated_monoid = this->evaluated_monoid;
+      else
         this->reverse_evaluated_monoid =
-            Monoid::op(this->reverse_evaluated_monoid, values[i - 1]);
-      }
+            this->action.has_value()
+                ? Action::mapping(this->action.value(),
+                                  this->reverse_base_monoid, this->size)
+                : this->reverse_base_monoid;
     }
   };
 
@@ -257,25 +319,40 @@ class Bplustree_LazySegtree {
 
     void sync() {
       this->size = 0;
-      this->evaluated_monoid = Monoid::e();
-      this->reverse_evaluated_monoid = Monoid::e();
+      this->base_monoid = Monoid::e();
+      this->reverse_base_monoid = Monoid::e();
 
       for (std::size_t i = 0; i < this->count; ++i) {
         assert(children[i] != nullptr);
         children[i]->parent = this;
         children[i]->position = i;
         this->size += children[i]->size;
-        this->evaluated_monoid =
-            Monoid::op(this->evaluated_monoid, children[i]->evaluated_monoid);
+        this->base_monoid = Monoid::op(this->base_monoid, children[i]->eval());
       }
-      for (std::size_t i = this->count; i > 0; --i) {
+      if constexpr (ReverseInvariant)
+        this->reverse_base_monoid = this->base_monoid;
+      else
+        for (std::size_t i = this->count; i > 0; --i) {
+          this->reverse_base_monoid = Monoid::op(
+              this->reverse_base_monoid, children[i - 1]->reverse_eval());
+        }
+
+      this->evaluated_monoid =
+          this->action.has_value()
+              ? Action::mapping(this->action.value(), this->base_monoid,
+                                this->size)
+              : this->base_monoid;
+      if constexpr (ReverseInvariant)
+        this->reverse_evaluated_monoid = this->evaluated_monoid;
+      else
         this->reverse_evaluated_monoid =
-            Monoid::op(this->reverse_evaluated_monoid,
-                       children[i - 1]->reverse_evaluated_monoid);
-      }
+            this->action.has_value()
+                ? Action::mapping(this->action.value(),
+                                  this->reverse_base_monoid, this->size)
+                : this->reverse_base_monoid;
     }
 
-    bool insert(std::unique_ptr<Node> child, std::size_t child_index) {
+    void insert(std::unique_ptr<Node> child, std::size_t child_index) {
       assert(child != nullptr);
       assert(child_index <= this->count);
       assert(this->count < kNodeCapacity);
@@ -286,33 +363,41 @@ class Bplustree_LazySegtree {
       children[child_index] = std::move(child);
       ++this->count;
       sync();
-      return this->count == kNodeCapacity;
     }
 
-    std::unique_ptr<Internal> split() {
+    std::unique_ptr<Internal> insert_and_split(std::unique_ptr<Node> child,
+                                               std::size_t child_index) {
       assert(this->count == kNodeCapacity);
 
-      const std::size_t left_count = kNodeCapacity / 2;
-      const std::size_t right_count = kNodeCapacity - left_count;
+      const std::size_t left_count = kNodeHalf;
+      const std::size_t right_count = kNodeCapacity - left_count + 1;
       auto right = std::make_unique<Internal>();
 
-      right->count = right_count;
-
-      for (std::size_t i = 0; i < right_count; ++i) {
-        right->children[i] = std::move(children[left_count + i]);
-      }
       this->count = left_count;
+      right->count = right_count;
+      for (std::size_t i = kNodeCapacity; i > 0; --i) {
+        std::size_t j = i - 1 >= child_index ? i : i - 1;
+        if (j < left_count) {
+          if (j == i - 1) break;
+          children[j] = std::move(children[i - 1]);
+          continue;
+        }
+        right->children[j - left_count] = std::move(children[i - 1]);
+      }
+      if (child_index < left_count)
+        children[child_index] = std::move(child);
+      else
+        right->children[child_index - left_count] = std::move(child);
 
       sync();
       right->sync();
-
       return right;
     }
 
     bool erase(std::size_t child_index) {
-      assert(this->count < kNodeCapacity);
+      assert(this->count <= kNodeCapacity);
       assert(child_index < this->count);
-      for (std::size_t i = child_index + 1; i <= this->count; ++i) {
+      for (std::size_t i = child_index + 1; i < this->count; ++i) {
         children[i - 1] = std::move(children[i]);
       }
       --this->count;
@@ -332,13 +417,26 @@ class Bplustree_LazySegtree {
       }
     }
 
-    void push_action() {
-      if (!this->action.has_value()) return;
+    void push_action(const F& f) {
+      for (std::size_t i = 0; i < this->count; ++i) {
+        children[i]->apply_action(f);
+      }
+    }
+
+    std::pair<Leaf*, std::size_t> locate(std::size_t index) {
+      push_reverse();
+      if (index == this->size)
+        return children[this->count - 1]->locate(
+            children[this->count - 1]->size);
 
       for (std::size_t i = 0; i < this->count; ++i) {
-        children[i]->apply_action(this->action.value());
+        if (index < children[i]->size) {
+          return children[i]->locate(index);
+        }
+        index -= children[i]->size;
       }
-      this->action.reset();
+      assert(false);
+      return {nullptr, 0};
     }
 
     /**
@@ -350,7 +448,8 @@ class Bplustree_LazySegtree {
      * O(NodeCapacity log_{NodeCapacity} N)
      */
     std::pair<Leaf*, std::size_t> nth(std::size_t index) {
-      this->push();
+      push_reverse();
+      push_action();
       if (index == this->size)
         return children[this->count - 1]->nth(children[this->count - 1]->size);
 
@@ -382,6 +481,8 @@ class Bplustree_LazySegtree {
         result = Monoid::op(result, child->node_prod(l, r));
         offset = child_last;
       }
+      if (this->action.has_value())
+        return Action::mapping(this->action.value(), result, (last - first));
       return result;
     }
 
@@ -408,7 +509,7 @@ class Bplustree_LazySegtree {
     // 端の部分木のchildを再帰的にまとめる。
     // split時に疎なnodeをなるべく作らないための工夫
     void shrink(const bool right_end) {
-      this->push();
+      this->push_reverse();
       if (this->count == 1) {
         if (children[0]->is_leaf()) return;
         return static_cast<Internal*>(children[0].get())->shrink(right_end);
@@ -417,7 +518,7 @@ class Bplustree_LazySegtree {
       Node* left_ = children[i].get();
       Node* right_ = children[i + 1].get();
 
-      if (left_->count + right_->count >= kNodeCapacity) {
+      if (left_->count + right_->count > kNodeCapacity) {
         if (left_->is_leaf()) return;
         auto* edge = right_end ? right_ : left_;
         return static_cast<Internal*>(edge)->shrink(right_end);
@@ -499,7 +600,7 @@ class Bplustree_LazySegtree {
       }
       auto [root, root_index] = root_position();
       auto [leaf, index] =
-          root->nth(static_cast<std::size_t>(root_index + offset));
+          root->locate(static_cast<std::size_t>(root_index + offset));
       leaf_ = leaf;
       index_ = index;
     }
@@ -518,6 +619,7 @@ class Bplustree_LazySegtree {
     reference operator*() const {
       assert(leaf_ != nullptr);
       assert(index_ < leaf_->count);
+      leaf_->push_action_to_root();
       return leaf_->values[index_];
     }
 
@@ -670,19 +772,6 @@ class Bplustree_LazySegtree {
     void prod_left(const T& value) && {
       tree_->prod_left(index_, value);
     }
-
-    /**
-     * @brief index 番目の要素の右側から `value` を作用させる。
-     * @param value 作用させる値。
-     * @details
-     * 現在値を `x` とすると、`x = Monoid::op(x, value)` と更新する。
-     *
-     * ### 計算量
-     * O(NodeCapacity log_{NodeCapacity} N)
-     */
-    void apply(const F& f) && {
-      tree_->apply(index_, f);
-    }
   };
 
  public:
@@ -717,6 +806,7 @@ class Bplustree_LazySegtree {
       if (root_->is_leaf()) return;
       Internal* root = static_cast<Internal*>(root_.get());
       if (root->count > 1) return;
+      root_->push();
       --level_;
       auto new_root = std::move(root->children[0]);
       new_root->parent = nullptr;
@@ -733,7 +823,7 @@ class Bplustree_LazySegtree {
 
     size_ = values.size();
     level_ = 0;
-    constexpr std::size_t kMaxCount = kNodeCapacity - 1;
+    constexpr std::size_t kMaxCount = kNodeCapacity;
     const std::size_t leaf_count = (values.size() + kMaxCount - 1) / kMaxCount;
     const std::size_t base_leaf_size = values.size() / leaf_count;
     const std::size_t extra_leaf_count = values.size() % leaf_count;
@@ -797,10 +887,12 @@ class Bplustree_LazySegtree {
                        std::size_t index) {
     while (parent != nullptr) {
       if (child != nullptr) {
-        if (parent->insert(std::move(child), index))
-          child = parent->split();
-        else
+        if (parent->count == kNodeCapacity)
+          child = parent->insert_and_split(std::move(child), index);
+        else {
+          parent->insert(std::move(child), index);
           child = nullptr;
+        }
       } else
         parent->sync();
 
@@ -809,8 +901,10 @@ class Bplustree_LazySegtree {
     }
     if (child != nullptr) {
       auto new_root = std::make_unique<Internal>();
-      new_root->insert(std::move(root_), 0);
-      new_root->insert(std::move(child), 1);
+      new_root->children[0] = std::move(root_);
+      new_root->children[1] = std::move(child);
+      new_root->count = 2;
+      new_root->sync();
       root_ = std::move(new_root);
       ++level_;
     }
@@ -821,7 +915,7 @@ class Bplustree_LazySegtree {
   // lds と rdsは同じlevelであることに注意
   void merge_node(Node* lds_, Node* rds_, const bool rds_on_right) {
     assert(lds_->kind == rds_->kind);
-    assert(lds_->count + rds_->count < kNodeCapacity);
+    assert(lds_->count + rds_->count <= kNodeCapacity);
     lds_->push();
     rds_->push();
 
@@ -1336,7 +1430,7 @@ class Bplustree_LazySegtree {
    * O(1)
    */
   T all_prod() {
-    return root_->evaluated_monoid;
+    return root_->eval();
   }
 
   void apply(std::size_t index, const F& f) {
@@ -1364,7 +1458,7 @@ class Bplustree_LazySegtree {
    * O(kNodeCapacity log N)
    */
   iterator nth(std::size_t index) const {
-    auto [leaf, idx] = root_->nth(index);
+    auto [leaf, idx] = root_->locate(index);
     return {leaf, idx};
   }
 
@@ -1480,7 +1574,7 @@ class Bplustree_LazySegtree {
 
         for (std::size_t i = index; i < internal->count; ++i) {
           Node* child = internal->children[i].get();
-          T next_value = Monoid::op(current_value, child->evaluated_monoid);
+          T next_value = Monoid::op(current_value, child->eval());
 
           if (!f(next_value)) {
             current = child;
@@ -1561,7 +1655,7 @@ class Bplustree_LazySegtree {
 
         for (std::size_t i = index; i > 0; --i) {
           Node* child = internal->children[i - 1].get();
-          T next_value = Monoid::op(child->evaluated_monoid, current_value);
+          T next_value = Monoid::op(child->eval(), current_value);
 
           if (!f(next_value)) {
             current = child;
@@ -1607,6 +1701,8 @@ class Bplustree_LazySegtree {
     Leaf* leaf = it.leaf_;
     std::size_t idx = it.index_;
 
+    leaf->push_action_to_root();
+
     ++size_;
 
     Leaf* inserted_leaf = leaf;
@@ -1614,15 +1710,15 @@ class Bplustree_LazySegtree {
 
     std::unique_ptr<Node> right = nullptr;
 
-    if (leaf->insert(value, idx)) {
-      auto right_leaf = leaf->split();
-      Leaf* right_leaf_ptr = right_leaf.get();
-
+    if (leaf->count == kNodeCapacity) {
+      auto right_leaf = leaf->insert_and_split(value, idx);
       if (idx >= kNodeHalf) {
-        inserted_leaf = right_leaf_ptr;
+        inserted_leaf = right_leaf.get();
         inserted_index = idx - kNodeHalf;
       }
       right = std::move(right_leaf);
+    } else {
+      leaf->insert(value, idx);
     }
     internal_insert(leaf->parent, std::move(right), leaf->position + 1);
     return {inserted_leaf, inserted_index};
@@ -1855,6 +1951,9 @@ class Bplustree_LazySegtree {
 
     Leaf* leaf = pos.leaf_;
     std::size_t index = pos.index_;
+
+    leaf->push_action_to_root();
+
     if (index == 0) {
       leaf = (--pos).leaf_;
       index = leaf->count;
@@ -1950,7 +2049,7 @@ class Bplustree_LazySegtree {
       }
       target->push();
 
-      if (target->children[target->count - 1]->count + right.root_->count <
+      if (target->children[target->count - 1]->count + right.root_->count <=
           kNodeCapacity)
         merge_node(target->children[target->count - 1].get(), right.root_.get(),
                    true);
@@ -1965,20 +2064,21 @@ class Bplustree_LazySegtree {
       }
       target->push();
 
-      if (target->children[0]->count + root_->count < kNodeCapacity)
+      if (target->children[0]->count + root_->count <= kNodeCapacity)
         merge_node(target->children[0].get(), root_.get(), false);
       else
         right.internal_insert(target, std::move(root_), 0);
       root_ = std::move(right.root_);
       level_ = right.level_;
     } else {
-      if (right.root_->count + root_->count < kNodeCapacity)
+      if (right.root_->count + root_->count <= kNodeCapacity)
         merge_node(root_.get(), right.root_.get(), true);
       else {
         auto new_root = std::make_unique<Internal>();
-        new_root->insert(std::move(root_), 0);
-        new_root->insert(std::move(right.root_), 1);
-
+        new_root->children[0] = std::move(root_);
+        new_root->children[1] = std::move(right.root_);
+        new_root->count = 2;
+        new_root->sync();
         root_ = std::move(new_root);
         ++level_;
       }
@@ -2221,10 +2321,10 @@ struct Action {
  * @brief `Op` と `E` を直接指定して構築する B+ tree セグメント木。
  */
 template <class T, class F, auto Op, auto E, auto Mapping, auto Composition,
-          std::size_t NodeCapacity = 64>
+          bool ReverseInvariant = false, std::size_t NodeCapacity = 64>
 using BLazySegtree =
     Bplustree_LazySegtree<Monoid<T, Op, E>, Action<T, F, Mapping, Composition>,
-                          NodeCapacity>;
+                          ReverseInvariant, NodeCapacity>;
 
 /**
  * @brief 単位元を明示せずに使用するモノイド定義。
@@ -2257,10 +2357,11 @@ struct MonoidWithoutE {
  * 各要素を通常の `T` として扱いつつ、内部では人工的な単位元を使用する。
  */
 template <class T, class F, auto Op, auto Mapping, auto Composition,
-          std::size_t NodeCapacity = 64>
+          bool ReverseInvariant = false, std::size_t NodeCapacity = 15>
 using BLazySegtreeWithoutE =
     Bplustree_LazySegtree<MonoidWithoutE<T, Op>,
-                          Action<T, F, Mapping, Composition>, NodeCapacity>;
+                          Action<T, F, Mapping, Composition>, ReverseInvariant,
+                          NodeCapacity>;
 
 inline constexpr auto AddMapping = [](const long long& f, const long long& x,
                                       std::size_t size) {
@@ -2300,7 +2401,7 @@ using AddMinLazySegtree =
                  []() {
                    return MonoidInf;
                  },
-                 AddMapping, AddComposition>;
+                 AddMapping, AddComposition, true>;
 
 using AddMaxLazySegtree =
     BLazySegtree<long long, long long,
@@ -2310,7 +2411,7 @@ using AddMaxLazySegtree =
                  []() {
                    return -MonoidInf;
                  },
-                 AddMapping, AddComposition>;
+                 AddMapping, AddComposition, true>;
 
 using ChangeMinLazySegtree =
     BLazySegtree<long long, long long,
@@ -2320,7 +2421,7 @@ using ChangeMinLazySegtree =
                  []() {
                    return MonoidInf;
                  },
-                 ChangeMapping, ChangeComposition>;
+                 ChangeMapping, ChangeComposition, true>;
 
 using ChangeMaxLazySegtree =
     BLazySegtree<long long, long long,
@@ -2330,7 +2431,7 @@ using ChangeMaxLazySegtree =
                  []() {
                    return -MonoidInf;
                  },
-                 ChangeMapping, ChangeComposition>;
+                 ChangeMapping, ChangeComposition, true>;
 
 using AddSumLazySegtree =
     BLazySegtree<long long, long long,
@@ -2340,7 +2441,7 @@ using AddSumLazySegtree =
                  []() {
                    return 0LL;
                  },
-                 AddSumMapping, AddComposition>;
+                 AddSumMapping, AddComposition, true>;
 
 using ChangeSumLazySegtree =
     BLazySegtree<long long, long long,
@@ -2350,9 +2451,9 @@ using ChangeSumLazySegtree =
                  []() {
                    return 0LL;
                  },
-                 ChangeSumMapping, ChangeComposition>;
+                 ChangeSumMapping, ChangeComposition, true>;
 
-template <class mint, std::size_t NodeCapacity = 64>
+template <class mint, std::size_t NodeCapacity = 15>
 using AffineSumLazySegtree =
     BLazySegtree<mint, std::pair<mint, mint>,
                  [](auto a, auto b) {
@@ -2367,4 +2468,4 @@ using AffineSumLazySegtree =
                  [](auto f, auto g) -> std::pair<mint, mint> {
                    return {f.first * g.first, f.first * g.second + f.second};
                  },
-                 NodeCapacity>;
+                 true, NodeCapacity>;
