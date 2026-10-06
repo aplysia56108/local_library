@@ -10,6 +10,8 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <numeric>
+#include <atcoder/segtree.hpp>
 
 // 基本型
 using ll = long long;
@@ -74,3 +76,34 @@ template <typename T>
 using uset = std::unordered_set<T>;
 template <typename T, typename U>
 using umap = std::unordered_map<T, U>;
+
+inline const long long segtree_inf = (1LL << 30) + (1LL << 60) - 2;
+
+using Min_Segtree = atcoder::segtree<long long,
+                                     [](long long a, long long b) {
+                                       return std::min(a, b);
+                                     },
+                                     []() -> long long {
+                                       return segtree_inf;
+                                     }>;
+using Max_Segtree = atcoder::segtree<long long,
+                                     [](long long a, long long b) {
+                                       return std::max(a, b);
+                                     },
+                                     []() -> long long {
+                                       return -segtree_inf;
+                                     }>;
+using Sum_Segtree = atcoder::segtree<long long,
+                                     [](long long a, long long b) {
+                                       return a + b;
+                                     },
+                                     []() -> long long {
+                                       return 0;
+                                     }>;
+using Gcd_Segtree = atcoder::segtree<long long,
+                                     [](long long a, long long b) {
+                                       return std::gcd(a, b);
+                                     },
+                                     []() -> long long {
+                                       return 0;
+                                     }>;
