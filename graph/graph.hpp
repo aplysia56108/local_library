@@ -8,12 +8,12 @@
  */
 template <typename T = long long>
 struct edge {
-  int from;  ///< 遷移元の頂点番号 (0-indexed)
-  int to;    ///< 遷移先の頂点番号 (0-indexed)
-  T cost;    ///< 辺の重み（コスト）
-  int id;    ///< 辺のID (0-indexed)
+  long long from;  ///< 遷移元の頂点番号 (0-indexed)
+  long long to;    ///< 遷移先の頂点番号 (0-indexed)
+  T cost;          ///< 辺の重み（コスト）
+  long long id;    ///< 辺のID (0-indexed)
   edge() : from(-1), to(-1), cost(1), id(-1) {}
-  edge(int from, int to, T cost = 1, int id = -1)
+  edge(long long from, long long to, T cost = 1, long long id = -1)
       : from(from), to(to), cost(cost), id(id) {}
   bool operator<(const edge& other) const {
     if (cost != other.cost) return cost < other.cost;
@@ -34,9 +34,9 @@ struct edge {
 template <typename T = long long>
 struct Graph {
   std::vector<std::vector<edge<T>>> G;  ///< 隣接リスト
-  int n;                                ///< 頂点数
-  int m;                                ///< 辺数（無向辺は1本としてカウント）
-  explicit Graph(int n) : G(n), n(n), m(0) {}
+  long long n;                          ///< 頂点数
+  long long m;                          ///< 辺数（無向辺は1本としてカウント）
+  explicit Graph(long long n) : G(n), n(n), m(0) {}
 
   /**
    * @brief 辺を追加する
@@ -46,8 +46,8 @@ struct Graph {
    * @param is_bidirected 無向辺（両方向）の場合は true (デフォルト: true)
    * @param id 辺ID (-1 の場合は内部で自動割り振りの m を使用)
    */
-  void add_edge(int u, int v, T cost = 1, bool is_bidirected = true,
-                int id = -1) {
+  void add_edge(long long u, long long v, T cost = 1, bool is_bidirected = true,
+                long long id = -1) {
     if (id < 0) id = m;
     G[u].push_back({u, v, cost, id});
     if (is_bidirected) {
@@ -57,12 +57,12 @@ struct Graph {
   }
 
   /// 添字アクセス（const 版）: g[v] で頂点 v の出辺リストを取得
-  const std::vector<edge<T>>& operator[](int v) const {
+  const std::vector<edge<T>>& operator[](long long v) const {
     return G[v];
   }
 
   /// 添字アクセス: g[v] で頂点 v の出辺リストを取得
-  std::vector<edge<T>>& operator[](int v) {
+  std::vector<edge<T>>& operator[](long long v) {
     return G[v];
   }
 
@@ -95,7 +95,7 @@ inline std::ostream& operator<<(std::ostream& os, const edge<T>& e) {
  * @param w グリッドの幅 (列数)
  * @return long long 1次元頂点 ID (r * w + c)
  */
-inline long long grid_to_id(int r, int c, int w) {
+inline long long grid_to_id(long long r, long long c, long long w) {
   return static_cast<long long>(r) * w + c;
 }
 
@@ -105,7 +105,7 @@ inline long long grid_to_id(int r, int c, int w) {
  * @param w グリッドの幅 (列数)
  * @return std::pair<long long, long long> {r, c} のペア
  */
-inline std::pair<long long, long long> id_to_grid(long long id, int w) {
+inline std::pair<long long, long long> id_to_grid(long long id, long long w) {
   return {id / w, id % w};
 }
 
@@ -122,12 +122,12 @@ inline std::pair<long long, long long> id_to_grid(long long id, int w) {
  * @param is_bidirected 無向グラフの場合は true, 有向グラフの場合は false
  * @return Graph<long long> 構築されたグラフ
  */
-inline Graph<long long> read_graph(int n, int m = -1,
+inline Graph<long long> read_graph(long long n, long long m = -1,
                                    bool is_bidirected = true) {
   if (m == -1) m = n - 1;
   Graph<long long> g(n);
-  for (int i = 0; i < m; i++) {
-    int u, v;
+  for (long long i = 0; i < m; i++) {
+    long long u, v;
     std::cin >> u >> v;
     u--;
     v--;
@@ -151,12 +151,12 @@ inline Graph<long long> read_graph(int n, int m = -1,
  * @return Graph<T> 構築されたグラフ
  */
 template <typename T = long long>
-inline Graph<T> read_weighted_graph(int n, int m = -1,
+inline Graph<T> read_weighted_graph(long long n, long long m = -1,
                                     bool is_bidirected = true) {
   if (m == -1) m = n - 1;
   Graph<T> g(n);
-  for (int i = 0; i < m; i++) {
-    int u, v;
+  for (long long i = 0; i < m; i++) {
+    long long u, v;
     T w;
     std::cin >> u >> v >> w;
     u--;
@@ -175,18 +175,18 @@ inline Graph<T> read_weighted_graph(int n, int m = -1,
  */
 inline Graph<long long> read_grid(const std::vector<std::string>& grid,
                                   char wall = '#') {
-  int h = grid.size();
-  int w = grid[0].size();
+  long long h = grid.size();
+  long long w = grid[0].size();
   Graph<long long> g(h * w);
-  int dx[] = {1, 0, -1, 0};
-  int dy[] = {0, 1, 0, -1};
+  long long dx[] = {1, 0, -1, 0};
+  long long dy[] = {0, 1, 0, -1};
 
-  for (int r = 0; r < h; r++) {
-    for (int c = 0; c < w; c++) {
+  for (long long r = 0; r < h; r++) {
+    for (long long c = 0; c < w; c++) {
       if (grid[r][c] == wall) continue;
-      for (int d = 0; d < 4; d++) {
-        int nr = r + dx[d];
-        int nc = c + dy[d];
+      for (long long d = 0; d < 4; d++) {
+        long long nr = r + dx[d];
+        long long nc = c + dy[d];
         if (0 <= nr && nr < h && 0 <= nc && nc < w) {
           if (grid[nr][nc] != wall) {
             g.add_edge(grid_to_id(r, c, w), grid_to_id(nr, nc, w), 1, false);
@@ -207,10 +207,10 @@ inline Graph<long long> read_grid(const std::vector<std::string>& grid,
  */
 inline long long find_in_grid(const std::vector<std::string>& grid,
                               char target = 'S') {
-  int h = grid.size();
-  int w = grid[0].size();
-  for (int r = 0; r < h; r++) {
-    for (int c = 0; c < w; c++) {
+  long long h = grid.size();
+  long long w = grid[0].size();
+  for (long long r = 0; r < h; r++) {
+    for (long long c = 0; c < w; c++) {
       if (grid[r][c] == target) return grid_to_id(r, c, w);
     }
   }
