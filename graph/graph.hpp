@@ -37,6 +37,26 @@ struct Graph {
   long long n;                          ///< 頂点数
   long long m;                          ///< 辺数（無向辺は1本としてカウント）
   explicit Graph(long long n) : G(n), n(n), m(0) {}
+  /**
+   * @brief 隣接リストから有向グラフを構築する
+   *
+   * @details
+   * `graph[u]` に含まれる各頂点 `v` に対して、
+   * コスト 1 の有向辺 `u -> v` を追加する。
+   *
+   * @param graph 頂点番号のみを持つ隣接リスト
+   *
+   * ### 計算量
+   * $O(V + E)$
+   */
+  explicit Graph(const std::vector<std::vector<long long>>& graph)
+      : G(graph.size()), n(graph.size()), m(0) {
+    for (long long from = 0; from < n; ++from) {
+      for (long long to : graph[from]) {
+        add_edge(from, to, 1, false);
+      }
+    }
+  }
 
   /**
    * @brief 辺を追加する
