@@ -65,11 +65,11 @@ struct Graph {
    * @param u 遷移元頂点
    * @param v 遷移先頂点
    * @param cost 辺のコスト (デフォルト: 1)
-   * @param is_bidirected 無向辺（両方向）の場合は true (デフォルト: true)
+   * @param is_bidirected 無向辺（両方向）の場合は true (デフォルト: false)
    * @param id 辺ID (-1 の場合は内部で自動割り振りの m を使用)
    */
-  void add_edge(long long u, long long v, T cost = 1, bool is_bidirected = true,
-                long long id = -1) {
+  void add_edge(long long u, long long v, T cost = 1,
+                bool is_bidirected = false, long long id = -1) {
     if (id < 0) id = m;
     G[u].push_back({u, v, cost, id});
     if (is_bidirected) {
