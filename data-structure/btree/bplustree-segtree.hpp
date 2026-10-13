@@ -91,6 +91,15 @@ class Bplustree_Segtree {
       return static_cast<Internal*>(this)->prod(first, last);
     }
 
+    T node_reverse_prod(std::size_t first, std::size_t last) {
+      assert(first <= last && last <= this->size);
+      if (first == last) return Monoid::e();
+      if (first == 0 && last == this->size) return reverse_evaluated_monoid;
+      push_reverse();
+      if (is_leaf()) return static_cast<Leaf*>(this)->reverse_prod(first, last);
+      return static_cast<Internal*>(this)->reverse_prod(first, last);
+    }
+
     void apply_reverse() {
       if (is_leaf()) return static_cast<Leaf*>(this)->apply_reverse();
       return static_cast<Internal*>(this)->apply_reverse();
@@ -182,6 +191,13 @@ class Bplustree_Segtree {
       T result = Monoid::e();
       for (std::size_t i = first; i < last; ++i)
         result = Monoid::op(result, values[i]);
+      return result;
+    }
+
+    T reverse_prod(std::size_t first, std::size_t last) {
+      T result = Monoid::e();
+      for (std::size_t i = last; i > first; --i)
+        result = Monoid::op(result, values[i - 1]);
       return result;
     }
 
@@ -336,6 +352,27 @@ class Bplustree_Segtree {
         const std::size_t r = std::min(last, child_last) - child_first;
         result = Monoid::op(result, child->node_prod(l, r));
         offset = child_last;
+      }
+      return result;
+    }
+
+    T reverse_prod(std::size_t first, std::size_t last) {
+      T result = Monoid::e();
+      std::size_t offset = this->size;
+      for (std::size_t i = this->count; i > 0; --i) {
+        Node* child = children[i - 1].get();
+        const std::size_t child_last = offset;
+        const std::size_t child_first = offset - child->size;
+        if (child_last <= first) break;
+
+        if (last <= child_first) {
+          offset = child_first;
+          continue;
+        }
+        const std::size_t l = std::max(first, child_first) - child_first;
+        const std::size_t r = std::min(last, child_last) - child_first;
+        result = Monoid::op(result, child->node_reverse_prod(l, r));
+        offset = child_first;
       }
       return result;
     }
@@ -1247,6 +1284,22 @@ class Bplustree_Segtree {
    */
   T prod(std::size_t first, std::size_t last) {
     return root_->node_prod(first, last);
+  }
+
+  /**
+   * @brief 区間 `[first, last)` を逆順に計算したモノイド積を返す。
+   * @param first 区間の先頭。
+   * @param last 区間の終端。
+   * @return
+   * `Monoid::op(values[last - 1], ..., values[first])`
+   * を添字の逆順に計算した値。 空区間の場合は `Monoid::e()`。
+   * @details `first <= last <= size()` を満たす必要がある。
+   *
+   * ### 計算量
+   * O(NodeCapacity log_{NodeCapacity} N)
+   */
+  T reverse_prod(std::size_t first, std::size_t last) {
+    return root_->node_reverse_prod(first, last);
   }
 
   /**
