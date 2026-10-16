@@ -174,7 +174,7 @@ class HLD {
    *
    * @details
    * 辺を、根から遠い側の頂点の HLD 上の位置に対応させる。
-   * `u` と `v` は木上で隣接している必要がある。
+   * `u` と `v` は木上で隣接している必要がある。順番は問わない
    *
    * @param u 辺の一方の端点
    * @param v 辺のもう一方の端点
@@ -198,11 +198,14 @@ class HLD {
   }
 
   /**
-   * @brief HLD 上の番号から元のedgeの両端の番号を取得する
+   * @brief HLD 上の辺番号から元の辺を取得する
+   *
+   * @param index 辺の HLD 上の番号
+   * @return `{parent, child}` の順で辺の両端を返す
    */
   std::pair<long long, long long> edge(long long index) const {
-    const long long v = edge_vertex_[index];
-    return {parent_[v], v};
+    const long long child = edge_vertex_[index];
+    return {parent_[child], child};
   }
 
   /**
