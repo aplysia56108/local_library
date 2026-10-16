@@ -3,7 +3,19 @@
 // https://github.com/aplysia56108/local_library
 
 #include <bits/stdc++.h>
+
+#ifdef LOCAL
+#define private public
+#define protected public
+#endif
+
 #include <atcoder/all>
+
+#ifdef LOCAL
+#undef private
+#undef protected
+#endif
+
 using namespace atcoder;
 #include "utility/io.hpp"
 
