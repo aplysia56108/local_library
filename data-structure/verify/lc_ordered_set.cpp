@@ -105,7 +105,7 @@ inline const double eps = 1e-9;
  * `x`. If no such element exists, output `-1`.
  */
 
-#include "data-structure/set/btree-set.hpp"
+#include "data-structure/btree/bplustree-set.hpp"
 
 void solve();
 
@@ -123,7 +123,7 @@ void solve() {
 
   vi a(n);
   cin >> a;
-  Btree_Set<int> st;
+  auto st = make_bset<32>(less<int>());
 
   rep(i, n) st.insert(a[i]);
 
