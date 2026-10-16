@@ -88,6 +88,8 @@ inline const long long dy4l[] = {0, 1, 0, -1};
 inline const long long inf = (1LL << 30) + (1LL << 60) - 2;
 inline const double eps = 1e-9;
 ////////////////////////////////////////////////////////////////////////////////
+#include "prime/prime.hpp"
+Prime prime_manager;
 // i番目参照可能なset
 // #include "data-structure/btree/bplustree-set.hpp"
 // 挿入、削除、区間反転可能なvector
