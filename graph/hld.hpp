@@ -31,6 +31,7 @@ class HLD {
 
   std::vector<long long> index_;
   std::vector<long long> edge_index_;
+  std::vector<long long> edge_vertex_;
   std::vector<long long> vertex_;
   std::vector<long long> parent_;
   std::vector<long long> depth_;
@@ -114,18 +115,22 @@ class HLD {
   void build() {
     long long position = 0;
     long long component = 0;
+    long long edge_position = 0;
 
     for (long long root = 0; root < n_; ++root) {
       if (parent_[root] != -2) continue;
 
       build_subtree(root);
+      const long long begin = position;
       decompose(root, component, position);
-      long long edge_position = 0;
-      for (long long i = 0; i < n_; ++i) {
+      for (long long i = begin; i < position; ++i) {
         const long long v = vertex_[i];
-        if (parent_[v] == -1) continue;
-
-        edge_index_[v] = edge_position++;
+        if (parent_[v] == -1) {
+          edge_index_[v] = edge_position - 1;
+        } else {
+          edge_index_[v] = edge_position++;
+          edge_vertex_[edge_index_[v]] = v;
+        }
       }
       ++component;
     }
@@ -142,6 +147,7 @@ class HLD {
         n_(graph.size()),
         index_(n_, -1),
         edge_index_(n_, -1),
+        edge_vertex_(n_, -1),
         vertex_(n_, -1),
         parent_(n_, -2),
         depth_(n_),
@@ -192,6 +198,14 @@ class HLD {
   }
 
   /**
+   * @brief HLD 上の番号から元のedgeの両端の番号を取得する
+   */
+  std::pair<long long, long long> edge(long long index) const {
+    const long long v = edge_vertex_[index];
+    return {parent_[v], v};
+  }
+
+  /**
    * @brief 頂点 `v` の親を取得する
    */
   long long parent(long long v) const {
@@ -233,6 +247,15 @@ class HLD {
    */
   std::pair<long long, long long> subtree_range(long long v) const {
     return {index_[v], index_[v] + subtree_size_[v]};
+  }
+
+  /**
+   * @brief 頂点 `v` の部分木に対応する半開区間を取得する
+   *
+   * @return `[l, r)` を表す `{l, r}`
+   */
+  std::pair<long long, long long> subtree_edge_range(long long v) const {
+    return {edge_index_[v] + 1, edge_index_[v] + subtree_size_[v]};
   }
 
   struct PathSegment {
