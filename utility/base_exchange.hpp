@@ -2,6 +2,23 @@
 
 #include <algorithm>
 #include <string>
+#include <numeric>
+#include <cassert>
+
+template <class T>
+struct unsigned_type {
+  using type = std::make_unsigned_t<T>;
+};
+
+template <>
+struct unsigned_type<__int128_t> {
+  using type = __uint128_t;
+};
+
+template <>
+struct unsigned_type<__uint128_t> {
+  using type = __uint128_t;
+};
 
 /**
  * @brief 10進数の数値をN進数（2〜36進数）表現の文字列に変換する
@@ -13,21 +30,24 @@
  * 2) -> "-1010"
  */
 template <class T>
-inline std::string to_baseB(T x, int b = 10) {
+inline std::string to_baseB(T x, long long b = 10) {
+  assert(2 <= b && b <= 36);
+
+  using U = typename unsigned_type<T>::type;
+
+  bool is_minus = x < 0;
+  U v = static_cast<U>(x);
+  if (is_minus) v = U(0) - v;
+
   std::string ans;
-  bool is_minus = false;
-  if (x < 0) {
-    x *= -1;
-    is_minus = true;
-  }
   do {
-    int num = x % b;
-    ans += (char)((num <= 9) ? ('0' + num) : ('A' + num - 10));
-    x /= b;
-  } while (x != 0);
+    long long num = static_cast<long long>(v % b);
+    ans += static_cast<char>(num < 10 ? '0' + num : 'A' + num - 10);
+    v /= b;
+  } while (v != 0);
 
   if (is_minus) ans += '-';
-  reverse(ans.begin(), ans.end());
+  std::reverse(ans.begin(), ans.end());
   return ans;
 }
 
@@ -38,10 +58,11 @@ inline std::string to_baseB(T x, int b = 10) {
  * @return 10進数に変換された値 (long long)
  * @example to_base10("1010", 2) -> 10, to_base10("1F", 16) -> 31
  */
-inline long long to_base10(const std::string& x, int b = 10) {
+inline long long to_base10(const std::string& x, long long b = 10) {
   long long ans = 0, base = 1;
-  for (int i = x.length() - 1; i >= 0; --i) {
-    int num = ('0' <= x[i] && x[i] <= '9') ? (x[i] - '0') : (x[i] - 'A' + 10);
+  for (long long i = x.length() - 1; i >= 0; --i) {
+    long long num =
+        ('0' <= x[i] && x[i] <= '9') ? (x[i] - '0') : (x[i] - 'A' + 10);
     ans += base * num;
     base *= b;
   }
@@ -56,11 +77,11 @@ inline long long to_base10(const std::string& x, int b = 10) {
  * @return 2進数表現の文字列
  * @example bin(10) -> "1010", bin(5, 8) -> "00000101"
  */
-inline std::string bin(long long n, int d = -1) {
+inline std::string bin(long long n, long long d = -1) {
   if (n == 0) {
     std::string res = "0";
     if (d >= 0) {
-      while ((int)res.size() < d) res = "0" + res;
+      while ((long long)res.size() < d) res = "0" + res;
     }
     return res;
   }
@@ -71,7 +92,7 @@ inline std::string bin(long long n, int d = -1) {
     n >>= 1;
   }
   if (d >= 0) {
-    while ((int)res.size() < d) res.push_back('0');
+    while ((long long)res.size() < d) res.push_back('0');
   }
   reverse(res.begin(), res.end());
   return res;
