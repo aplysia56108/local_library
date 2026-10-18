@@ -13,13 +13,16 @@
  *
  * @code
  * seg(i) = value;
+ * seg(i) += value;
  * seg(i).apply(value);
  * seg(i).apply_left(value);
  * @endcode
  */
 template <class Tree, class value_type>
 class SegtreeSetter {
- private:
+  friend Tree;
+
+ protected:
   Tree* tree_;
   std::size_t index_;
 
