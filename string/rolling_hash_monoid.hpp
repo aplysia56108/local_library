@@ -15,7 +15,6 @@
  * - op: O(1) 償却（累乗テーブルの拡張を除く）
  * - e: O(1)
  */
-
 template <class T = char>
 struct RollingHashMonoid {
   static constexpr unsigned long long mod = (1ULL << 61) - 1;
