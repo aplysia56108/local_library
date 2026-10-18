@@ -18,6 +18,7 @@
 #include <numeric>
 
 #include "common/monoid.hpp"
+#include "data-structure/btree/bplustree-setter.hpp"
 
 /**
  * @brief B+ tree 上に構築した動的セグメント木。
@@ -563,86 +564,8 @@ class Bplustree_Segtree {
     friend bool operator==(const Iterator&, const Iterator&) = default;
   };
 
-  /**
-   * @brief 1要素を更新するための一時的な Proxy。
-   * @details
-   * `operator()(index)`
-   * から取得し、代入またはモノイド演算による点更新に使用する。
-   *
-   * コピー・ムーブはできず、一時オブジェクトとしてのみ使用できる。
-   *
-   * @code
-   * seg(i) = value;
-   * seg(i).apply(value);
-   * seg(i).apply_left(value);
-   * @endcode
-   */
-  class Setter {
-    friend class Bplustree_Segtree;
-
-   private:
-    Bplustree_Segtree* tree_;
-    std::size_t index_;
-
-    Setter(Bplustree_Segtree* tree, std::size_t index)
-        : tree_(tree), index_(index) {}
-
-   public:
-    Setter(const Setter&) = delete;
-    Setter& operator=(const Setter&) = delete;
-    Setter(Setter&&) = delete;
-    Setter& operator=(Setter&&) = delete;
-
-    /**
-     * @brief index 番目の要素を `value` に置き換える。
-     * @param value 新しい値。
-     *
-     * ### 計算量
-     * O(NodeCapacity log_{NodeCapacity} N)
-     */
-    void operator=(const T& value) && {
-      tree_->set(index_, value);
-    }
-
-    /**
-     * @brief index 番目の要素の右側から `value` を作用させる。
-     * @param value 作用させる値。
-     * @details
-     * 現在値を `x` とすると、`x = Monoid::op(x, value)` と更新する。
-     *
-     * ### 計算量
-     * O(NodeCapacity log_{NodeCapacity} N)
-     */
-    void apply(const T& value) && {
-      tree_->apply_right(index_, value);
-    }
-
-    /**
-     * @brief index 番目の要素の右側から `value` を作用させる。
-     * @param value 作用させる値。
-     * @details
-     * 現在値を `x` とすると、`x = Monoid::op(x, value)` と更新する。
-     *
-     * ### 計算量
-     * O(NodeCapacity log_{NodeCapacity} N)
-     */
-    void apply_right(const T& value) && {
-      tree_->apply_right(index_, value);
-    }
-
-    /**
-     * @brief index 番目の要素の左側から `value` を作用させる。
-     * @param value 作用させる値。
-     * @details
-     * 現在値を `x` とすると、`x = Monoid::op(value, x)` と更新する。
-     *
-     * ### 計算量
-     * O(NodeCapacity log_{NodeCapacity} N)
-     */
-    void apply_left(const T& value) && {
-      tree_->apply_left(index_, value);
-    }
-  };
+ protected:
+  using Setter = SegtreeSetter<Bplustree_Segtree, T>;
 
  public:
   // 値の更新にはsetを経由する必要があるため、更新可能なiteratorは提供しない
@@ -1337,6 +1260,9 @@ class Bplustree_Segtree {
    * ### 計算量
    * O(NodeCapacity log_{NodeCapacity} N)
    */
+  const T& get(std::size_t index) const {
+    return *nth(index);
+  }
   const T& operator[](std::size_t index) const {
     return *nth(index);
   }
