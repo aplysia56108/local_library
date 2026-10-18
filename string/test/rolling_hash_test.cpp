@@ -128,4 +128,10 @@ void solve() {
 
   debug(seg3);
   debug(seg4);
+
+  RollingHashSegtree<long long> seg5({98, 99, 100});
+  RollingHashSegtree seg6("abc");
+
+  debug(seg5);
+  debug(seg6);
 }
