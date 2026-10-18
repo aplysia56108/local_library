@@ -13,89 +13,16 @@
 #include <variant>
 #include <vector>
 
+// debugでlibraryを参照する場合のルール
+// debug と通常ライブラリの定義衝突を回避する。
+// type_check を debug 専用の名前空間に変更して取り込む。
+#define type_check debug_type_check
+#include "utility/type_check.hpp"
+#undef type_check
+
 namespace debug_impl {
 
-// --- コンセプトおよび型判定 ---
-
-template <typename T>
-concept CanOstream = requires(std::ostream& os, const T& val) {
-  { os << val } -> std::same_as<std::ostream&>;
-};
-
-template <typename T>
-concept IsString = std::same_as<std::decay_t<T>, std::string> ||
-                   std::same_as<std::decay_t<T>, const char*> ||
-                   std::same_as<std::decay_t<T>, char*>;
-
-template <typename T>
-struct is_tuple : std::false_type {};
-template <typename... Args>
-struct is_tuple<std::tuple<Args...>> : std::true_type {};
-template <typename T>
-concept IsTuple = is_tuple<std::decay_t<T>>::value;
-
-template <typename T>
-struct is_optional : std::false_type {};
-template <typename T>
-struct is_optional<std::optional<T>> : std::true_type {};
-template <typename T>
-concept IsOptional = is_optional<std::decay_t<T>>::value;
-
-template <typename T>
-struct is_variant : std::false_type {};
-template <typename... Args>
-struct is_variant<std::variant<Args...>> : std::true_type {};
-template <typename T>
-concept IsVariant = is_variant<std::decay_t<T>>::value;
-
-// 2次元 vector 判定
-template <typename T>
-struct is_vector_2d : std::false_type {};
-template <typename U, typename Alloc1, typename Alloc2>
-struct is_vector_2d<std::vector<std::vector<U, Alloc1>, Alloc2>>
-    : std::true_type {};
-template <typename T>
-concept IsVector2D = is_vector_2d<std::decay_t<T>>::value;
-
-// map / unordered_map 判定 (mapped_type と key_type を持つコンテナ)
-template <typename T>
-concept IsMapLike = requires {
-  typename std::decay_t<T>::key_type;
-  typename std::decay_t<T>::mapped_type;
-  typename std::decay_t<T>::value_type;
-};
-
-// queue, priority_queue, stack などのアダプター系コンテナ判定
-template <typename T>
-concept IsContainerAdapter = requires(T a) { a.pop(); };
-
-// AtCoder Library 判定用コンセプト
-template <typename T>
-concept IsAtCoderDSU = std::same_as<std::decay_t<T>, atcoder::dsu>;
-
-template <typename T>
-struct is_fenwick_tree : std::false_type {};
-template <typename U>
-struct is_fenwick_tree<atcoder::fenwick_tree<U>> : std::true_type {};
-template <typename T>
-concept IsAtCoderFenwickTree = is_fenwick_tree<std::decay_t<T>>::value;
-
-template <typename T>
-struct is_segtree : std::false_type {};
-template <class S, S (*op)(S, S), S (*e)()>
-struct is_segtree<atcoder::segtree<S, op, e>> : std::true_type {};
-template <typename T>
-concept IsAtCoderSegtree = is_segtree<std::decay_t<T>>::value;
-
-template <typename T>
-struct is_lazy_segtree : std::false_type {};
-template <class S, S (*op)(S, S), S (*e)(), class F, S (*mapping)(F, S),
-          F (*composition)(F, F), F (*id)()>
-struct is_lazy_segtree<
-    atcoder::lazy_segtree<S, op, e, F, mapping, composition, id>>
-    : std::true_type {};
-template <typename T>
-concept IsAtCoderLazySegtree = is_lazy_segtree<std::decay_t<T>>::value;
+using namespace debug_type_check;
 
 // --- デバッグ出力クラス ---
 class DebugPrinter {
@@ -106,7 +33,7 @@ class DebugPrinter {
 
   template <typename T>
   void print(const T& val) {
-    if constexpr (requires { typename T::io_via_val; }) {
+    if constexpr (IOByVal<T>) {
       print(val.val());
     } else if constexpr (IsString<T>) {
       if constexpr (CanOstream<T>)
@@ -133,16 +60,7 @@ class DebugPrinter {
       print_optional(val);
     } else if constexpr (IsVariant<T>) {
       print_variant(val);
-    } else if constexpr (requires {
-                           typename T::value_type;
-                           requires std::same_as<
-                               T, std::vector<typename T::value_type>>;
-                         }) {
-      print_vector(val);
-    } else if constexpr (requires {
-                           val.first;
-                           val.second;
-                         }) {
+    } else if constexpr (IsPairLike<T>) {
       print_pair(val);
     } else if constexpr (std::ranges::range<T>) {
       print_range(val);
