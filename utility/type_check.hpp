@@ -161,8 +161,10 @@ concept IsArray = is_array<std::remove_cvref_t<T>>::value;
 
 // io_via_val が　タグとして存在する場合、val()を経由して出力する。
 template <class T>
-concept HasIOByValTag =
-    requires { typename std::remove_cvref_t<T>::io_via_val; };
+concept HasIOByValTag = requires(const std::remove_cvref_t<T>& x) {
+  typename std::remove_cvref_t<T>::io_via_val;
+  x.val();
+};
 
 template <class T>
 concept IOByVal = (HasIOByValTag<T> || IsModint<T>);
