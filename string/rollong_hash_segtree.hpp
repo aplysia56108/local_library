@@ -13,8 +13,19 @@ class RollingHashSegtree : public Bplustree_Segtree<RollingHashMonoid<T>> {
   using M = RollingHashMonoid<T>;
   using Base = Bplustree_Segtree<M>;
   using Hash = typename M::value_type;
+  using SetterBase = typename Base::Setter;
+
+  class RHSetter : SetterBase {
+   public:
+    RHSetter(Base* tree, std::size_t index) : SetterBase(tree, index) {}
+    using SetterBase::operator=;
+    void operator=(const T& value) && {
+      this->tree_->set(this->index_, make_rolling_hash_value<T>(value));
+    }
+  };
 
  public:
+  using io_via_val = void;
   using Base::Base;
 
   /**
@@ -25,12 +36,17 @@ class RollingHashSegtree : public Bplustree_Segtree<RollingHashMonoid<T>> {
    */
   template <std::input_iterator InputIt>
   RollingHashSegtree(InputIt first, InputIt last) {
-    if constexpr (std::same_as<std::iter_value_t<InputIt>, Hash>) {
+    using U = std::iter_value_t<InputIt>;
+    if constexpr (std::same_as<U, Hash>) {
       this->assign(first, last);
     } else {
       std::vector<Hash> v;
       for (; first != last; ++first) {
-        v.emplace_back(static_cast<long long>(*first));
+        if constexpr (std::convertible_to<U, T>)
+          v.emplace_back(make_rolling_hash_value<T>(static_cast<T>(*first)));
+        else
+          v.emplace_back(
+              make_rolling_hash_value<T>(static_cast<T>(first->val())));
       }
       this->assign(v.begin(), v.end());
     }
@@ -44,9 +60,27 @@ class RollingHashSegtree : public Bplustree_Segtree<RollingHashMonoid<T>> {
    */
   explicit RollingHashSegtree(const std::string& s)
       : RollingHashSegtree(s.begin(), s.end()) {}
+
+  std::string val() const
+    requires std::same_as<T, char>
+  {
+    std::string out;
+    out.reserve(this->size());
+
+    for (const auto& x : *this) {
+      out.push_back(x.val());
+    }
+    return out;
+  };
+
+ public:
+  RHSetter operator()(std::size_t i) {
+    return {this, i};
+  }
 };
 
 RollingHashSegtree(const std::string&) -> RollingHashSegtree<char>;
 
 template <std::input_iterator InputIt>
-RollingHashSegtree(InputIt, InputIt) -> RollingHashSegtree<char>;
+RollingHashSegtree(InputIt, InputIt)
+    -> RollingHashSegtree<std::iter_value_t<InputIt>>;
