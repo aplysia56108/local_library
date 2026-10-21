@@ -1,5 +1,10 @@
 #include <bits/stdc++.h>
 
+// Allow the debug printer to inspect AtCoder Library internals in this test.
+#define private public
+#include <atcoder/all>
+#undef private
+
 #include <array>
 #include <debug.hpp>
 #include <deque>
@@ -89,13 +94,13 @@ void test_argument_name_parsing() {
   assert(std::string_view(comma) == ", \"a, b\", R\"tag(c, d)tag\", value");
 
   std::ostringstream captured;
-  auto* original_buffer = std::cout.rdbuf(captured.rdbuf());
+  auto* original_buffer = std::cerr.rdbuf(captured.rdbuf());
 
   const auto difference = [](int x, int y) { return y - x; };
   const int value = 42;
   debug(difference(1, 3), "a, b", R"tag(c, d)tag", value);
 
-  std::cout.rdbuf(original_buffer);
+  std::cerr.rdbuf(original_buffer);
   assert(captured.str() ==
          "difference(1, 3): 2, \"a, b\": a, b, "
          "R\"tag(c, d)tag\": c, d, value: 42\n");
