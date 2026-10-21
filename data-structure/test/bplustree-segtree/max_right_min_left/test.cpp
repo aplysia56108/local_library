@@ -204,7 +204,7 @@ void solve() {
     int left = rnd(M + 1);
     int p = rnd(101);
     // left以上で初めてp以上の値が現れる位置
-    auto res = seg.upper_bound(left, [p](auto x) {
+    auto res = seg.max_right(left, [p](auto x) {
       return x < p;
     });
 
@@ -221,7 +221,7 @@ void solve() {
     int right = rnd(M + 1);
     int p = rnd(101);
     // right未満で初めてp以上の値が現れる位置+1
-    auto res = seg.lower_bound(right, [p](auto x) {
+    auto res = seg.min_left(right, [p](auto x) {
       return x < p;
     });
 
