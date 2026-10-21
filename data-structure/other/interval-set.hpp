@@ -59,7 +59,7 @@ class IntervalSet {
     bool color;
 
     /**
-     * @brief 区間に含まれる整数の範囲を開区間 [l, r) として返す。
+     * @brief 区間に含まれる整数の範囲を半開区間 [l, r) として返す。
      * @details
      * 開閉端点を考慮し、整数点を含まない場合は l == r を返す。
      * 変換結果が long long の範囲内に収まることを要求する。

@@ -54,7 +54,7 @@ void fixed_tests() {
   assert(same_point(center.l_end, {2, false}));
   assert(same_point(center.r_end, {2, true}));
   assert(center.color);
-  assert(center.to_int_interval() == std::pair(2LL, 2LL));
+  assert(center.to_int_interval() == std::pair(2LL, 3LL));  // {2} -> [2,3)
 
   st.flip(2, 2, false, false);
   assert(!st.get(2));
@@ -80,12 +80,12 @@ void fixed_tests() {
   State open{{2, true}, {5, false}, true};
   State left_open{{2, true}, {5, true}, true};
   State right_open{{2, false}, {5, false}, true};
-  assert(closed.to_int_interval() == std::pair(2LL, 5LL));
-  assert(open.to_int_interval() == std::pair(3LL, 4LL));
-  assert(left_open.to_int_interval() == std::pair(3LL, 5LL));
-  assert(right_open.to_int_interval() == std::pair(2LL, 4LL));
+  assert(closed.to_int_interval() == std::pair(2LL, 6LL));
+  assert(open.to_int_interval() == std::pair(3LL, 5LL));
+  assert(left_open.to_int_interval() == std::pair(3LL, 6LL));
+  assert(right_open.to_int_interval() == std::pair(2LL, 5LL));
   assert((State{{2, true}, {3, false}, false}.to_int_interval() ==
-          std::pair(3LL, 2LL)));  // (2,3) contains no integer
+          std::pair(3LL, 3LL)));  // (2,3) contains no integer
 
   // A point interval and its boundary behavior.
   Set point;
@@ -110,11 +110,15 @@ void double_tests() {
   auto check = [](DoubleState s, long long l, long long r) {
     assert(s.to_int_interval() == std::make_pair(l, r));
   };
-  check({{2.2, false}, {5.8, true}, true}, 3, 5);
-  check({{2.0, true}, {5.0, false}, true}, 3, 4);
-  check({{2.0, false}, {5.0, false}, true}, 2, 4);
-  check({{-2.5, true}, {2.5, true}, true}, -2, 2);
-  check({{-2.0, true}, {-1.0, false}, true}, -1, -2);
+  check({{2.2, false}, {5.8, true}, true}, 3, 6);
+  check({{2.0, true}, {5.0, false}, true}, 3, 5);
+  check({{2.0, false}, {5.0, false}, true}, 2, 5);
+  check({{2.0, false}, {5.0, true}, true}, 2, 6);
+  check({{2.0, true}, {5.0, true}, true}, 3, 6);
+  check({{-2.5, true}, {2.5, true}, true}, -2, 3);
+  check({{-2.0, true}, {-1.0, false}, true}, -1, -1);
+  check({{2.2, false}, {2.8, true}, true}, 3, 3);
+  check({{2.0, false}, {2.0, true}, true}, 2, 3);
 
   DoubleSet st;
   st.overwrite(true, 1.5, 3.25, true, false);  // (1.5, 3.25]
@@ -122,7 +126,7 @@ void double_tests() {
   assert(!st.get(4.0));
   st.flip(2.0, 2.0, false, false);  // turn only x=2.0 white
   assert(!st.get(2.0) && st.get(2.5));
-  check(st.get_interval_state(2.5), 3, 3);
+  check(st.get_interval_state(2.5), 3, 4);
 }
 
 void random_tests() {
