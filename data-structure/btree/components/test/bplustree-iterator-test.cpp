@@ -40,7 +40,11 @@ void test_tree(int size) {
   auto& root = level[0];
   auto [first, first_index] = root->locate(0);
   auto [last, last_index] = root->locate(size);
-  It begin(first, first_index), end(last, last_index), before(first, -1);
+  auto [before_leaf, before_index] = root->locate(-1);
+  assert(before_leaf == first && before_index == -1);
+  auto lazy_before = root->locate_with_lazy(-1);
+  assert(lazy_before.first == first && lazy_before.second == -1);
+  It begin(first, first_index), end(last, last_index), before(before_leaf, before_index);
   assert(end - begin == size && begin - end == -size);
   assert(begin - before == 1 && before - begin == -1);
   assert(before + 1 == begin && end - size == begin);

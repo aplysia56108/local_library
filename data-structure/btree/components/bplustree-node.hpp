@@ -87,8 +87,10 @@ struct Node {
   }
 
   // 位置に関する遅延評価のみ適用しつつ、Node内のn番目を指すleafとindexを探索する。
+  // -1 は最左Leafの先頭直前、size は最右Leafの末尾を表す。
   std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
-    assert(0 <= index && static_cast<std::size_t>(index) <= size);
+    assert(-1 <= index &&
+           (index == -1 || static_cast<std::size_t>(index) <= size));
     apply_reverse();
     if (is_leaf()) return static_cast<L*>(this)->locate(index);
     return static_cast<I*>(this)->locate(index);
@@ -96,7 +98,8 @@ struct Node {
 
   // 遅延評価をすべて適用しつつ、Node内のn番目を指すleafとindexを探索する。
   std::pair<L*, std::ptrdiff_t> locate_with_lazy(std::ptrdiff_t index) {
-    assert(0 <= index && static_cast<std::size_t>(index) <= size);
+    assert(-1 <= index &&
+           (index == -1 || static_cast<std::size_t>(index) <= size));
     apply_reverse();
     apply_lazy();
     if (is_leaf()) return static_cast<L*>(this)->locate(index);
@@ -205,7 +208,8 @@ struct Leaf : Traits::Node {
   }
 
   std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
-    assert(0 <= index && static_cast<std::size_t>(index) <= this->size);
+    assert(-1 <= index &&
+           (index == -1 || static_cast<std::size_t>(index) <= this->size));
     return {static_cast<L*>(this), index};
   }
 };
@@ -321,7 +325,8 @@ struct Internal : Traits::Node {
 
   /**
    * @brief 部分木内の index 番目の要素の位置を返す。
-   * @param index この Internal を根とする部分木内での 0-indexed の順位。
+   * @param index この Internal を根とする部分木内での順位。[-1, size]。
+   * -1 は最左Leafの先頭直前、size は最右Leafの末尾を表す。
    * @return 要素を格納する Leaf と Leaf 内の位置。
    *
    * ### 計算量
@@ -329,12 +334,14 @@ struct Internal : Traits::Node {
    */
   template <bool WithLazy>
   std::pair<L*, std::ptrdiff_t> locate_impl(std::ptrdiff_t index) {
-    assert(0 <= index && static_cast<std::size_t>(index) <= this->size);
+    assert(-1 <= index &&
+           (index == -1 || static_cast<std::size_t>(index) <= this->size));
     assert(this->count > 0);
     const auto locate_child = [](N* child, std::ptrdiff_t offset) {
       if constexpr (WithLazy) return child->locate_with_lazy(offset);
       else return child->locate(offset);
     };
+    if (index == -1) return locate_child(children[0].get(), -1);
     if (static_cast<std::size_t>(index) == this->size)
       return locate_child(children[this->count - 1].get(),
                           children[this->count - 1]->size);

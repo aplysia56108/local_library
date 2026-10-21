@@ -55,13 +55,20 @@ int main() {
   auto [last, end_index] = node->locate_with_lazy(root.size);
   assert(end_index == 1 && last->values[0] == 11);
 
+  root.pending = 3;
+  auto before = node->locate(-1);
+  assert(before.first == leaf && before.second == -1 && root.pending == 3);
+  auto lazy_before = node->locate_with_lazy(-1);
+  assert(lazy_before == before && root.pending == 0);
+  assert(leaf->values[0] == 13);
+
   using It = Iterator<Node, Leaf, Internal, int, false>;
   using ConstIt = Iterator<Node, Leaf, Internal, int, true>;
   It begin(leaf, 0);
   ConstIt last_it(last, 0);
   root.pending = 7;
-  assert(*begin == 17);  // Dereference must apply pending ancestor updates too.
-  assert(*last_it == 18);
+  assert(*begin == 20);  // Dereference must apply pending ancestor updates too.
+  assert(*last_it == 21);
   *begin = 42;
   assert(*begin == 42);
 }

@@ -40,17 +40,11 @@ class Iterator {
     while (true) {
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node->size)) {
         std::tie(leaf_, index_) =
-            node->locate(static_cast<std::size_t>(to_index));
+            node->locate(to_index);
         return;
       }
       if (node->parent == nullptr) {
-        if (to_index == static_cast<std::ptrdiff_t>(node->size))
-          std::tie(leaf_, index_) = node->locate(node->size);
-        else {
-          assert(to_index == -1);
-          std::tie(leaf_, index_) = node->locate(0);
-          index_ = -1;
-        }
+        std::tie(leaf_, index_) = node->locate(to_index);
         return;
       }
       for (std::size_t i = 0; i < node->position; ++i) {

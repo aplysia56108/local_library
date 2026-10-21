@@ -12,6 +12,10 @@ void test_nodes() {
   using Internal = typename Traits::Internal;
   {
     Leaf leaf;
+    assert(leaf.locate(-1).first == &leaf && leaf.locate(-1).second == -1);
+    Node* empty = &leaf;
+    assert(empty->locate(-1).second == -1 && empty->locate(0).second == 0);
+    assert(empty->locate_with_lazy(-1).second == -1);
     for (std::size_t i = 0; i < Capacity; ++i)
       assert(leaf.insert(static_cast<int>(i), i) == (i + 1 == Capacity));
     auto right = leaf.split();
@@ -37,6 +41,10 @@ void test_nodes() {
       assert(root.insert(std::move(leaf), i) == (i + 1 == Capacity));
     }
     assert(root.count == Capacity && root.size == Capacity && root.level == 1);
+    auto before = root.locate(-1);
+    assert(before.first == root.locate(0).first && before.second == -1);
+    auto lazy_before = root.locate_with_lazy(-1);
+    assert(lazy_before == before);
     root.erase(1);
     assert(root.count == Capacity - 1 && root.size == Capacity - 1);
     assert(!root.children[root.count]);
