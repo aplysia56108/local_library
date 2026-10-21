@@ -44,7 +44,7 @@ jobs:
                 -I. -Idebug -I.deps/ac-library \
                 "$source" -o "$exe" \
                 > "out/tests/${id}.build.log" 2>&1; then
-              if timeout 60s "$exe" \
+              if timeout 60s "$exe" < /dev/null \
                   > "out/tests/${id}.stdout.log" \
                   2> "out/tests/${id}.stderr.log"; then
                 result=PASS
