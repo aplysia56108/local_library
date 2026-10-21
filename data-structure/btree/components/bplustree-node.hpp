@@ -16,12 +16,19 @@
 
 namespace Bplustree {
 
-template <class T, std::size_t kNodeCapasity = 32>
+template <class Traits> struct Node;
+template <class Traits> struct Leaf;
+template <class Traits> struct Internal;
+
+template <class Value, std::size_t Capacity = 32>
 struct Traits {
-  static constexpr std::size_t kNodeHalf = kNodeCapasity / 2;
-  struct Node;
-  struct Leaf;
-  struct Internal;
+  static_assert(Capacity >= 3);
+  using T = Value;
+  static constexpr std::size_t kNodeCapacity = Capacity;
+  static constexpr std::size_t kNodeHalf = Capacity / 2;
+  using Node = Bplustree::Node<Traits>;
+  using Leaf = Bplustree::Leaf<Traits>;
+  using Internal = Bplustree::Internal<Traits>;
 };
 
 enum class NodeKind { kLeaf, kInternal };
@@ -81,7 +88,7 @@ struct Node {
 
   // 位置に関する遅延評価のみ適用しつつ、Node内のn番目を指すleafとindexを探索する。
   std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
-    assert(index <= size);
+    assert(0 <= index && static_cast<std::size_t>(index) <= size);
     apply_reverse();
     if (is_leaf()) return static_cast<L*>(this)->locate(index);
     return static_cast<I*>(this)->locate(index);
@@ -89,11 +96,11 @@ struct Node {
 
   // 遅延評価をすべて適用しつつ、Node内のn番目を指すleafとindexを探索する。
   std::pair<L*, std::ptrdiff_t> locate_with_lazy(std::ptrdiff_t index) {
-    assert(index <= size);
+    assert(0 <= index && static_cast<std::size_t>(index) <= size);
     apply_reverse();
     apply_lazy();
     if (is_leaf()) return static_cast<L*>(this)->locate(index);
-    return static_cast<I*>(this)->locate(index);
+    return static_cast<I*>(this)->locate_with_lazy(index);
   }
 };
 
@@ -105,6 +112,7 @@ struct Leaf : Traits::Node {
   static constexpr std::size_t HalfNodeCap = NodeCap / 2;
   using T = typename Traits::T;
   using N = typename Traits::Node;
+  using L = typename Traits::Leaf;
   using I = typename Traits::Internal;
   inline static long long leaf_count = 0;
   inline static long long peak_leaf_count = 0;
@@ -141,9 +149,10 @@ struct Leaf : Traits::Node {
     return this->count == NodeCap;
   }
 
-  std::unique_ptr<Leaf> split(std::size_t left_count = HalfNodeCap) {
+  std::unique_ptr<L> split(std::size_t left_count = HalfNodeCap) {
+    assert(left_count <= this->count);
     const std::size_t right_count = this->count - left_count;
-    auto right = std::make_unique<Leaf>();
+    auto right = std::make_unique<L>();
 
     right->count = right_count;
     right->size = right_count;
@@ -161,9 +170,9 @@ struct Leaf : Traits::Node {
   }
 
   bool erase(std::size_t index) {
-    assert(this->count < NodeCap);
+    assert(this->count <= NodeCap);
     assert(index < this->count);
-    for (std::size_t i = index + 1; i <= this->count; ++i) {
+    for (std::size_t i = index + 1; i < this->count; ++i) {
       values[i - 1] = std::move(values[i]);
     }
     --this->count;
@@ -195,23 +204,26 @@ struct Leaf : Traits::Node {
     return;
   }
 
-  std::pair<Leaf*, std::size_t> locate(std::size_t index) {
-    return {this, index};
+  std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
+    assert(0 <= index && static_cast<std::size_t>(index) <= this->size);
+    return {static_cast<L*>(this), index};
   }
 };
 
 template <class Traits>
-struct Internal final : Traits::Node {
+struct Internal : Traits::Node {
   static constexpr std::size_t NodeCap = Traits::kNodeCapacity;
   static constexpr std::size_t HalfNodeCap = NodeCap / 2;
   using T = typename Traits::T;
   using N = typename Traits::Node;
   using L = typename Traits::Leaf;
+  using I = typename Traits::Internal;
   inline static long long internal_count = 0;
   inline static long long peak_internal_count = 0;
   std::array<std::unique_ptr<N>, NodeCap> children{};
 
   Internal() : N(NodeKind::kInternal) {
+    this->level = 1;
     ++internal_count;
     peak_internal_count = std::max(peak_internal_count, internal_count);
   }
@@ -223,12 +235,13 @@ struct Internal final : Traits::Node {
     this->size = 0;
     this->count = 0;
     for (std::size_t i = 0; i < NodeCap; ++i) {
-      if (children[i] != nullptr) break;
-      children[i]->parent = this;
+      if (children[i] == nullptr) break;
+      children[i]->parent = static_cast<I*>(this);
       children[i]->position = i;
       this->size += children[i]->size;
       this->count++;
     }
+    this->level = this->count == 0 ? 1 : children[0]->level + 1;
   }
 
   void after_sync() {
@@ -272,9 +285,10 @@ struct Internal final : Traits::Node {
     return this->count == NodeCap;
   }
 
-  std::unique_ptr<Internal> split(std::size_t left_count = HalfNodeCap) {
+  std::unique_ptr<I> split(std::size_t left_count = HalfNodeCap) {
+    assert(left_count <= this->count);
     const std::size_t right_count = this->count - left_count;
-    auto right = std::make_unique<Internal>();
+    auto right = std::make_unique<I>();
 
     right->count = right_count;
 
@@ -292,11 +306,12 @@ struct Internal final : Traits::Node {
   }
 
   bool erase(std::size_t child_index) {
-    assert(this->count < NodeCap);
+    assert(this->count <= NodeCap);
     assert(child_index < this->count);
-    for (std::size_t i = child_index + 1; i <= this->count; ++i) {
+    for (std::size_t i = child_index + 1; i < this->count; ++i) {
       children[i - 1] = std::move(children[i]);
     }
+    children[this->count - 1].reset();
     --this->count;
 
     sync();
@@ -312,34 +327,51 @@ struct Internal final : Traits::Node {
    * ### 計算量
    * O(NodeCapacity log_{NodeCapacity} N)
    */
-  std::pair<L*, std::size_t> locate(std::size_t index) {
-    if (index == this->size)
-      return children[this->count - 1]->locate(children[this->count - 1]->size);
+  template <bool WithLazy>
+  std::pair<L*, std::ptrdiff_t> locate_impl(std::ptrdiff_t index) {
+    assert(0 <= index && static_cast<std::size_t>(index) <= this->size);
+    assert(this->count > 0);
+    const auto locate_child = [](N* child, std::ptrdiff_t offset) {
+      if constexpr (WithLazy) return child->locate_with_lazy(offset);
+      else return child->locate(offset);
+    };
+    if (static_cast<std::size_t>(index) == this->size)
+      return locate_child(children[this->count - 1].get(),
+                          children[this->count - 1]->size);
 
     for (std::size_t i = 0; i < this->count; ++i) {
-      if (index < children[i]->size) {
-        return children[i]->locate(index);
+      if (static_cast<std::size_t>(index) < children[i]->size) {
+        return locate_child(children[i].get(), index);
       }
-      index -= children[i]->size;
+      index -= static_cast<std::ptrdiff_t>(children[i]->size);
     }
     assert(false);
     return {nullptr, 0};
   }
 
+  std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
+    return locate_impl<false>(index);
+  }
+
+  std::pair<L*, std::ptrdiff_t> locate_with_lazy(std::ptrdiff_t index) {
+    return locate_impl<true>(index);
+  }
+
   // indexの左右子ノードをみて、capacityが許すならくっつける。
   void merge_child(std::size_t index) {
+    assert(index < this->count);
     N* left_child = nullptr;
     N* right_child = nullptr;
     std::size_t right_index;
     if (index &&
         children[index - 1]->count + children[index]->count < NodeCap) {
-      left_child = children[index - 1];
-      right_child = children[index];
+      left_child = children[index - 1].get();
+      right_child = children[index].get();
       right_index = index;
     } else if (index + 1 < this->count &&
                children[index + 1]->count + children[index]->count < NodeCap) {
-      left_child = children[index];
-      right_child = children[index + 1];
+      left_child = children[index].get();
+      right_child = children[index + 1].get();
       right_index = index + 1;
     } else
       return;
@@ -349,18 +381,24 @@ struct Internal final : Traits::Node {
     right_child->apply_reverse();
     right_child->apply_lazy();
 
-    if (left_child->is_leaf())
+    assert(left_child->kind == right_child->kind);
+    assert(left_child->level == right_child->level);
+    if (left_child->is_leaf()) {
       for (std::size_t i = 0; i < right_child->count; ++i)
         static_cast<L*>(left_child)->values[left_child->count + i] = std::move(
-            static_cast<L*>(right_child)->values[right_child->count + i]);
-    else
+            static_cast<L*>(right_child)->values[i]);
+      left_child->count += right_child->count;
+      left_child->size = left_child->count;
+      static_cast<L*>(left_child)->after_sync();
+    } else {
       for (std::size_t i = 0; i < right_child->count; ++i)
-        static_cast<Internal*>(right_child)->children[right_child->count + i] =
+        static_cast<Internal*>(left_child)->children[left_child->count + i] =
             std::move(static_cast<Internal*>(right_child)
-                          ->children[right_child->count + i]);
-
-    left_child->sync();
-    left_child->after_sync();
+                          ->children[i]);
+      auto* left = static_cast<Internal*>(left_child);
+      left->sync();
+      left->after_sync();
+    }
 
     erase(right_index);
   };
@@ -368,6 +406,7 @@ struct Internal final : Traits::Node {
   // 端の部分木のchildを再帰的にまとめる。
   // split時に疎なnodeをなるべく作らないための工夫
   void shrink(const bool right_end) {
+    if (this->count == 0) return;
     if (this->count == 1) {
       if (children[0]->is_leaf()) return;
       return static_cast<Internal*>(children[0].get())->shrink(right_end);
@@ -382,22 +421,7 @@ struct Internal final : Traits::Node {
       return static_cast<Internal*>(edge)->shrink(right_end);
     }
 
-    if (left_->is_leaf()) {
-      auto* left = static_cast<L*>(left_);
-      auto* right = static_cast<L*>(right_);
-      for (std::size_t i = 0; i < right->count; ++i)
-        left->keys[i + left->count] = std::move(right->keys[i]);
-      left->count += right->count;
-      left->size += right->size;
-    } else {
-      auto* left = static_cast<Internal*>(left_);
-      auto* right = static_cast<Internal*>(right_);
-      for (std::size_t i = 0; i < right->count; ++i)
-        left->children[i + left->count] = std::move(right->children[i]);
-      left->count += right->count;
-      left->sync();
-    }
-    erase(i + 1);
+    merge_child(i + 1);
 
     if (!left_->is_leaf()) {
       static_cast<Internal*>(left_)->shrink(right_end);
