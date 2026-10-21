@@ -257,7 +257,7 @@ class Bplustree_Set {
      * ### 計算量
      * O(NodeCapacity log_{NodeCapacity} N)
      */
-    std::pair<Leaf*, std::ptrdiff_t> nth(std::size_t index) const {
+    std::pair<Leaf*, std::ptrdiff_t> nth(std::size_t index) {
       assert(index < this->size);
 
       Node* node = this;
