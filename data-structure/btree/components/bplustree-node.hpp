@@ -89,6 +89,7 @@ struct Node {
   // 位置に関する遅延評価のみ適用しつつ、Node内のn番目を指すleafとindexを探索する。
   // -1 は最左Leafの先頭直前、size は最右Leafの末尾を表す。
   std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
+    assert(count < Traits::kNodeCapacity);
     assert(-1 <= index &&
            (index == -1 || static_cast<std::size_t>(index) <= size));
     apply_reverse();
@@ -98,6 +99,7 @@ struct Node {
 
   // 遅延評価をすべて適用しつつ、Node内のn番目を指すleafとindexを探索する。
   std::pair<L*, std::ptrdiff_t> locate_with_lazy(std::ptrdiff_t index) {
+    assert(count < Traits::kNodeCapacity);
     assert(-1 <= index &&
            (index == -1 || static_cast<std::size_t>(index) <= size));
     apply_reverse();
@@ -109,8 +111,10 @@ struct Node {
 
 template <class Traits>
 struct Leaf : Traits::Node {
-  // Nodecapの考え方について。
-  // ここでは、NodeCapはleafやNodeのcapasityであるが、満杯になったら必ず外でsplitを呼ぶことで、内部状態としてはNodeCap-1を保つことにする。この仕様は、split処理を分離するためである。
+  // Leaf / Internal とも、通常状態では count < NodeCap を保つ。
+  // insert が true を返した直後だけ count == NodeCap になり、
+  // 呼び出し側は他の操作を行う前に必ず split する。
+  // split は両側を count < NodeCap に戻す。空き1枠は挿入時の一時領域。
   static constexpr std::size_t NodeCap = Traits::kNodeCapacity;
   static constexpr std::size_t HalfNodeCap = NodeCap / 2;
   using T = typename Traits::T;
@@ -153,7 +157,9 @@ struct Leaf : Traits::Node {
   }
 
   std::unique_ptr<L> split(std::size_t left_count = HalfNodeCap) {
+    assert(this->count <= NodeCap);
     assert(left_count <= this->count);
+    assert(left_count < NodeCap && this->count - left_count < NodeCap);
     const std::size_t right_count = this->count - left_count;
     auto right = std::make_unique<L>();
 
@@ -173,7 +179,7 @@ struct Leaf : Traits::Node {
   }
 
   bool erase(std::size_t index) {
-    assert(this->count <= NodeCap);
+    assert(this->count < NodeCap);
     assert(index < this->count);
     for (std::size_t i = index + 1; i < this->count; ++i) {
       values[i - 1] = std::move(values[i]);
@@ -208,6 +214,7 @@ struct Leaf : Traits::Node {
   }
 
   std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
+    assert(this->count < NodeCap);
     assert(-1 <= index &&
            (index == -1 || static_cast<std::size_t>(index) <= this->size));
     return {static_cast<L*>(this), index};
@@ -236,6 +243,7 @@ struct Internal : Traits::Node {
   }
 
   void sync() {
+    // insert / split の内部処理でも使うため、満杯の一時状態も同期する。
     this->size = 0;
     this->count = 0;
     for (std::size_t i = 0; i < NodeCap; ++i) {
@@ -290,7 +298,9 @@ struct Internal : Traits::Node {
   }
 
   std::unique_ptr<I> split(std::size_t left_count = HalfNodeCap) {
+    assert(this->count <= NodeCap);
     assert(left_count <= this->count);
+    assert(left_count < NodeCap && this->count - left_count < NodeCap);
     const std::size_t right_count = this->count - left_count;
     auto right = std::make_unique<I>();
 
@@ -310,7 +320,7 @@ struct Internal : Traits::Node {
   }
 
   bool erase(std::size_t child_index) {
-    assert(this->count <= NodeCap);
+    assert(this->count < NodeCap);
     assert(child_index < this->count);
     for (std::size_t i = child_index + 1; i < this->count; ++i) {
       children[i - 1] = std::move(children[i]);
@@ -336,7 +346,7 @@ struct Internal : Traits::Node {
   std::pair<L*, std::ptrdiff_t> locate_impl(std::ptrdiff_t index) {
     assert(-1 <= index &&
            (index == -1 || static_cast<std::size_t>(index) <= this->size));
-    assert(this->count > 0);
+    assert(0 < this->count && this->count < NodeCap);
     const auto locate_child = [](N* child, std::ptrdiff_t offset) {
       if constexpr (WithLazy) return child->locate_with_lazy(offset);
       else return child->locate(offset);
@@ -366,7 +376,11 @@ struct Internal : Traits::Node {
 
   // indexの左右子ノードをみて、capacityが許すならくっつける。
   void merge_child(std::size_t index) {
+    assert(this->count < NodeCap);
     assert(index < this->count);
+    assert(children[index]->count < NodeCap);
+    if (index > 0) assert(children[index - 1]->count < NodeCap);
+    if (index + 1 < this->count) assert(children[index + 1]->count < NodeCap);
     N* left_child = nullptr;
     N* right_child = nullptr;
     std::size_t right_index;
@@ -413,6 +427,7 @@ struct Internal : Traits::Node {
   // 端の部分木のchildを再帰的にまとめる。
   // split時に疎なnodeをなるべく作らないための工夫
   void shrink(const bool right_end) {
+    assert(this->count < NodeCap);
     if (this->count == 0) return;
     if (this->count == 1) {
       if (children[0]->is_leaf()) return;

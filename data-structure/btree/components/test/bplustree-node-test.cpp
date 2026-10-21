@@ -20,6 +20,7 @@ void test_nodes() {
       assert(leaf.insert(static_cast<int>(i), i) == (i + 1 == Capacity));
     auto right = leaf.split();
     assert(leaf.count + right->count == Capacity);
+    assert(leaf.count < Capacity && right->count < Capacity);
     for (std::size_t i = 0; i < right->count; ++i)
       assert(right->values[i] == static_cast<int>(leaf.count + i));
     leaf.erase(0);
@@ -27,9 +28,10 @@ void test_nodes() {
   }
   {
     Leaf leaf;
-    for (std::size_t i = 0; i < Capacity; ++i) leaf.insert(i, i);
-    leaf.erase(0);  // A full node can exist until the caller splits it.
-    assert(leaf.count == Capacity - 1);
+    for (std::size_t i = 0; i < Capacity - 1; ++i)
+      assert(!leaf.insert(i, i));
+    leaf.erase(0);  // erase is only valid in the stable, non-full state.
+    assert(leaf.count == Capacity - 2);
     for (std::size_t i = 0; i < leaf.count; ++i)
       assert(leaf.values[i] == static_cast<int>(i + 1));
   }
@@ -40,21 +42,36 @@ void test_nodes() {
       leaf->insert(static_cast<int>(i), 0);
       assert(root.insert(std::move(leaf), i) == (i + 1 == Capacity));
     }
-    assert(root.count == Capacity && root.size == Capacity && root.level == 1);
+    // Full insertions must be split before locate / erase / merge / shrink.
+    auto right = root.split();
+    assert(root.count < Capacity && right->count < Capacity);
+    assert(root.count + right->count == Capacity);
+    assert(root.size + right->size == Capacity);
+    for (std::size_t i = 0; i < right->count; ++i)
+      assert(right->children[i]->parent == right.get());
+  }
+  {
+    Internal root;
+    for (std::size_t i = 0; i < Capacity - 1; ++i) {
+      auto leaf = std::make_unique<Leaf>();
+      leaf->insert(static_cast<int>(i), 0);
+      assert(!root.insert(std::move(leaf), i));
+    }
+    assert(root.count == Capacity - 1 && root.size == Capacity - 1 && root.level == 1);
     auto before = root.locate(-1);
     assert(before.first == root.locate(0).first && before.second == -1);
     auto lazy_before = root.locate_with_lazy(-1);
     assert(lazy_before == before);
     root.erase(1);
-    assert(root.count == Capacity - 1 && root.size == Capacity - 1);
+    assert(root.count == Capacity - 2 && root.size == Capacity - 2);
     assert(!root.children[root.count]);
     for (std::size_t i = 0; i < root.count; ++i) {
       assert(root.children[i]->parent == &root && root.children[i]->position == i);
       assert(root.locate(i).first->values[0] == static_cast<int>(i + (i >= 1)));
     }
     auto right = root.split(1);
-    assert(root.count == 1 && right->count == Capacity - 2);
-    assert(root.size + right->size == Capacity - 1);
+    assert(root.count == 1 && right->count == Capacity - 3);
+    assert(root.size + right->size == Capacity - 2);
     for (std::size_t i = 0; i < right->count; ++i)
       assert(right->children[i]->parent == right.get());
   }
@@ -102,6 +119,24 @@ void test_nodes() {
     root.erase(0);
     assert(root.count == 0 && root.size == 0);
     root.shrink(false);
+  }
+  for (std::size_t total : {Capacity - 1, Capacity}) {
+    Internal root;
+    auto left = std::make_unique<Leaf>();
+    left->insert(0, 0);
+    root.insert(std::move(left), 0);
+    auto right = std::make_unique<Leaf>();
+    for (std::size_t i = 1; i < total; ++i)
+      assert(!right->insert(static_cast<int>(i), i - 1));
+    root.insert(std::move(right), 1);
+    root.merge_child(0);
+    // A merge may use NodeCap-1 entries, but may not fill the final slot.
+    assert(root.count == (total < Capacity ? 1u : 2u));
+    assert(root.size == total);
+    for (std::size_t i = 0; i < total; ++i) {
+      auto [leaf, index] = root.locate(i);
+      assert(leaf->count < Capacity && leaf->values[index] == static_cast<int>(i));
+    }
   }
   assert(Node::live_nodes == 0 && Leaf::leaf_count == 0 && Internal::internal_count == 0);
 }
