@@ -1,0 +1,87 @@
+name: Linux tests
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    container: gcc:14
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch AtCoder Library
+        shell: bash
+        run: |
+          git clone https://github.com/atcoder/ac-library .deps/ac-library
+          git -C .deps/ac-library checkout --detach \
+            864245a00b00dd008d1abfdc239618fdb7d139da
+
+      - name: Compile and run tests
+        shell: bash
+        run: |
+          mkdir -p out/tests
+          g++ --version | tee out/tests/compiler.txt
+          printf '| Test | Result |\n| --- | --- |\n' \
+            >> "$GITHUB_STEP_SUMMARY"
+
+          total=0
+          failed=0
+
+          while IFS= read -r -d '' source; do
+            total=$((total + 1))
+            id="${source//\//_}"
+            exe="out/tests/${id}.exe"
+            result=PASS
+
+            if g++ -std=c++23 -O2 -g -Wall -Wextra \
+                -I. -Idebug -I.deps/ac-library \
+                "$source" -o "$exe" \
+                > "out/tests/${id}.build.log" 2>&1; then
+              if timeout 60s "$exe" < /dev/null \
+                  > "out/tests/${id}.stdout.log" \
+                  2> "out/tests/${id}.stderr.log"; then
+                result=PASS
+              else
+                code=$?
+                result="RUN FAIL (exit ${code})"
+              fi
+            else
+              result="BUILD FAIL"
+            fi
+
+            if [[ "$result" != PASS ]]; then
+              failed=$((failed + 1))
+            fi
+
+            printf '%s %s\n' "$result" "$source"
+            printf '| `%s` | %s |\n' "$source" "$result" \
+              >> "$GITHUB_STEP_SUMMARY"
+          done < <(
+            find . \
+              \( -path './.git' -o -path './.deps' -o -path './out' \) \
+              -prune -o \
+              -type f -name '*.cpp' \
+              \( -path '*/test/*' -o -path '*/debug_test/*' \) \
+              ! -name '*generator*' -print0 \
+              | sort -z
+          )
+
+          echo "$((total - failed))/${total} passed" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+          [[ "$total" -gt 0 && "$failed" -eq 0 ]]
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-test-logs
+          path: out/tests/
+          retention-days: 14
