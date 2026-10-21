@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "string/rolling_hash_monoid.hpp"
+#include "string/rolling-hash-monoid.hpp"
 #include "data-structure/btree/bplustree-segtree.hpp"
 
 template <class T = char>

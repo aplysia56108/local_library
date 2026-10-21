@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "string/rolling_hash_monoid.hpp"
+#include "string/rolling-hash-monoid.hpp"
 
 /**
  * @brief 累積ハッシュによる静的ローリングハッシュ
