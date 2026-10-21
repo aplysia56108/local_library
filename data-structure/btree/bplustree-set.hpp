@@ -19,6 +19,8 @@ enum class SetType { Set, MultiSet };
 template <class Key = long long, SetType Type = SetType::Set,
           class Compare = std::less<Key>, std::size_t NodeCapacity = 64>
 class Bplustree_Set {
+  friend struct BplustreeSetTestAccess;
+
   static_assert(NodeCapacity >= 3);
   static_assert(std::default_initializable<Key>);
 
