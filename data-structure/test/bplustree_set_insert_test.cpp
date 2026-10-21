@@ -9,6 +9,26 @@
 #include <set>
 #include <vector>
 
+// Keep structural checks in the test without exposing tree internals publicly.
+struct BplustreeSetTestAccess {
+  template <class Tree>
+  using Node = typename Tree::Node;
+  template <class Tree>
+  using Leaf = typename Tree::Leaf;
+  template <class Tree>
+  using Internal = typename Tree::Internal;
+
+  template <class Tree>
+  static constexpr std::size_t capacity = Tree::kNodeCapacity;
+
+  template <class Tree>
+  static auto root(Tree& tree) { return tree.header_.root_.get(); }
+  template <class Tree>
+  static auto first_leaf(Tree& tree) { return tree.header_.first_leaf_; }
+  template <class Tree>
+  static auto last_leaf(Tree& tree) { return tree.header_.last_leaf_; }
+};
+
 #define CHECK(expr)                                                    \
   do {                                                                 \
     if (!(expr)) {                                                     \
@@ -18,26 +38,26 @@
     }                                                                  \
   } while (false)
 
-// begin(), end(), bbegin() がまだないため、テスト用に直接作る。
+// Use the public iterator aliases and factory methods.
 template <class Tree>
-typename Tree::Iterator begin_it(Tree& tree) {
+typename Tree::iterator begin_it(Tree& tree) {
   return tree.begin();
 }
 
 template <class Tree>
-typename Tree::Iterator end_it(Tree& tree) {
+typename Tree::iterator end_it(Tree& tree) {
   return tree.end();
 }
 
 template <class Tree>
-typename Tree::Iterator bbegin_it(Tree& tree) {
+typename Tree::iterator bbegin_it(Tree& tree) {
   return tree.bbegin();
 }
 
 // Node 以下の内部不変条件を再帰的に確認する。
 template <class Tree>
-std::size_t validate_node(Tree& tree, typename Tree::Node* node,
-                          typename Tree::Internal* expected_parent,
+std::size_t validate_node(Tree& tree, BplustreeSetTestAccess::Node<Tree>* node,
+                          BplustreeSetTestAccess::Internal<Tree>* expected_parent,
                           std::size_t expected_position, std::size_t depth,
                           std::size_t& leaf_depth) {
   CHECK(node != nullptr);
@@ -48,17 +68,17 @@ std::size_t validate_node(Tree& tree, typename Tree::Node* node,
   }
 
   CHECK(node->count > 0);
-  CHECK(node->count < Tree::kNodeCapacity);
+  CHECK(node->count < BplustreeSetTestAccess::capacity<Tree>);
   CHECK(node->min_key != nullptr);
 
   if (node->is_leaf()) {
-    auto* leaf = static_cast<typename Tree::Leaf*>(node);
+    auto* leaf = static_cast<BplustreeSetTestAccess::Leaf<Tree>*>(node);
 
     CHECK(node->size == node->count);
     CHECK(node->min_key == &leaf->keys[0]);
 
     for (std::size_t i = 1; i < leaf->count; ++i) {
-      CHECK(!tree.compare_(leaf->keys[i], leaf->keys[i - 1]));
+      CHECK(!tree.key_comp()(leaf->keys[i], leaf->keys[i - 1]));
     }
 
     if (leaf_depth == std::numeric_limits<std::size_t>::max()) {
@@ -70,7 +90,7 @@ std::size_t validate_node(Tree& tree, typename Tree::Node* node,
     return node->size;
   }
 
-  auto* internal = static_cast<typename Tree::Internal*>(node);
+  auto* internal = static_cast<BplustreeSetTestAccess::Internal<Tree>*>(node);
 
   CHECK(node->min_key == internal->children[0]->min_key);
 
@@ -80,7 +100,7 @@ std::size_t validate_node(Tree& tree, typename Tree::Node* node,
     CHECK(internal->children[i] != nullptr);
 
     if (i > 0) {
-      CHECK(!tree.compare_(*internal->children[i]->min_key,
+      CHECK(!tree.key_comp()(*internal->children[i]->min_key,
                            *internal->children[i - 1]->min_key));
     }
 
@@ -89,7 +109,8 @@ std::size_t validate_node(Tree& tree, typename Tree::Node* node,
   }
 
   // 有効範囲外は nullptr であることも確認する。
-  for (std::size_t i = internal->count; i < Tree::kNodeCapacity; ++i) {
+  for (std::size_t i = internal->count;
+       i < BplustreeSetTestAccess::capacity<Tree>; ++i) {
     CHECK(internal->children[i] == nullptr);
   }
 
@@ -103,9 +124,9 @@ template <class Tree>
 std::vector<int> validate_leaf_links(Tree& tree) {
   std::vector<int> values;
 
-  auto* leaf = tree.header_.begin_leaf_;
-  typename Tree::Leaf* prev = nullptr;
-  typename Tree::Leaf* last = nullptr;
+  auto* leaf = BplustreeSetTestAccess::first_leaf(tree);
+  BplustreeSetTestAccess::Leaf<Tree>* prev = nullptr;
+  BplustreeSetTestAccess::Leaf<Tree>* last = nullptr;
 
   std::size_t leaf_count = 0;
 
@@ -128,46 +149,52 @@ std::vector<int> validate_leaf_links(Tree& tree) {
     leaf = leaf->next;
 
     // link が循環していた場合に無限ループしないため。
-    CHECK(++leaf_count <= tree.size_ + 1);
+    CHECK(++leaf_count <= tree.size() + 1);
   }
 
-  CHECK(last == tree.header_.end_leaf_);
-  CHECK(tree.header_.end_leaf_->next == nullptr);
+  CHECK(last == BplustreeSetTestAccess::last_leaf(tree));
+  CHECK(last->next == nullptr);
 
   // 逆方向も確認する。
-  auto* current = tree.header_.end_leaf_;
-  typename Tree::Leaf* next = nullptr;
+  auto* current = BplustreeSetTestAccess::last_leaf(tree);
+  BplustreeSetTestAccess::Leaf<Tree>* next = nullptr;
+  std::size_t reverse_leaf_count = 0;
 
   while (current != nullptr) {
     CHECK(current->next == next);
     next = current;
     current = current->prev;
+    CHECK(++reverse_leaf_count <= leaf_count);
   }
 
-  CHECK(next == tree.header_.begin_leaf_);
+  CHECK(next == BplustreeSetTestAccess::first_leaf(tree));
+  CHECK(reverse_leaf_count == leaf_count);
 
   return values;
 }
 
 template <class Tree, class Ref>
 void check_tree_equals(Tree& tree, const Ref& ref) {
-  CHECK(tree.size_ == ref.size());
+  CHECK(tree.size() == ref.size());
+  auto* root = BplustreeSetTestAccess::root(tree);
+  CHECK(root != nullptr);
+  CHECK(root->parent == nullptr);
+  CHECK(root->size == tree.size());
 
   if (ref.empty()) {
-    CHECK(tree.header_.root_ == nullptr);
-    CHECK(tree.header_.begin_leaf_ == nullptr);
-    CHECK(tree.header_.end_leaf_ == nullptr);
+    CHECK(root->is_leaf());
+    CHECK(root->count == 0);
+    CHECK(root == BplustreeSetTestAccess::first_leaf(tree));
+    CHECK(root == BplustreeSetTestAccess::last_leaf(tree));
+    CHECK(validate_leaf_links(tree).empty());
+    CHECK(tree.begin() == tree.end());
     return;
   }
 
-  CHECK(tree.header_.root_ != nullptr);
-  CHECK(tree.header_.root_->parent == nullptr);
-  CHECK(tree.header_.root_->size == tree.size_);
-
   std::size_t leaf_depth = std::numeric_limits<std::size_t>::max();
 
-  CHECK(validate_node(tree, tree.header_.root_.get(), nullptr, 0, 0,
-                      leaf_depth) == tree.size_);
+  CHECK(validate_node(tree, root, nullptr, 0, 0,
+                      leaf_depth) == tree.size());
 
   const auto actual = validate_leaf_links(tree);
   const std::vector<int> expected(ref.begin(), ref.end());
@@ -292,7 +319,7 @@ void check_iterators(Tree& tree, const Ref& ref) {
   CHECK(end - bbegin == static_cast<std::ptrdiff_t>(expected.size()) + 1);
 
   // 各位置の Iterator を ++ だけで作る。
-  std::vector<typename Tree::Iterator> positions;
+  std::vector<typename Tree::iterator> positions;
 
   positions.push_back(begin);
 
@@ -336,6 +363,8 @@ void deterministic_set_test() {
   Tree tree;
   std::set<int> ref;
 
+  check_tree_equals(tree, ref);
+
   // 順番を崩し、左右両方向の split を多数発生させる。
   const std::vector<int> values = {
       30, 10, 50, 20, 40, 60, 5,  15, 25, 35, 45, 55, 65, 1,
@@ -372,6 +401,8 @@ void deterministic_multiset_test() {
 
   Tree tree;
   std::multiset<int> ref;
+
+  check_tree_equals(tree, ref);
 
   // 同じ値が Leaf 境界を跨ぐケースを重点的に作る。
   const std::vector<int> values = {
