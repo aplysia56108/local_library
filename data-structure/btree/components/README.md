@@ -2,8 +2,9 @@
 
 `Bplustree::Base<Traits, IsReversible = false>` は位置で操作する木の基盤です。
 node・iteratorの実装を再利用し、rootのみを所有します。sizeとlevelはrootの
-metadataを参照します。既存の公開 `Bplustree_Vector` / Set / Segtreeはまだ
-このBaseへ移行していません。
+metadataを参照します。公開 `Bplustree_Set` / `Bplustree_Segtree` /
+`Bplustree_LazySegtree` はこのBaseを使います。`Bplustree_Vector` は従来の
+独立した実装です。
 
 ```cpp
 using Sequence = Bplustree::Base<Bplustree::Traits<long long, 32>, true>;
@@ -94,3 +95,56 @@ resizeによる追加は点挿入を繰り返します。連続した削除で�
 
 test/にはvectorとの操作列比較、Setの安全なAPI公開例、加算・区間和の遅延拡張、
 文字列連結の非可換集約と反転、setterの作用型・制約の回帰テストがあります。
+
+## 公開コンテナ
+
+従来のヘッダ、テンプレート引数、`BSet` / `BMultiSet` / `BSegtree` /
+`BLazySegtree` などのエイリアスとfactoryはそのまま利用できます。
+
+`Bplustree_Set<Key, Type, Compare, NodeCapacity>` はprotected継承し、位置指定の
+書き込みや反転を公開しません。派生Traitsが部分木の最小キーへの参照を保持し、
+`lower_bound` / `upper_bound` は比較器を使って1経路だけを探索します。
+`SetType::MultiSet` は重複を保持し、`erase(key, true)` は1要素だけ削除します。
+`min_ge` / `min_gt` の該当要素がない場合は `end()`、`max_lt` / `max_le` は
+`bbegin()` を返します。範囲構築はソート済みならO(N)、それ以外はO(N log N)です。
+コピー・move・swapでは比較器も引き継ぎます。move元の比較器について保証する
+操作は従来どおり破棄と再代入です。
+
+`components/bplustree-aggregate.hpp` の `AggregateTraits` / `AggregateTree` は
+SegtreeとLazySegtreeで共用します。公開コンテナはCRTPの派生型として、setterと
+`split` の戻り値に自身の型を保ちます。順方向と逆方向の集約を持つため、非可換
+モノイドでも `reverse` / `reverse_prod` / 境界探索が使えます。
+
+```cpp
+SumSegtree seg{1, 2, 3};
+seg(1).prod(5);          // Monoid::op(2, 5)
+seg.reverse(0, 3);
+auto suffix = seg.split(1);
+seg.merge(suffix);      // suffixは空になる
+auto sum = seg.prod(0, seg.size());
+
+AddSumLazySegtree lazy{1, 2, 3};
+lazy.apply(0, 2, 10);   // 区間作用
+lazy(2).apply(4);       // 点作用
+lazy.all_apply(1);      // 全体作用
+```
+
+サイズだけを指定する構築・`assign`・`resize` は `Monoid::e()` を補充します。
+点のモノイド更新は `prod_right` / `prod_left`、Segtreeの従来の名前
+`apply_right` / `apply_left` でも利用できます。setterの `.prod()` は右積、
+LazySegtreeの `.apply()` は `Action::action_type` による作用です。
+
+LazySegtreeでは `Action::mapping(f, x, size)` がモノイドの区間積に作用し、
+`Action::composition(f, g)` はgの後にfを適用します。mappingは区間の結合と
+整合し、反転した積にも適用できる必要があります。`ReverseInvariant = true` は
+区間積が反転で変わらない場合に指定します。作用は任意の型を使用でき、単位作用や
+等価比較は不要です。空区間の更新は何もしません。
+
+`prod` / `reverse_prod` / `max_right` / `min_left` / 区間作用は、モノイド演算と
+mapping・composition・述語がO(1)ならO(NodeCapacity × 木の高さ)です。
+`all_prod` / `all_apply` はO(1)です。境界探索の述語は区間を拡張するとtrueから
+falseへ高々1回変わるものとし、空区間の単位元には呼び出しません。
+`right_bound` / `left_bound` は `max_right` / `min_left` の別名です。
+
+`data-structure/test/bplustree_aggregate_test.cpp` で容量3/4/15/64、遅延タグを残した
+構造変更、非可換積、作用合成、コピー・move、比較器と重複キーを照合検証します。
