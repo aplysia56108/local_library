@@ -43,6 +43,7 @@ struct Node {
   std::size_t size = 0;
   std::size_t count = 0;
   std::size_t level = 0;
+  bool is_reversed = false;
   const NodeKind kind;
 
   inline static long long live_nodes = 0;
@@ -151,7 +152,7 @@ struct Leaf : Traits::Node {
     ++this->count;
     ++this->size;
 
-    after_sync();
+    static_cast<L*>(this)->after_sync();
 
     return this->count == NodeCap;
   }
@@ -172,7 +173,7 @@ struct Leaf : Traits::Node {
     this->count = left_count;
     this->size = left_count;
 
-    after_sync();
+    static_cast<L*>(this)->after_sync();
     right->after_sync();
 
     return right;
@@ -187,19 +188,22 @@ struct Leaf : Traits::Node {
     --this->count;
     --this->size;
 
-    after_sync();
+    static_cast<L*>(this)->after_sync();
     return this->count == 0;
   }
 
   // reverseなど、位置を変更するような遅延伝搬について、実際に位置を変更する。
   // その後何らかの処理のあと、子Node全てにpushする想定。
   void apply_reverse() {
-    return;
+    if (!this->is_reversed) return;
+    std::reverse(values.begin(), values.begin() + this->count);
+    this->is_reversed = false;
+    static_cast<L*>(this)->after_sync();
   }
 
   // reverseなど、位置を変更するような遅延伝搬のフラグをつける。実際の位置は変更しない。
   void push_reverse() {
-    return;
+    this->is_reversed = !this->is_reversed;
   }
 
   // 位置を変更しない遅延伝搬について、実際に適用する。
@@ -263,12 +267,17 @@ struct Internal : Traits::Node {
   // reverseなど、位置を変更するような遅延伝搬について、実際に位置を変更する。
   // その後子Node全てにpushする。
   void apply_reverse() {
-    return;
+    if (!this->is_reversed) return;
+    std::reverse(children.begin(), children.begin() + this->count);
+    this->is_reversed = false;
+    for (std::size_t i = 0; i < this->count; ++i) children[i]->push_reverse();
+    sync();
+    static_cast<I*>(this)->after_sync();
   }
 
   // reverseなど、位置を変更するような遅延伝搬のフラグをつける。実際の位置は変更しない。
   void push_reverse() {
-    return;
+    this->is_reversed = !this->is_reversed;
   }
 
   // 位置を変更しない遅延伝搬について、実際に適用する。
@@ -293,7 +302,7 @@ struct Internal : Traits::Node {
     children[child_index] = std::move(child);
 
     sync();
-    after_sync();
+    static_cast<I*>(this)->after_sync();
     return this->count == NodeCap;
   }
 
@@ -312,7 +321,7 @@ struct Internal : Traits::Node {
     this->count = left_count;
 
     sync();
-    after_sync();
+    static_cast<I*>(this)->after_sync();
     right->sync();
     right->after_sync();
 
@@ -329,7 +338,7 @@ struct Internal : Traits::Node {
     --this->count;
 
     sync();
-    after_sync();
+    static_cast<I*>(this)->after_sync();
     return this->count == 0;
   }
 
@@ -413,10 +422,10 @@ struct Internal : Traits::Node {
       static_cast<L*>(left_child)->after_sync();
     } else {
       for (std::size_t i = 0; i < right_child->count; ++i)
-        static_cast<Internal*>(left_child)->children[left_child->count + i] =
-            std::move(static_cast<Internal*>(right_child)
+        static_cast<I*>(left_child)->children[left_child->count + i] =
+            std::move(static_cast<I*>(right_child)
                           ->children[i]);
-      auto* left = static_cast<Internal*>(left_child);
+      auto* left = static_cast<I*>(left_child);
       left->sync();
       left->after_sync();
     }

@@ -208,5 +208,5 @@ void solve() {
     cerr << "Query " << i_ << " is OK." << endl;
   }
 
-  cerr << "All query passed." << endl;
+  cout << "All query passed." << endl;
 }
