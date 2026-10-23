@@ -16,9 +16,12 @@
 
 namespace Bplustree {
 
-template <class Traits> struct Node;
-template <class Traits> struct Leaf;
-template <class Traits> struct Internal;
+template <class Traits>
+struct Node;
+template <class Traits>
+struct Leaf;
+template <class Traits>
+struct Internal;
 
 template <class Value, std::size_t Capacity = 32>
 struct Traits {
@@ -40,10 +43,6 @@ struct Node {
 
   I* parent = nullptr;
   std::size_t position = 0;
-  std::size_t size = 0;
-  std::size_t count = 0;
-  std::size_t level = 0;
-  bool is_reversed = false;
   const NodeKind kind;
 
   inline static long long live_nodes = 0;
@@ -60,74 +59,21 @@ struct Node {
   bool is_leaf() const {
     return kind == NodeKind::kLeaf;
   }
-
-  // reverseなど、位置を変更するような遅延伝搬について、実際に位置を変更する。
-  // その後何らかの処理のあと、子Node全てにpushする想定。
-  void apply_reverse() {
-    if (is_leaf()) return static_cast<L*>(this)->apply_reverse();
-    static_cast<I*>(this)->apply_reverse();
-  }
-
-  // reverseなど、位置を変更するような遅延伝搬のフラグをつける。実際の位置は変更しない。
-  void push_reverse() {
-    if (is_leaf()) return static_cast<L*>(this)->push_reverse();
-    static_cast<I*>(this)->push_reverse();
-  }
-
-  // 位置を変更しない遅延伝搬について、実際に適用する。
-  // その後何らかの処理のあと、子Node全てにpushする想定。
-  void apply_lazy() {
-    if (is_leaf()) return static_cast<L*>(this)->apply_lazy();
-    static_cast<I*>(this)->apply_lazy();
-  }
-
-  // 位置を変更しないような遅延伝搬のフラグをつける。実際には適用しない。
-  void push_lazy() {
-    if (is_leaf()) return static_cast<L*>(this)->push_lazy();
-    static_cast<I*>(this)->push_lazy();
-  }
-
-  // 位置に関する遅延評価のみ適用しつつ、Node内のn番目を指すleafとindexを探索する。
-  // -1 は最左Leafの先頭直前、size は最右Leafの末尾を表す。
-  std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
-    assert(count < Traits::kNodeCapacity);
-    assert(-1 <= index &&
-           (index == -1 || static_cast<std::size_t>(index) <= size));
-    apply_reverse();
-    if (is_leaf()) return static_cast<L*>(this)->locate(index);
-    return static_cast<I*>(this)->locate(index);
-  }
-
-  // 遅延評価をすべて適用しつつ、Node内のn番目を指すleafとindexを探索する。
-  std::pair<L*, std::ptrdiff_t> locate_with_lazy(std::ptrdiff_t index) {
-    assert(count < Traits::kNodeCapacity);
-    assert(-1 <= index &&
-           (index == -1 || static_cast<std::size_t>(index) <= size));
-    apply_reverse();
-    apply_lazy();
-    if (is_leaf()) return static_cast<L*>(this)->locate(index);
-    return static_cast<I*>(this)->locate_with_lazy(index);
-  }
 };
 
 template <class Traits>
 struct Leaf : Traits::Node {
-  // Leaf / Internal とも、通常状態では count < NodeCap を保つ。
-  // insert が true を返した直後だけ count == NodeCap になり、
-  // 呼び出し側は他の操作を行う前に必ず split する。
-  // split は両側を count < NodeCap に戻す。空き1枠は挿入時の一時領域。
-  static constexpr std::size_t NodeCap = Traits::kNodeCapacity;
-  static constexpr std::size_t HalfNodeCap = NodeCap / 2;
   using T = typename Traits::T;
   using N = typename Traits::Node;
-  using L = typename Traits::Leaf;
-  using I = typename Traits::Internal;
+
+ private:
+  T value;
+
+ public:
   inline static long long leaf_count = 0;
   inline static long long peak_leaf_count = 0;
 
-  std::array<T, NodeCap> values{};
-
-  Leaf() : N(NodeKind::kLeaf) {
+  Leaf(T& value) : N(NodeKind::kLeaf), value(value) {
     ++leaf_count;
     peak_leaf_count = std::max(peak_leaf_count, leaf_count);
   }
@@ -136,109 +82,36 @@ struct Leaf : Traits::Node {
     --leaf_count;
   }
 
-  // もしNodeの状態を整合させるための処理。必要であれば後で実装する。
-  void after_sync() {
-    return;
+  void set(T& v) {
+    value = v;
   }
 
-  bool insert(T value, std::size_t index) {
-    assert(index <= this->count);
-    assert(this->count < NodeCap);
-    for (std::size_t i = this->count; i > index; --i) {
-      values[i] = std::move(values[i - 1]);
-    }
-    values[index] = std::move(value);
-
-    ++this->count;
-    ++this->size;
-
-    static_cast<L*>(this)->after_sync();
-
-    return this->count == NodeCap;
-  }
-
-  std::unique_ptr<L> split(std::size_t left_count = HalfNodeCap) {
-    assert(this->count <= NodeCap);
-    assert(left_count <= this->count);
-    assert(left_count < NodeCap && this->count - left_count < NodeCap);
-    const std::size_t right_count = this->count - left_count;
-    auto right = std::make_unique<L>();
-
-    right->count = right_count;
-    right->size = right_count;
-
-    for (std::size_t i = 0; i < right_count; ++i) {
-      right->values[i] = std::move(values[left_count + i]);
-    }
-    this->count = left_count;
-    this->size = left_count;
-
-    static_cast<L*>(this)->after_sync();
-    right->after_sync();
-
-    return right;
-  }
-
-  bool erase(std::size_t index) {
-    assert(this->count < NodeCap);
-    assert(index < this->count);
-    for (std::size_t i = index + 1; i < this->count; ++i) {
-      values[i - 1] = std::move(values[i]);
-    }
-    --this->count;
-    --this->size;
-
-    static_cast<L*>(this)->after_sync();
-    return this->count == 0;
-  }
-
-  // reverseなど、位置を変更するような遅延伝搬について、実際に位置を変更する。
-  // その後何らかの処理のあと、子Node全てにpushする想定。
-  void apply_reverse() {
-    if (!this->is_reversed) return;
-    std::reverse(values.begin(), values.begin() + this->count);
-    this->is_reversed = false;
-    static_cast<L*>(this)->after_sync();
-  }
-
-  // reverseなど、位置を変更するような遅延伝搬のフラグをつける。実際の位置は変更しない。
-  void push_reverse() {
-    this->is_reversed = !this->is_reversed;
-  }
-
-  // 位置を変更しない遅延伝搬について、実際に適用する。
-  // その後何らかの処理のあと、子Node全てにpushする想定。
-  void apply_lazy() {
-    return;
-  }
-
-  // 位置を変更しないような遅延伝搬のフラグをつける。実際には適用しない。
-  void push_lazy() {
-    return;
-  }
-
-  std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
-    assert(this->count < NodeCap);
-    assert(-1 <= index &&
-           (index == -1 || static_cast<std::size_t>(index) <= this->size));
-    return {static_cast<L*>(this), index};
+  const T& get() {
+    return value;
   }
 };
 
 template <class Traits>
 struct Internal : Traits::Node {
+  // 通常状態では count < NodeCap を保つ。
+  // insert が true を返した直後だけ count == NodeCap になり、
+  // 呼び出し側は他の操作を行う前に必ず split する。
+  // split は両側を count < NodeCap に戻す。空き1枠は挿入時の一時領域。
   static constexpr std::size_t NodeCap = Traits::kNodeCapacity;
   static constexpr std::size_t HalfNodeCap = NodeCap / 2;
   using T = typename Traits::T;
   using N = typename Traits::Node;
   using L = typename Traits::Leaf;
-  using I = typename Traits::Internal;
+  const bool is_bottom;
   inline static long long internal_count = 0;
   inline static long long peak_internal_count = 0;
+  std::size_t count = 0;
+  std::size_t size = 0;
+  std::size_t level = 0;
+  bool is_reversed = false;
   std::array<std::unique_ptr<N>, NodeCap> children{};
 
-  Internal() : N(NodeKind::kInternal) {
-    this->level = 1;
+  Internal(bool is_bottom) : N(NodeKind::kInternal), is_bottom(is_bottom) {
     ++internal_count;
     peak_internal_count = std::max(peak_internal_count, internal_count);
   }
@@ -248,20 +121,28 @@ struct Internal : Traits::Node {
 
   void sync() {
     // insert / split の内部処理でも使うため、満杯の一時状態も同期する。
-    this->size = 0;
-    this->count = 0;
+    size = 0;
+    count = 0;
     for (std::size_t i = 0; i < NodeCap; ++i) {
       if (children[i] == nullptr) break;
-      children[i]->parent = static_cast<I*>(this);
+      children[i]->parent = this;
       children[i]->position = i;
-      this->size += children[i]->size;
-      this->count++;
+      if (is_bottom)
+        ++size;
+      else
+        size += const_cast<Internal*>(children[i])->size;
+      ++count;
     }
-    this->level = this->count == 0 ? 1 : children[0]->level + 1;
+    if (!is_bottom) level = const_cast<Internal*>(children[0])->level + 1;
   }
 
   void after_sync() {
     return;
+  }
+
+  void refresh() {
+    sync();
+    return after_sync();
   }
 
   // reverseなど、位置を変更するような遅延伝搬について、実際に位置を変更する。
@@ -271,8 +152,7 @@ struct Internal : Traits::Node {
     std::reverse(children.begin(), children.begin() + this->count);
     this->is_reversed = false;
     for (std::size_t i = 0; i < this->count; ++i) children[i]->push_reverse();
-    sync();
-    static_cast<I*>(this)->after_sync();
+    refresh();
   }
 
   // reverseなど、位置を変更するような遅延伝搬のフラグをつける。実際の位置は変更しない。
@@ -289,6 +169,11 @@ struct Internal : Traits::Node {
   // 位置を変更しないような遅延伝搬のフラグをつける。実際には適用しない。
   void push_lazy() {
     return;
+  }
+
+  void materialize() {
+    apply_reverse();
+    apply_lazy();
   }
 
   bool insert(std::unique_ptr<N> child, std::size_t child_index) {
@@ -300,30 +185,23 @@ struct Internal : Traits::Node {
       children[i] = std::move(children[i - 1]);
     }
     children[child_index] = std::move(child);
-
-    sync();
-    static_cast<I*>(this)->after_sync();
-    return this->count == NodeCap;
+    if (this->count + 1 == NodeCap) return true;
+    refresh();
+    return false;
   }
 
-  std::unique_ptr<I> split(std::size_t left_count = HalfNodeCap) {
+  std::unique_ptr<Internal> split(std::size_t left_count = HalfNodeCap) {
     assert(this->count <= NodeCap);
     assert(left_count <= this->count);
     assert(left_count < NodeCap && this->count - left_count < NodeCap);
     const std::size_t right_count = this->count - left_count;
-    auto right = std::make_unique<I>();
-
-    right->count = right_count;
+    auto right = std::make_unique<Internal>();
 
     for (std::size_t i = 0; i < right_count; ++i) {
       right->children[i] = std::move(children[left_count + i]);
     }
-    this->count = left_count;
-
-    sync();
-    static_cast<I*>(this)->after_sync();
-    right->sync();
-    right->after_sync();
+    refresh();
+    right->refresh();
 
     return right;
   }
@@ -334,11 +212,7 @@ struct Internal : Traits::Node {
     for (std::size_t i = child_index + 1; i < this->count; ++i) {
       children[i - 1] = std::move(children[i]);
     }
-    children[this->count - 1].reset();
-    --this->count;
-
-    sync();
-    static_cast<I*>(this)->after_sync();
+    refresh();
     return this->count == 0;
   }
 
@@ -352,22 +226,14 @@ struct Internal : Traits::Node {
    * O(NodeCapacity log_{NodeCapacity} N)
    */
   template <bool WithLazy>
-  std::pair<L*, std::ptrdiff_t> locate_impl(std::ptrdiff_t index) {
-    assert(-1 <= index &&
-           (index == -1 || static_cast<std::size_t>(index) <= this->size));
-    assert(0 < this->count && this->count < NodeCap);
-    const auto locate_child = [](N* child, std::ptrdiff_t offset) {
-      if constexpr (WithLazy) return child->locate_with_lazy(offset);
-      else return child->locate(offset);
-    };
-    if (index == -1) return locate_child(children[0].get(), -1);
+  std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
     if (static_cast<std::size_t>(index) == this->size)
-      return locate_child(children[this->count - 1].get(),
-                          children[this->count - 1]->size);
+      return children[this->count - 1]->locate<WithLazy>(
+          children[this->count - 1]->size);
 
     for (std::size_t i = 0; i < this->count; ++i) {
       if (static_cast<std::size_t>(index) < children[i]->size) {
-        return locate_child(children[i].get(), index);
+        return children[i]->locate<WithLazy>(index);
       }
       index -= static_cast<std::ptrdiff_t>(children[i]->size);
     }
@@ -375,88 +241,39 @@ struct Internal : Traits::Node {
     return {nullptr, 0};
   }
 
-  std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
-    return locate_impl<false>(index);
-  }
-
-  std::pair<L*, std::ptrdiff_t> locate_with_lazy(std::ptrdiff_t index) {
-    return locate_impl<true>(index);
-  }
-
-  // indexの左右子ノードをみて、capacityが許すならくっつける。
+  // 左右のノードをみて、capacityが許すならくっつける。
   void merge_child(std::size_t index) {
-    assert(this->count < NodeCap);
-    assert(index < this->count);
-    assert(children[index]->count < NodeCap);
-    if (index > 0) assert(children[index - 1]->count < NodeCap);
-    if (index + 1 < this->count) assert(children[index + 1]->count < NodeCap);
-    N* left_child = nullptr;
-    N* right_child = nullptr;
+    Internal* left_child = nullptr;
+    Internal* right_child = nullptr;
     std::size_t right_index;
-    if (index &&
-        children[index - 1]->count + children[index]->count < NodeCap) {
+    auto get_count = [&](std::size_t index) -> std::size_t {
+      return const_cast<Internal*>(children[index - 1].get())->count;
+    };
+    if (index && get_count(index - 1) + get_count(index) < NodeCap) {
       left_child = children[index - 1].get();
       right_child = children[index].get();
       right_index = index;
     } else if (index + 1 < this->count &&
-               children[index + 1]->count + children[index]->count < NodeCap) {
+               get_count(index + 1) + get_count(index) < NodeCap) {
       left_child = children[index].get();
       right_child = children[index + 1].get();
       right_index = index + 1;
     } else
       return;
 
-    left_child->apply_reverse();
-    left_child->apply_lazy();
-    right_child->apply_reverse();
-    right_child->apply_lazy();
+    left_child->materialize();
+    right_child->materialize();
 
     assert(left_child->kind == right_child->kind);
     assert(left_child->level == right_child->level);
-    if (left_child->is_leaf()) {
-      for (std::size_t i = 0; i < right_child->count; ++i)
-        static_cast<L*>(left_child)->values[left_child->count + i] = std::move(
-            static_cast<L*>(right_child)->values[i]);
-      left_child->count += right_child->count;
-      left_child->size = left_child->count;
-      static_cast<L*>(left_child)->after_sync();
-    } else {
-      for (std::size_t i = 0; i < right_child->count; ++i)
-        static_cast<I*>(left_child)->children[left_child->count + i] =
-            std::move(static_cast<I*>(right_child)
-                          ->children[i]);
-      auto* left = static_cast<I*>(left_child);
-      left->sync();
-      left->after_sync();
-    }
+
+    for (std::size_t i = 0; i < right_child->count; ++i)
+      left_child->children[left_child->count + i] =
+          std::move(right_child->children[i]);
+    left_child->refresh();
 
     erase(right_index);
   };
-
-  // 端の部分木のchildを再帰的にまとめる。
-  // split時に疎なnodeをなるべく作らないための工夫
-  void shrink(const bool right_end) {
-    assert(this->count < NodeCap);
-    if (this->count == 0) return;
-    if (this->count == 1) {
-      if (children[0]->is_leaf()) return;
-      return static_cast<Internal*>(children[0].get())->shrink(right_end);
-    }
-    std::size_t i = right_end ? this->count - 2 : 0;
-    N* left_ = children[i].get();
-    N* right_ = children[i + 1].get();
-
-    if (left_->count + right_->count >= NodeCap) {
-      if (left_->is_leaf()) return;
-      auto* edge = right_end ? right_ : left_;
-      return static_cast<Internal*>(edge)->shrink(right_end);
-    }
-
-    merge_child(i + 1);
-
-    if (!left_->is_leaf()) {
-      static_cast<Internal*>(left_)->shrink(right_end);
-    }
-  }
 };
+
 }  // namespace Bplustree
