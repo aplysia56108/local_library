@@ -19,36 +19,70 @@
  * O(NodeCapacity log_{NodeCapacity} N) となり得る。
  * 参照時は祖先から遅延更新を適用するため O(log_{NodeCapacity} N)。
  */
-template <class Node, class Leaf, class Internal, class T, bool IsConst>
+// Traitsが含む情報
+// T:要素の型
+// IsReversible:回転操作を許容するかどうか
+// IsMergable:マージ操作を許容するかどうか
+// Node, Leaf, Internal:それぞれ要素の型。Leaf, InternalはNodeを継承している。
+// kNodeCapacity:Internalのmax容量
+template <class Tree, bool IsConst, bool VisitAll = false>
 class Iterator {
-  template <class, class, class, class, bool> friend class Iterator;
- protected:
-  Leaf* leaf_ = nullptr;
-  // bbegin(beginの一つ前を指すiterator)を想定してptrdiff_tを採用
-  std::ptrdiff_t index_ = 0;
+  template <class, bool>
+  friend class Iterator;
+  friend Tree;
 
-  static void apply_lazy_path(Node* node) {
+ protected:
+  using Traits = typename Tree::traits;
+  using Leaf = typename Traits::Leaf;
+  using Internal = typename Traits::Internal;
+  using T = typename Traits::T;
+  static constexpr bool IsReversible = Traits::IsReversible;
+  Leaf* leaf_ = nullptr;
+
+  static void apply_lazy_path(Internal* node) {
     if (node->parent != nullptr) apply_lazy_path(node->parent);
     node->apply_lazy();
   }
 
+  void apply_lazy_path() {
+    apply_lazy_path(leaf_->parent);
+  }
+
+  static void apply_reverse_path(Internal* node) {
+    if (node->parent != nullptr) apply_reverse_path(node->parent);
+    node->reverse_lazy();
+  }
+
+  void apply_reverse_path() {
+    apply_reverse_path(leaf_->parent);
+  }
+
+  static void refresh_path(Internal* node) {
+    node->refresh();
+    if (node->parent != nullptr) refresh_path(node->parent);
+  }
+
+  void refresh_path() {
+    refresh_path(leaf_->parent);
+  }
+
   void advance(std::ptrdiff_t offset) {
     assert(leaf_ != nullptr);
-    std::ptrdiff_t to_index = index_ + offset;
+    std::ptrdiff_t to_index = const_cast<std::size_t>(leaf_->position) + offset;
+    Internal* node = leaf_->parent;
+    if constexpr (!VisitAll) apply_reverse_path();
 
-    Node* node = static_cast<Node*>(leaf_);
     while (true) {
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node->size)) {
-        std::tie(leaf_, index_) =
-            node->locate(to_index);
+        leaf_ = node->locate<VisitAll>(to_index);
         return;
       }
       if (node->parent == nullptr) {
-        std::tie(leaf_, index_) = node->locate(to_index);
+        leaf_ = node->locate<VisitAll>(to_index);
         return;
       }
       for (std::size_t i = 0; i < node->position; ++i) {
-        to_index += node->parent->children[i]->size;
+        to_index += node->parent->child_size(i);
       }
       node = node->parent;
     }
@@ -63,22 +97,27 @@ class Iterator {
   using pointer = std::conditional_t<IsConst, const T*, T*>;
 
   Iterator() = default;
-  Iterator(Leaf* node, std::ptrdiff_t index) : leaf_(node), index_(index) {}
+  Iterator(Leaf* leaf) : leaf_(leaf) {}
 
-  template <bool OtherConst>
+  template <bool OtherConst, bool OtherVisitALL>
     requires(IsConst && !OtherConst)
-  Iterator(const Iterator<Node, Leaf, Internal, T, OtherConst>& other)
-      : leaf_(other.leaf_), index_(other.index_) {}
+  Iterator(const Iterator<Traits, OtherConst, OtherVisitALL>& other)
+      : leaf_(other.leaf_) {}
 
   reference operator*() const {
     assert(leaf_ != nullptr);
-    assert(0 <= index_ && static_cast<std::size_t>(index_) < leaf_->count);
-    apply_lazy_path(leaf_);
-    return leaf_->values[index_];
+    if constexpr (!VisitAll) apply_lazy_path();
+    return leaf_->value;
   }
 
   pointer operator->() const {
     return std::addressof(operator*());
+  }
+
+  void set(T& value) const {
+    apply_lazy_path();
+    leaf_->value = value;
+    refresh_path();
   }
 
   Iterator& operator++() {
@@ -125,12 +164,15 @@ class Iterator {
   }
 
   friend std::ptrdiff_t operator-(const Iterator& lhs, const Iterator& rhs) {
-    if (lhs.leaf_ == rhs.leaf_) return lhs.index_ - rhs.index_;
-    assert(lhs.leaf_ != nullptr && rhs.leaf_ != nullptr);
-    Node* l_node = static_cast<Node*>(lhs.leaf_);
-    std::ptrdiff_t l_index = lhs.index_;
-    Node* r_node = static_cast<Node*>(rhs.leaf_);
-    std::ptrdiff_t r_index = rhs.index_;
+    if constexpr (!VisitAll) {
+      lhs.apply_reverse_path();
+      rhs.apply_reverse_path();
+    }
+    Internal* l_node = lhs.leaf_->parent;
+    std::ptrdiff_t l_index = lhs.leaf_->position;
+    Internal* r_node = rhs.leaf_->parent;
+    std::ptrdiff_t r_index = rhs.leaf_->position;
+
     while (l_node != r_node) {
       assert(l_node->parent != nullptr && r_node->parent != nullptr);
       for (std::size_t i = 0; i < l_node->position; ++i)

@@ -119,6 +119,16 @@ struct Internal : Traits::Node {
     --internal_count;
   }
 
+  std::size_t child_size(std::size_t index) {
+    if (is_bottom) return 1;
+    return const_cast<Internal*>(children[index].get())->size;
+  }
+
+  std::size_t child_count(std::size_t index) {
+    if (is_bottom) return 1;
+    return const_cast<Internal*>(children[index].get())->count;
+  }
+
   void sync() {
     // insert / split の内部処理でも使うため、満杯の一時状態も同期する。
     size = 0;
@@ -130,7 +140,7 @@ struct Internal : Traits::Node {
       if (is_bottom)
         ++size;
       else
-        size += const_cast<Internal*>(children[i])->size;
+        size += child_size(i);
       ++count;
     }
     if (!is_bottom) level = const_cast<Internal*>(children[0])->level + 1;
@@ -149,9 +159,9 @@ struct Internal : Traits::Node {
   // その後子Node全てにpushする。
   void apply_reverse() {
     if (!this->is_reversed) return;
-    std::reverse(children.begin(), children.begin() + this->count);
+    std::reverse(children.begin(), children.begin() + count);
     this->is_reversed = false;
-    for (std::size_t i = 0; i < this->count; ++i) children[i]->push_reverse();
+    for (std::size_t i = 0; i < count; ++i) children[i]->push_reverse();
     refresh();
   }
 
@@ -181,20 +191,20 @@ struct Internal : Traits::Node {
     assert(child_index <= this->count);
     assert(this->count < NodeCap);
 
-    for (std::size_t i = this->count; i > child_index; --i) {
+    for (std::size_t i = count; i > child_index; --i) {
       children[i] = std::move(children[i - 1]);
     }
     children[child_index] = std::move(child);
-    if (this->count + 1 == NodeCap) return true;
+    if (count + 1 == NodeCap) return true;
     refresh();
     return false;
   }
 
   std::unique_ptr<Internal> split(std::size_t left_count = HalfNodeCap) {
-    assert(this->count <= NodeCap);
-    assert(left_count <= this->count);
-    assert(left_count < NodeCap && this->count - left_count < NodeCap);
-    const std::size_t right_count = this->count - left_count;
+    assert(count <= NodeCap);
+    assert(left_count <= count);
+    assert(left_count < NodeCap && count - left_count < NodeCap);
+    const std::size_t right_count = count - left_count;
     auto right = std::make_unique<Internal>();
 
     for (std::size_t i = 0; i < right_count; ++i) {
@@ -208,8 +218,8 @@ struct Internal : Traits::Node {
 
   bool erase(std::size_t child_index) {
     assert(this->count < NodeCap);
-    assert(child_index < this->count);
-    for (std::size_t i = child_index + 1; i < this->count; ++i) {
+    assert(child_index < count);
+    for (std::size_t i = child_index + 1; i < count; ++i) {
       children[i - 1] = std::move(children[i]);
     }
     refresh();
@@ -226,19 +236,20 @@ struct Internal : Traits::Node {
    * O(NodeCapacity log_{NodeCapacity} N)
    */
   template <bool WithLazy>
-  std::pair<L*, std::ptrdiff_t> locate(std::ptrdiff_t index) {
-    if (static_cast<std::size_t>(index) == this->size)
-      return children[this->count - 1]->locate<WithLazy>(
-          children[this->count - 1]->size);
+  L* locate(std::size_t index) {
+    apply_reverse();
+    if constexpr (WithLazy) apply_lazy();
 
-    for (std::size_t i = 0; i < this->count; ++i) {
-      if (static_cast<std::size_t>(index) < children[i]->size) {
+    if (is_bottom) return children[index];
+
+    for (std::size_t i = 0; i < count; ++i) {
+      if (index < child_size(i)) {
         return children[i]->locate<WithLazy>(index);
       }
-      index -= static_cast<std::ptrdiff_t>(children[i]->size);
+      index -= child_size(i);
     }
     assert(false);
-    return {nullptr, 0};
+    return nullptr;
   }
 
   // 左右のノードをみて、capacityが許すならくっつける。
@@ -246,15 +257,12 @@ struct Internal : Traits::Node {
     Internal* left_child = nullptr;
     Internal* right_child = nullptr;
     std::size_t right_index;
-    auto get_count = [&](std::size_t index) -> std::size_t {
-      return const_cast<Internal*>(children[index - 1].get())->count;
-    };
-    if (index && get_count(index - 1) + get_count(index) < NodeCap) {
+    if (index && child_count(index - 1) + child_count(index) < NodeCap) {
       left_child = children[index - 1].get();
       right_child = children[index].get();
       right_index = index;
     } else if (index + 1 < this->count &&
-               get_count(index + 1) + get_count(index) < NodeCap) {
+               child_count(index + 1) + child_count(index) < NodeCap) {
       left_child = children[index].get();
       right_child = children[index + 1].get();
       right_index = index + 1;
