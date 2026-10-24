@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstddef>
 #include <iterator>
+#include <memory>
 #include <random>
 #include <vector>
 
@@ -28,7 +29,7 @@ template <class Tree>
 void check(const Tree& tree, const std::vector<long long>& expected) {
   assert(tree.size() == expected.size());
   assert(tree.empty() == expected.empty());
-  assert(tree.begin() == tree.end() == expected.empty());
+  assert((tree.begin() == tree.end()) == expected.empty());
 
   std::vector<long long> actual;
   for (const auto& value : tree) actual.push_back(value);
