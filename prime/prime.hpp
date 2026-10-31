@@ -9,8 +9,9 @@
 #include "prime/miller_rabin.hpp"
 
 /** @brief Osa-K と Pollard's Rho を自動で使い分ける。 */
+template <std::size_t Threshold = 100000000>
 struct Prime {
-  static constexpr long long kThreshold = 1000000;
+  static constexpr long long kThreshold = Threshold;
   OsaK osa;
 
   explicit Prime(long long n = 16) : osa(n) {}
