@@ -9,9 +9,12 @@
 template <class Monoid, std::size_t NodeCapacity = 64>
 class Bplustree_Segtree
     : public Bplustree::AggregateTree<Bplustree_Segtree<Monoid, NodeCapacity>,
-                                     Monoid, Bplustree::NoAction, false, NodeCapacity> {
-  using Parent = Bplustree::AggregateTree<Bplustree_Segtree, Monoid,
-                                          Bplustree::NoAction, false, NodeCapacity>;
+                                      Monoid, Bplustree::NoAction, false,
+                                      NodeCapacity> {
+  using Parent =
+      Bplustree::AggregateTree<Bplustree_Segtree, Monoid, Bplustree::NoAction,
+                               false, NodeCapacity>;
+
  public:
   using Parent::Parent;
 };

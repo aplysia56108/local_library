@@ -16,27 +16,31 @@
 
 namespace Bplustree {
 
-template <class Traits>
+// template <class Traits>
 struct Node;
-template <class Traits>
+// template <class Traits>
 struct Leaf;
-template <class Traits>
+// template <class Traits>
 struct Internal;
 
-template <class Value, std::size_t Capacity = 32>
+// template <class Value, std::size_t Capacity = 32>
+using value_type = long long;
+constexpr std::size_t Capacity = 32;
 struct Traits {
   static_assert(Capacity >= 3);
-  using T = Value;
+  using T = value_type;
   static constexpr std::size_t kNodeCapacity = Capacity;
   static constexpr std::size_t kNodeHalf = Capacity / 2;
-  using Node = Bplustree::Node<Traits>;
-  using Leaf = Bplustree::Leaf<Traits>;
-  using Internal = Bplustree::Internal<Traits>;
+  using Node = Bplustree::Node;
+  using Leaf = Bplustree::Leaf;
+  using Internal = Bplustree::Internal;
+  static const bool IsReversible = true;
+  static const bool IsMergable = true;
 };
 
 enum class NodeKind { kLeaf, kInternal };
 
-template <class Traits>
+// template <class Traits>
 struct Node {
   using L = Traits::Leaf;
   using I = Traits::Internal;
@@ -61,7 +65,7 @@ struct Node {
   }
 };
 
-template <class Traits>
+// template <class Traits>
 struct Leaf : Traits::Node {
   using T = typename Traits::T;
   using N = typename Traits::Node;
@@ -73,7 +77,7 @@ struct Leaf : Traits::Node {
   inline static long long leaf_count = 0;
   inline static long long peak_leaf_count = 0;
 
-  Leaf(T& value) : N(NodeKind::kLeaf), value(value) {
+  Leaf(const T& value) : N(NodeKind::kLeaf), value(value) {
     ++leaf_count;
     peak_leaf_count = std::max(peak_leaf_count, leaf_count);
   }
@@ -82,16 +86,16 @@ struct Leaf : Traits::Node {
     --leaf_count;
   }
 
-  void set(T& v) {
+  void set(const T& v) {
     value = v;
   }
 
-  const T& get() {
+  const T& get() const {
     return value;
   }
 };
 
-template <class Traits>
+// template <class Traits>
 struct Internal : Traits::Node {
   // 通常状態では count < NodeCap を保つ。
   // insert が true を返した直後だけ count == NodeCap になり、
@@ -102,16 +106,15 @@ struct Internal : Traits::Node {
   using T = typename Traits::T;
   using N = typename Traits::Node;
   using L = typename Traits::Leaf;
-  const bool is_bottom;
   inline static long long internal_count = 0;
   inline static long long peak_internal_count = 0;
   std::size_t count = 0;
   std::size_t size = 0;
-  std::size_t level = 0;
+  const std::size_t level;
   bool is_reversed = false;
   std::array<std::unique_ptr<N>, NodeCap> children{};
 
-  Internal(bool is_bottom) : N(NodeKind::kInternal), is_bottom(is_bottom) {
+  Internal(std::size_t level = 0) : N(NodeKind::kInternal), level(level) {
     ++internal_count;
     peak_internal_count = std::max(peak_internal_count, internal_count);
   }
@@ -119,14 +122,18 @@ struct Internal : Traits::Node {
     --internal_count;
   }
 
-  std::size_t child_size(std::size_t index) {
-    if (is_bottom) return 1;
-    return const_cast<Internal*>(children[index].get())->size;
+  Internal* get_child(std::size_t index) const {
+    return static_cast<Internal*>(children[index].get());
   }
 
-  std::size_t child_count(std::size_t index) {
-    if (is_bottom) return 1;
-    return const_cast<Internal*>(children[index].get())->count;
+  std::size_t child_size(std::size_t index) const {
+    if (level == 0) return 1;
+    return get_child(index)->size;
+  }
+
+  std::size_t child_count(std::size_t index) const {
+    if (level == 0) return 1;
+    return get_child(index)->count;
   }
 
   void sync() {
@@ -137,13 +144,12 @@ struct Internal : Traits::Node {
       if (children[i] == nullptr) break;
       children[i]->parent = this;
       children[i]->position = i;
-      if (is_bottom)
+      if (level == 0)
         ++size;
       else
         size += child_size(i);
       ++count;
     }
-    if (!is_bottom) level = const_cast<Internal*>(children[0])->level + 1;
   }
 
   void after_sync() {
@@ -161,19 +167,31 @@ struct Internal : Traits::Node {
     if (!this->is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
     this->is_reversed = false;
-    for (std::size_t i = 0; i < count; ++i) children[i]->push_reverse();
+    if (level)
+      for (std::size_t i = 0; i < count; ++i) get_child(i)->push_reverse();
     refresh();
   }
 
   // reverseなど、位置を変更するような遅延伝搬のフラグをつける。実際の位置は変更しない。
   void push_reverse() {
     this->is_reversed = !this->is_reversed;
+    push_reverse_impl();
   }
+
+  void push_reverse_impl() {
+    return;
+  };
 
   // 位置を変更しない遅延伝搬について、実際に適用する。
   // その後何らかの処理のあと、子Node全てにpushする想定。
   void apply_lazy() {
-    return;
+    if (!apply_lazy_impl()) return;
+    if (level)
+      for (std::size_t i = 0; i < count; ++i) get_child(i)->push_lazy();
+  }
+
+  bool apply_lazy_impl() {
+    return false;
   }
 
   // 位置を変更しないような遅延伝搬のフラグをつける。実際には適用しない。
@@ -205,7 +223,7 @@ struct Internal : Traits::Node {
     assert(left_count <= count);
     assert(left_count < NodeCap && count - left_count < NodeCap);
     const std::size_t right_count = count - left_count;
-    auto right = std::make_unique<Internal>();
+    auto right = std::make_unique<Internal>(level);
 
     for (std::size_t i = 0; i < right_count; ++i) {
       right->children[i] = std::move(children[left_count + i]);
@@ -219,9 +237,9 @@ struct Internal : Traits::Node {
   bool erase(std::size_t child_index) {
     assert(this->count < NodeCap);
     assert(child_index < count);
-    for (std::size_t i = child_index + 1; i < count; ++i) {
+    for (std::size_t i = child_index + 1; i < count; ++i)
       children[i - 1] = std::move(children[i]);
-    }
+
     refresh();
     return this->count == 0;
   }
@@ -240,11 +258,11 @@ struct Internal : Traits::Node {
     apply_reverse();
     if constexpr (WithLazy) apply_lazy();
 
-    if (is_bottom) return children[index];
+    if (level == 0) return static_cast<L*>(children[index].get());
 
     for (std::size_t i = 0; i < count; ++i) {
       if (index < child_size(i)) {
-        return children[i]->locate<WithLazy>(index);
+        return get_child(i)->locate<WithLazy>(index);
       }
       index -= child_size(i);
     }
@@ -253,34 +271,34 @@ struct Internal : Traits::Node {
   }
 
   // 左右のノードをみて、capacityが許すならくっつける。
-  void merge_child(std::size_t index) {
-    Internal* left_child = nullptr;
-    Internal* right_child = nullptr;
-    std::size_t right_index;
-    if (index && child_count(index - 1) + child_count(index) < NodeCap) {
-      left_child = children[index - 1].get();
-      right_child = children[index].get();
-      right_index = index;
-    } else if (index + 1 < this->count &&
-               child_count(index + 1) + child_count(index) < NodeCap) {
-      left_child = children[index].get();
-      right_child = children[index + 1].get();
-      right_index = index + 1;
+  Internal* integrate() {
+    if (this->parent == nullptr) return this;
+    Internal* parent = this->parent;
+    std::size_t position = this->position;
+    Internal* right = nullptr;
+    Internal* left = nullptr;
+    std::size_t right_position;
+    if (position && parent->child_count(position - 1) + count < NodeCap) {
+      left = parent->get_child(position - 1);
+      right = this;
+      right_position = position;
+    } else if (position + 1 < this->count &&
+               parent->child_count(position + 1) + count < NodeCap) {
+      left = this;
+      right = parent->get_child(position + 1);
+      right_position = position + 1;
     } else
-      return;
+      return this;
 
-    left_child->materialize();
-    right_child->materialize();
+    left->materialize();
+    right->materialize();
 
-    assert(left_child->kind == right_child->kind);
-    assert(left_child->level == right_child->level);
+    for (std::size_t i = 0; i < right->count; ++i)
+      left->children[left->count + i] = std::move(right->children[i]);
+    left->refresh();
 
-    for (std::size_t i = 0; i < right_child->count; ++i)
-      left_child->children[left_child->count + i] =
-          std::move(right_child->children[i]);
-    left_child->refresh();
-
-    erase(right_index);
+    erase(right_position);
+    return left;
   };
 };
 

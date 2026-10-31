@@ -15,6 +15,10 @@
 
 namespace Bplustree {
 
+template <class Tree>
+concept Has_Monoid_e = requires {
+  { Tree::Monoid::e() } -> std::convertible_to<typename Tree::valuetype>;
+};
 /** Shared positional storage. Traits provides T, kNodeCapacity, Node, Leaf and
  * Internal. Stable nodes hold count < NodeCap; full insertions split
  * immediately. Iterators expose const elements so writes cannot bypass metadata
@@ -27,24 +31,24 @@ namespace Bplustree {
 // IsMergable:マージ操作を許容するかどうか
 // Node, Leaf, Internal:それぞれ要素の型。Leaf, InternalはNodeを継承している。
 // kNodeCapacity:Internalのmax容量
-template <class Traits>
+// template <class Traits>
 class Base {
  public:
-  using traits_type = Traits;
+  // using traits_type = Traits;
   using value_type = typename Traits::T;
   using size_type = std::size_t;
   using difference_type = std::ptrdiff_t;
-  using const_iterator = ::Iterator<Base, false>;
-  using iterator = ::Iterator<Base, true>;
+  using const_iterator = Iterator<Base, true, false>;
+  using iterator = Iterator<Base, false, false>;
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
   using reverse_iterator = std::reverse_iterator<iterator>;
   using setter_type = Setter<Base>;
 
  protected:
   using T = value_type;
-  using Node = typename Traits::Node;
-  using Leaf = typename Traits::Leaf;
-  using Internal = typename Traits::Internal;
+  // using Node = typename Traits::Node;
+  // using Leaf = typename Traits::Leaf;
+  // using Internal = typename Traits::Internal;
   static constexpr size_type NodeCap = Traits::kNodeCapacity;
   static constexpr bool IsReversible = Traits::IsReversible;
   static constexpr bool IsMergable = Traits::IsMergable;
@@ -53,20 +57,22 @@ class Base {
   std::unique_ptr<Internal> root_;
   iterator bbegin_, end_;
 
+  const T init_value = T{};
+
   void init() {
     root_ = std::make_unique<Internal>();
-    auto bbegin = std::make_unique<Leaf>();
-    auto end = std::make_unique<Leaf>();
+    auto bbegin = std::make_unique<Leaf>(init_value);
+    auto end = std::make_unique<Leaf>(init_value);
     bbegin_ = iterator{bbegin.get()};
     end_ = iterator{end.get()};
-    root_->insert(bbegin, 0);
-    root_->insert(end, 0);
+    root_->insert(std::move(bbegin), 0);
+    root_->insert(std::move(end), 1);
   }
-  void normalize_root() {
-    while (root_->count == 1) {
-      root_->materialize();
-      auto child = std::move(root_->children[0]);
-      root_ = std::move(child);
+  static void cut_root(std::unique_ptr<Internal>& root) {
+    while (root->count == 1 && root->level) {
+      root->materialize();
+      auto child = std::move(root->children[0]);
+      root.reset(static_cast<Internal*>(child.release()));
     }
   }
 
@@ -76,7 +82,7 @@ class Base {
     std::vector<std::unique_ptr<Node>> level;
     level.resize(values.size() + 2);
     {
-      auto bbegin = std::make_unique<Leaf>();
+      auto bbegin = std::make_unique<Leaf>(init_value);
       bbegin_ = iterator{bbegin.get()};
       level.push_back(std::move(bbegin));
     }
@@ -85,7 +91,7 @@ class Base {
       level.push_back(std::move(leaf));
     }
     {
-      auto end = std::make_unique<Leaf>();
+      auto end = std::make_unique<Leaf>(init_value);
       end_ = iterator{end.get()};
       level.push_back(std::move(end));
     }
@@ -95,56 +101,67 @@ class Base {
         auto parent = std::make_unique<Internal>();
         while (parent->count < MaxCount && i < level.size())
           parent->children[parent->count++] = std::move(level[i++]);
-        refresh(parent.get());
+        parent->refresh();
         next.push_back(std::move(parent));
       }
-      level = std::move(next);
+      level.clear();
+      level.resize(next.size());
+      for (auto& child : next) level.push_back(std::move(child));
     }
-    root_ = std::move(level[0]);
+    root_.reset(static_cast<Internal*>(level[0].release()));
     root_->parent = nullptr;
   }
 
-  using NodePair = std::pair<std::unique_ptr<Node>, std::unique_ptr<Node>>;
-  // Preserve both subtree heights; normalize only the resulting top-level
-  // roots.
-  static NodePair split_node(std::unique_ptr<Node> node, size_type index) {
-    if (index == 0) return {nullptr, std::move(node)};
-    if (index == node->size) return {std::move(node), nullptr};
-    materialize(node.get());
-    if (node->is_leaf()) {
-      auto right = static_cast<Leaf*>(node.get())->split(index);
-      return {std::move(node), std::move(right)};
-    }
-    auto* internal = static_cast<Internal*>(node.get());
-    auto left = std::make_unique<Internal>();
-    auto right = std::make_unique<Internal>();
-    for (size_type i = 0; i < internal->count; ++i) {
-      auto child = std::move(internal->children[i]);
-      const size_type child_size = child->size;
-      if (index >= child_size) {
-        left->children[left->count++] = std::move(child);
-        index -= child_size;
-      } else if (index == 0) {
-        right->children[right->count++] = std::move(child);
-      } else {
-        auto parts = split_node(std::move(child), index);
-        left->children[left->count++] = std::move(parts.first);
-        right->children[right->count++] = std::move(parts.second);
-        index = 0;
-      }
-    }
-    refresh(left.get());
-    refresh(right.get());
-    return {std::move(left), std::move(right)};
+  static std::unique_ptr<Internal> make_new_root(std::unique_ptr<Node> left,
+                                                 std::unique_ptr<Node> right,
+                                                 const std::size_t level = 0) {
+    auto parent = std::make_unique<Internal>(level);
+    parent->insert(std::move(left), 0);
+    parent->insert(std::move(right), 1);
+    parent->refresh();
+    return parent;
   }
 
-  static std::unique_ptr<Internal> devide(iterator pos) {
-    Internal* parent = pos.leaf_->parent;
-    std::size_t position = pos.leaf_->position;
-    auto right = parent->split(position);
-    position = parent->position + 1;
-    parent = parent->parent;
+  static std::unique_ptr<Internal> insert_recursive(
+      Internal* parent, std::size_t index,
+      std::unique_ptr<Node> child = nullptr) {
+    if (!parent) return nullptr;
 
+    if (child) {
+      if (parent->insert(std::move(child), index)) {
+        if (parent->parent)
+          return insert_recursive(parent->parent, parent->position + 1,
+                                  parent->split());
+        return parent->split();
+      }
+    } else
+      parent->refresh();
+
+    return insert_recursive(parent->parent, parent->position + 1);
+  };
+
+  static void integrate_path(Internal* node) {
+    if (node->parent) integrate_path(node->parent);
+    node->integrate();
+  }
+  static void integrate_path(Leaf* leaf) {
+    integrate_path(leaf->parent);
+  }
+  static void insert(Internal* parent, std::size_t index,
+                     std::unique_ptr<Node> child,
+                     std::unique_ptr<Internal>& root) {
+    auto right = insert_recursive(parent, index, std::move(child));
+    if (right) {
+      auto level = right->level + 1;
+      root = make_new_root(std::move(root), std::move(right), level);
+    }
+  }
+
+  static std::unique_ptr<Internal> devide(std::unique_ptr<Internal>& root,
+                                          Leaf* leaf) {
+    Internal* parent = leaf->parent;
+    std::size_t position = leaf->position;
+    std::unique_ptr<Internal> right;
     while (parent) {
       auto next = parent->split(position);
       if (right->count) next->insert(std::move(right), 0);
@@ -152,45 +169,38 @@ class Base {
       position = parent->position + 1;
       parent = parent->parent;
     }
-    return std::move(right);
+    cut_root(root);
+    integrate_path(root->locate<false>(root->size - 1));
+    cut_root(right);
+    integrate_path(right->locate<false>(0));
+    return right;
   }
-  // Return a root and, on overflow, a same-height right sibling.
-  static NodePair join_nodes(std::unique_ptr<Node> left,
-                             std::unique_ptr<Node> right) {
-    materialize(left.get());
-    materialize(right.get());
-    if (left->level == right->level) {
-      if (left->count + right->count >= NodeCap)
-        return {std::move(left), std::move(right)};
-      if (left->is_leaf()) {
-        auto* l = static_cast<Leaf*>(left.get());
-        auto* r = static_cast<Leaf*>(right.get());
-        for (size_type i = 0; i < r->count; ++i)
-          l->values[l->count++] = std::move(r->values[i]);
-      } else {
-        auto* l = static_cast<Internal*>(left.get());
-        auto* r = static_cast<Internal*>(right.get());
-        for (size_type i = 0; i < r->count; ++i)
-          l->children[l->count++] = std::move(r->children[i]);
-      }
-      refresh(left.get());
-      return {std::move(left), nullptr};
+
+  static std::unique_ptr<Internal> unite(std::unique_ptr<Internal> left,
+                                         std::unique_ptr<Internal> right) {
+    if (right->size == 0) return left;
+    if (left->size == 0) return right;
+    std::size_t left_size = left->size;
+    if (left->level <= right->level) {
+      Internal* target = right.get();
+      while (left->level + 1 < target->level) target = target->get_child(0);
+      insert(target, 0, std::move(left), right);
+      integrate_path(right->locate<false>(left_size));
+      return right;
     }
-    const bool left_taller = left->level > right->level;
-    auto parent = left_taller ? std::move(left) : std::move(right);
-    auto* internal = static_cast<Internal*>(parent.get());
-    const size_type index = left_taller ? internal->count - 1 : 0;
-    auto child = std::move(internal->children[index]);
-    auto parts = left_taller ? join_nodes(std::move(child), std::move(right))
-                             : join_nodes(std::move(left), std::move(child));
-    internal->children[index] = std::move(parts.first);
-    std::unique_ptr<Node> overflow;
-    if (parts.second) {
-      if (internal->insert(std::move(parts.second), index + 1))
-        overflow = internal->split();
-    } else
-      refresh(internal);
-    return {std::move(parent), std::move(overflow)};
+    Internal* target = left.get();
+    while (right->level + 1 < target->level)
+      target = target->get_child(target->count - 1);
+    insert(target, target->count, std::move(right), left);
+    integrate_path(left->locate<false>(left_size));
+    return left;
+  };
+
+  template <bool WithLazy = false>
+  Leaf* locate(size_type index) const {
+    ++index;
+    assert(index < root_->size);
+    return root_->locate<WithLazy>(index);
   }
 
  public:
@@ -206,7 +216,7 @@ class Base {
     assign(count, value);
   }
   Base(std::initializer_list<T> values) : Base(values.begin(), values.end()) {}
-  Base(const Base& other) : Base(other.begin(), other.end_()) {}
+  Base(const Base& other) : Base(other.begin(), other.end()) {}
   Base(Base&& other) : Base() {
     swap(*this, other);
   }
@@ -244,9 +254,7 @@ class Base {
     return size() == 2;
   }
   iterator nth(size_type index) const {
-    ++index;
-    assert(index < root_->size);
-    return {root_->locate<false>(index)};
+    return {locate(index)};
   }
   iterator bbegin() const {
     return bbegin_;
@@ -276,9 +284,7 @@ class Base {
     return rend();
   }
   const T& get(size_type index) const {
-    ++index;
-    assert(index < root_->size);
-    return *nth(index);
+    return locate(index)->get();
   }
   const T& operator[](size_type index) const {
     return get(index);
@@ -287,72 +293,42 @@ class Base {
     return get(1);
   }
   const T& back() const {
-    return get(root_->size - 2);
+    return get(size() - 1);
   }
   setter_type operator()(size_type index) {
-    assert(index < size());
-    return {*this, index};
+    return {locate<true>(index)};
   }
 
   void set(size_type index, const T& value) {
-    ++index;
-    assert(index < root_->size);
-    auto leaf = root_->locate<true>(index);
-    iterator{leaf}.set(value);
+    locate<true>(index)->set(value);
   }
 
   iterator insert(size_type index, const T& value) {
-    ++index;
-    assert(index < root_->size);
-    auto leaf = root_->locate<true>(index);
-    return insert(iterator{leaf}, value);
+    return insert(locate<true>(index), value);
   }
   iterator insert(iterator pos, const T& value) {
     Internal* parent = pos.leaf_->parent;
     std::size_t position = pos.leaf_->position;
     std::unique_ptr<Node> child = std::make_unique<Leaf>(value);
-    Leaf* res = child.get();
-    while (parent) {
-      if (child) {
-        if (parent->insert(std::move(child), position)) {
-          child = parent->split();
-          position = parent->position + 1;
-        }
-      } else {
-        parent->refresh();
-      }
-      parent = parent->parent;
-    }
-    if (child) {
-      auto parent = std::make_unique<Internal>();
-      parent->insert(std::move(root_), 0);
-      parent->insert(std::move(child), 1);
-      root_ = std::move(parent);
-    }
+    Leaf* res = static_cast<Leaf*>(child.get());
+    insert(parent, position, std::move(child), root_);
+
     return res;
   }
+
   void push_back(const T& value) {
     insert(end(), value);
   }
+
   void push_front(const T& value) {
     insert(begin(), value);
   }
+
   iterator erase(size_type index) {
-    assert(index < size());
-    auto [leaf, offset] = root_->locate_with_lazy(index);
-    leaf->erase(offset);
-    Node* child = leaf;
-    while (child->parent != nullptr) {
-      auto* parent = child->parent;
-      if (child->count == 0)
-        parent->erase(child->position);
-      else
-        refresh(parent);
-      child = parent;
-    }
-    normalize_root();
-    return nth(index);
+    auto leaf = locate<false>(index);
+    return erase(iterator{leaf});
   }
+
   iterator erase(iterator pos) {
     iterator res = pos + 1;
     Internal* parent = pos.leaf_->parent;
@@ -367,20 +343,20 @@ class Base {
       }
       parent = parent->parent;
     }
-    normalize_root();
+    cut_root(root_);
     return res;
   }
 
   iterator erase(size_type first, size_type last) {
     assert(first <= last && last <= size());
-    if (first == last) return nth(first);
-    auto right = split(last);
-    auto removed = split(first);
-    merge(right);
-    return nth(first);
+    return erase(nth(first), nth(last));
   }
   iterator erase(iterator first, iterator last) {
-    return erase(first - begin(), last - begin());
+    if (first == last) return last;
+    auto right = devide(root_, last.leaf_);
+    auto removed = devide(root_, first.leaf_);
+    root_ = unite(std::move(root_), std::move(right));
+    return last;
   }
   void pop_back() {
     assert(!empty());
@@ -416,16 +392,18 @@ class Base {
       swap(*this, right);
       return right;
     }
-    auto parts = split_node(std::move(root_), index);
-    root_ = std::move(parts.first);
-    right.root_ = std::move(parts.second);
-    root_->parent = nullptr;
-    right.root_->parent = nullptr;
-    normalize_root();
-    right.normalize_root();
-    return right;
+    auto right = devide(root_, ) return right;
   }
   Base split(iterator pos) {
+    Base right;
+    if (pos == end()) return right;
+    if (pos == begin()) {
+      swap(*this, right);
+      return right;
+    }
+    auto right_ = devide(root_, pos.leaf_);
+    auto bbegin_ = std::make_unique<Leaf>();
+
     return split(pos - begin());
   }
   void merge(Base& right)

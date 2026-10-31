@@ -14,7 +14,7 @@ concept Has_Monoid_op =
 template <class Tree, class F, class value_type>
 concept Has_Action_mapping =
     requires(const F& f, const value_type& x) { Tree::Action::mapping(f, x); };
-// One-shot point-update proxy. Derived containers use Setter<Derived, T>.
+
 template <class Tree>
 class Setter {
   using io_via_val = void;
@@ -26,7 +26,7 @@ class Setter {
 
  public:
   Setter(Iterator it) : it_(it) {}
-  Setter(typename Tree::Leaf* leaf) : it_(leaf) {}
+  // Setter(typename Tree::Leaf* leaf) : it_(leaf) {}
   Setter(const Setter&) = default;
   Setter(Setter&&) = default;
 

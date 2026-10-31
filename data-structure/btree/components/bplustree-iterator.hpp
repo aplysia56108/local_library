@@ -8,6 +8,8 @@
 #include <tuple>
 #include <type_traits>
 
+#include "data-structure/btree/components/bplustree-node.hpp"
+
 /**
  * @brief B+ tree 上の要素を指すイテレータ。
  * @details 通常要素は `(leaf_, index_)` で表す。最左 Leaf の
@@ -25,36 +27,38 @@
 // IsMergable:マージ操作を許容するかどうか
 // Node, Leaf, Internal:それぞれ要素の型。Leaf, InternalはNodeを継承している。
 // kNodeCapacity:Internalのmax容量
+namespace Bplustree {
+
 template <class Tree, bool IsConst, bool VisitAll = false>
 class Iterator {
-  template <class, bool>
+  template <class, bool, bool>
   friend class Iterator;
   friend Tree;
 
  protected:
-  using Traits = typename Tree::traits;
+  // using Traits = typename Tree::traits;
   using Leaf = typename Traits::Leaf;
   using Internal = typename Traits::Internal;
   using T = typename Traits::T;
   static constexpr bool IsReversible = Traits::IsReversible;
   Leaf* leaf_ = nullptr;
 
-  static void apply_lazy_path(Internal* node) {
-    if (node->parent != nullptr) apply_lazy_path(node->parent);
-    node->apply_lazy();
-  }
-
-  void apply_lazy_path() {
-    apply_lazy_path(leaf_->parent);
-  }
-
   static void apply_reverse_path(Internal* node) {
     if (node->parent != nullptr) apply_reverse_path(node->parent);
-    node->reverse_lazy();
+    node->apply_reverse();
   }
 
-  void apply_reverse_path() {
+  void apply_reverse_path() const {
     apply_reverse_path(leaf_->parent);
+  }
+
+  static void materialize_path(Internal* node) {
+    if (node->parent != nullptr) materialize_path(node->parent);
+    node->materialize();
+  }
+
+  void materialize_path() const {
+    materialize_path(leaf_->parent);
   }
 
   static void refresh_path(Internal* node) {
@@ -62,13 +66,14 @@ class Iterator {
     if (node->parent != nullptr) refresh_path(node->parent);
   }
 
-  void refresh_path() {
+  void refresh_path() const {
     refresh_path(leaf_->parent);
   }
 
   void advance(std::ptrdiff_t offset) {
     assert(leaf_ != nullptr);
-    std::ptrdiff_t to_index = const_cast<std::size_t>(leaf_->position) + offset;
+    std::ptrdiff_t to_index =
+        static_cast<std::size_t>(leaf_->position) + offset;
     Internal* node = leaf_->parent;
     if constexpr (!VisitAll) apply_reverse_path();
 
@@ -101,22 +106,28 @@ class Iterator {
 
   template <bool OtherConst, bool OtherVisitALL>
     requires(IsConst && !OtherConst)
-  Iterator(const Iterator<Traits, OtherConst, OtherVisitALL>& other)
+  Iterator(const Iterator<Tree, OtherConst, OtherVisitALL>& other)
       : leaf_(other.leaf_) {}
 
   reference operator*() const {
     assert(leaf_ != nullptr);
-    if constexpr (!VisitAll) apply_lazy_path();
-    return leaf_->value;
+    if constexpr (!VisitAll) materialize_path();
+    return leaf_->get();
   }
 
   pointer operator->() const {
     return std::addressof(operator*());
   }
 
-  void set(T& value) const {
-    apply_lazy_path();
-    leaf_->value = value;
+  void init() const
+    requires VisitAll
+  {
+    materialize_path();
+  };
+
+  void set(const T& value) const {
+    materialize_path();
+    leaf_->set(value);
     refresh_path();
   }
 
@@ -164,10 +175,9 @@ class Iterator {
   }
 
   friend std::ptrdiff_t operator-(const Iterator& lhs, const Iterator& rhs) {
-    if constexpr (!VisitAll) {
-      lhs.apply_reverse_path();
-      rhs.apply_reverse_path();
-    }
+    lhs.apply_reverse_path();
+    rhs.apply_reverse_path();
+
     Internal* l_node = lhs.leaf_->parent;
     std::ptrdiff_t l_index = lhs.leaf_->position;
     Internal* r_node = rhs.leaf_->parent;
@@ -176,9 +186,9 @@ class Iterator {
     while (l_node != r_node) {
       assert(l_node->parent != nullptr && r_node->parent != nullptr);
       for (std::size_t i = 0; i < l_node->position; ++i)
-        l_index += l_node->parent->children[i]->size;
+        l_index += l_node->parent->child_size(i);
       for (std::size_t i = 0; i < r_node->position; ++i)
-        r_index += r_node->parent->children[i]->size;
+        r_index += r_node->parent->child_size(i);
 
       l_node = l_node->parent;
       r_node = r_node->parent;
@@ -197,3 +207,4 @@ class Iterator {
 
   friend bool operator==(const Iterator&, const Iterator&) = default;
 };
+}  // namespace Bplustree

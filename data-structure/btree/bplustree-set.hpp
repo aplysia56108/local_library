@@ -13,15 +13,20 @@ struct SetTraits {
   struct Leaf;
   struct Internal;
 };
+
 template <class K, std::size_t C>
 struct SetTraits<K, C>::Node : Bplustree::Node<SetTraits<K, C>> {
   using Bplustree::Node<SetTraits<K, C>>::Node;
   const K* min_key = nullptr;
 };
+
 template <class K, std::size_t C>
 struct SetTraits<K, C>::Leaf : Bplustree::Leaf<SetTraits<K, C>> {
-  void after_sync() { this->min_key = this->count ? &this->values[0] : nullptr; }
+  void after_sync() {
+    this->min_key = this->count ? &this->values[0] : nullptr;
+  }
 };
+
 template <class K, std::size_t C>
 struct SetTraits<K, C>::Internal : Bplustree::Internal<SetTraits<K, C>> {
   void after_sync() {
@@ -42,9 +47,9 @@ class Bplustree_Set
     : protected Bplustree::Base<Bplustree::SetTraits<Key, NodeCapacity>> {
   friend struct BplustreeSetTestAccess;
   using Parent = Bplustree::Base<Bplustree::SetTraits<Key, NodeCapacity>>;
-  using typename Parent::Node;
-  using typename Parent::Leaf;
   using typename Parent::Internal;
+  using typename Parent::Leaf;
+  using typename Parent::Node;
   static constexpr std::size_t kNodeCapacity = NodeCapacity;
   static_assert(std::strict_weak_order<const Compare&, const Key&, const Key&>);
   [[no_unique_address]] Compare compare_;
@@ -73,51 +78,64 @@ class Bplustree_Set
     std::size_t first = 0, last = leaf->count;
     while (first < last) {
       auto middle = first + (last - first) / 2;
-      if (before(leaf->values[middle])) first = middle + 1;
-      else last = middle;
+      if (before(leaf->values[middle]))
+        first = middle + 1;
+      else
+        last = middle;
     }
     return offset + first;
   }
+
  public:
-  using typename Parent::iterator;
   using typename Parent::const_iterator;
-  using typename Parent::reverse_iterator;
   using typename Parent::const_reverse_iterator;
-  using typename Parent::size_type;
   using typename Parent::difference_type;
+  using typename Parent::iterator;
+  using typename Parent::reverse_iterator;
+  using typename Parent::size_type;
   using key_type = Key;
   using value_type = Key;
   using key_compare = Compare;
-  using Parent::begin;
-  using Parent::end;
   using Parent::bbegin;
+  using Parent::begin;
   using Parent::cbegin;
   using Parent::cend;
-  using Parent::rbegin;
-  using Parent::rend;
   using Parent::crbegin;
   using Parent::crend;
-  using Parent::size;
   using Parent::empty;
+  using Parent::end;
   using Parent::nth;
+  using Parent::rbegin;
+  using Parent::rend;
+  using Parent::size;
   using Parent::operator[];
   using Parent::clear;
   using Parent::rebuild;
 
-  Bplustree_Set() requires std::default_initializable<Compare> : compare_() {}
+  Bplustree_Set()
+    requires std::default_initializable<Compare>
+      : compare_() {}
   explicit Bplustree_Set(Compare compare) : compare_(std::move(compare)) {}
   template <std::input_iterator It>
-  Bplustree_Set(It first, It last) requires std::default_initializable<Compare> : compare_() {
+  Bplustree_Set(It first, It last)
+    requires std::default_initializable<Compare>
+      : compare_() {
     assign(first, last);
   }
   template <std::input_iterator It>
-  Bplustree_Set(It first, It last, Compare compare) : compare_(std::move(compare)) {
+  Bplustree_Set(It first, It last, Compare compare)
+      : compare_(std::move(compare)) {
     assign(first, last);
   }
-  Bplustree_Set(const Bplustree_Set&) requires std::copy_constructible<Compare> = default;
-  Bplustree_Set(Bplustree_Set&&) requires std::move_constructible<Compare> = default;
+  Bplustree_Set(const Bplustree_Set&)
+    requires std::copy_constructible<Compare>
+  = default;
+  Bplustree_Set(Bplustree_Set&&)
+    requires std::move_constructible<Compare>
+  = default;
   Bplustree_Set& operator=(const Bplustree_Set& other)
-      requires std::is_copy_assignable_v<Compare> {
+    requires std::is_copy_assignable_v<Compare>
+  {
     if (this != &other) {
       compare_ = other.compare_;
       Parent::operator=(static_cast<const Parent&>(other));
@@ -125,20 +143,25 @@ class Bplustree_Set
     return *this;
   }
   Bplustree_Set& operator=(Bplustree_Set&& other)
-      requires std::is_move_assignable_v<Compare> {
+    requires std::is_move_assignable_v<Compare>
+  {
     if (this != &other) {
       compare_ = std::move(other.compare_);
       Parent::operator=(std::move(other));
     }
     return *this;
   }
-  friend void swap(Bplustree_Set& left, Bplustree_Set& right)
-      noexcept(std::is_nothrow_swappable_v<Compare>) requires std::swappable<Compare> {
+  friend void swap(Bplustree_Set& left, Bplustree_Set& right) noexcept(
+      std::is_nothrow_swappable_v<Compare>)
+    requires std::swappable<Compare>
+  {
     using std::swap;
     swap(left.compare_, right.compare_);
     swap(static_cast<Parent&>(left), static_cast<Parent&>(right));
   }
-  const Compare& key_comp() const { return compare_; }
+  const Compare& key_comp() const {
+    return compare_;
+  }
   template <std::input_iterator It>
   void assign(It first, It last) {
     std::vector<Key> values;
@@ -147,32 +170,50 @@ class Bplustree_Set
     if (!std::is_sorted(values.begin(), values.end(), compare))
       std::sort(values.begin(), values.end(), compare);
     if constexpr (Type == SetType::Set) {
-      auto same = [&](const Key& a, const Key& b) { return equivalent(a, b); };
-      values.erase(std::unique(values.begin(), values.end(), same), values.end());
+      auto same = [&](const Key& a, const Key& b) {
+        return equivalent(a, b);
+      };
+      values.erase(std::unique(values.begin(), values.end(), same),
+                   values.end());
     }
     this->build(values);
   }
-  iterator lower_bound(const Key& key) const { return nth(bound_index(key, false)); }
-  iterator upper_bound(const Key& key) const { return nth(bound_index(key, true)); }
+  iterator lower_bound(const Key& key) const {
+    return nth(bound_index(key, false));
+  }
+  iterator upper_bound(const Key& key) const {
+    return nth(bound_index(key, true));
+  }
   std::pair<iterator, iterator> equal_range(const Key& key) const {
     return {lower_bound(key), upper_bound(key)};
   }
-  iterator min_ge(const Key& key) const { return lower_bound(key); }
-  iterator min_gt(const Key& key) const { return upper_bound(key); }
-  iterator max_lt(const Key& key) const { return lower_bound(key) - 1; }
-  iterator max_le(const Key& key) const { return upper_bound(key) - 1; }
+  iterator min_ge(const Key& key) const {
+    return lower_bound(key);
+  }
+  iterator min_gt(const Key& key) const {
+    return upper_bound(key);
+  }
+  iterator max_lt(const Key& key) const {
+    return lower_bound(key) - 1;
+  }
+  iterator max_le(const Key& key) const {
+    return upper_bound(key) - 1;
+  }
   iterator find(const Key& key) const {
     auto it = lower_bound(key);
     return it != end() && equivalent(*it, key) ? it : end();
   }
-  bool contains(const Key& key) const { return find(key) != end(); }
+  bool contains(const Key& key) const {
+    return find(key) != end();
+  }
   size_type count(const Key& key) const {
     return bound_index(key, true) - bound_index(key, false);
   }
   std::pair<iterator, bool> insert(const Key& key) {
     auto index = bound_index(key, false);
     if constexpr (Type == SetType::Set)
-      if (index < size() && equivalent(*nth(index), key)) return {nth(index), false};
+      if (index < size() && equivalent(*nth(index), key))
+        return {nth(index), false};
     return {Parent::insert(index, key), true};
   }
   template <std::input_iterator It>
@@ -183,11 +224,14 @@ class Bplustree_Set
   }
   size_type erase(const Key& key, bool single_erase = false) {
     const auto first = bound_index(key, false), last = bound_index(key, true);
-    const auto removed = single_erase ? std::min<size_type>(last - first, 1) : last - first;
+    const auto removed =
+        single_erase ? std::min<size_type>(last - first, 1) : last - first;
     Parent::erase(first, first + removed);
     return removed;
   }
-  iterator erase(iterator position) { return Parent::erase(position); }
+  iterator erase(iterator position) {
+    return Parent::erase(position);
+  }
 };
 template <class T = long long>
 using BSet = Bplustree_Set<T>;
