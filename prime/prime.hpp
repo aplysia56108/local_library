@@ -24,10 +24,23 @@ struct Prime {
   }
 
   /** @brief 素因数分解結果を昇順で返す。 */
-  std::vector<std::pair<long long, long long>> factorize(long long n) {
+  struct FactorizeResult {
+    long long prime, count;
+  };
+  std::vector<FactorizeResult> factorize(long long n) {
     assert(n >= 1);
-    if (n <= osa.limit() || n <= kThreshold) return osa.factorize(n);
-    return PollardRho::factorize(n);
+    std::vector<FactorizeResult> res;
+
+    if (n <= osa.limit() || n <= kThreshold) {
+      auto v = osa.factorize(n);
+      res.reserve(v.size());
+      for (auto [p, c] : v) res.emplace_back(p, c);
+      return res;
+    }
+    auto v = PollardRho::factorize(n);
+    res.reserve(v.size());
+    for (auto [p, c] : v) res.emplace_back(p, c);
+    return res;
   }
 
   /** @brief 約数を列挙する（昇順とは限らない）。 */
