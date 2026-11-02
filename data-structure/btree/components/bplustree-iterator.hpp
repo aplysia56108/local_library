@@ -23,13 +23,11 @@
  */
 // Traitsが含む情報
 // T:要素の型
-// IsReversible:回転操作を許容するかどうか
-// IsMergable:マージ操作を許容するかどうか
 // Node, Leaf, Internal:それぞれ要素の型。Leaf, InternalはNodeを継承している。
 // kNodeCapacity:Internalのmax容量
 namespace Bplustree {
 
-template <class Tree, bool IsConst, bool VisitAll = false>
+template <class Traits, class Tree, bool IsConst, bool VisitAll = false>
 class Iterator {
   template <class, bool, bool>
   friend class Iterator;
@@ -106,7 +104,7 @@ class Iterator {
 
   template <bool OtherConst, bool OtherVisitALL>
     requires(IsConst && !OtherConst)
-  Iterator(const Iterator<Tree, OtherConst, OtherVisitALL>& other)
+  Iterator(const Iterator<Traits, Tree, OtherConst, OtherVisitALL>& other)
       : leaf_(other.leaf_) {}
 
   reference operator*() const {

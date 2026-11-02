@@ -17,8 +17,6 @@ namespace Bplustree {
 
 // Traitsが含む情報
 // T:要素の型
-// IsReversible:回転操作を許容するかどうか
-// IsMergable:マージ操作を許容するかどうか
 // Node, Leaf, Internal:それぞれ要素の型。Leaf, InternalはNodeを継承している。
 // kNodeCapacity:Internalのmax容量
 template <class Traits>
@@ -28,8 +26,8 @@ class Base {
   using value_type = typename Traits::T;
   using size_type = std::size_t;
   using difference_type = std::ptrdiff_t;
-  using const_iterator = Iterator<Base, true, false>;
-  using iterator = Iterator<Base, false, false>;
+  using const_iterator = Iterator<Traits, Base, true, false>;
+  using iterator = Iterator<Traits, Base, false, false>;
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
   using reverse_iterator = std::reverse_iterator<iterator>;
   using setter_type = Setter<Base>;

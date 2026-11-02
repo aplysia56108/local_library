@@ -23,9 +23,9 @@ struct Leaf;
 template <class Traits>
 struct Internal;
 
-// template <class Value, std::size_t Capacity = 32>
-using value_type = long long;
-constexpr std::size_t Capacity = 32;
+// using value_type = long long;
+// constexpr std::size_t Capacity = 32;
+template <class value_type, std::size_t Capacity = 32>
 struct Traits {
   static_assert(Capacity >= 3);
   using T = value_type;
