@@ -227,7 +227,7 @@ class Base {
   Leaf* locate(size_type index) const {
     ++index;
     assert(index < root_->size);
-    return root_->locate<WithLazy>(index);
+    return root_->template locate<WithLazy>(index);
   }
 
  public:

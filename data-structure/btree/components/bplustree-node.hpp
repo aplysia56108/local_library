@@ -102,6 +102,10 @@ struct Leaf : Traits::Node {
   const T& get() const {
     return value;
   }
+
+  T& get() {
+    return value;
+  }
 };
 
 /**
