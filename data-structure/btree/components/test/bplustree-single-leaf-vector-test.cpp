@@ -1,6 +1,7 @@
 #include "data-structure/btree/components/bplustree-base.hpp"
 
 #include <cassert>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -43,9 +44,11 @@ void test_stable_leaf_addresses() {
   assert(std::addressof(*middle) == p5);
   assert(std::addressof(*last) == p10);
   assert(before == tree.bbegin() && end == tree.end());
-}
+
+  std::cerr << "single-leaf iterator stability tests all passed! (capacity=" << Capacity << ")\n";}
 
 int main() {
   test_stable_leaf_addresses<4>();
   test_stable_leaf_addresses<8>();
-}
+
+  std::cerr << "All single-leaf vector test cases passed!\n";}
