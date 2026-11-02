@@ -1,6 +1,7 @@
 #include "data-structure/btree/components/bplustree-base.hpp"
 
 #include <cassert>
+#include <iostream>
 
 // Minimal lazy extension: pending increments live in Internal nodes.
 // locate<false> keeps a pending action; locate<true> materializes the path.
@@ -67,4 +68,5 @@ int main() {
   assert(tree.get(3) == 100);
   assert(tree.get(0) == 16);
   assert(tree.get(6) == 22);
-}
+
+  std::cerr << "All lazy locate test cases passed!\n";}
