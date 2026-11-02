@@ -1,6 +1,7 @@
 #include "data-structure/btree/components/bplustree-base.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <cassert>
 #include <vector>
 
@@ -80,4 +81,5 @@ int main() {
   assert(!ordered.insert(3));
   assert(std::vector<long long>(ordered.begin(), ordered.end()) ==
          std::vector<long long>({1, 3, 5}));
-}
+
+  std::cerr << "All Traits extension test cases passed!\n";}
