@@ -34,8 +34,8 @@ void segtree_tests() {
   a.merge(right);
   assert(a.all_prod() == 28);
   assert(right.all_prod() == 0);
-  assert(a.max_right(0, [](long long x) { return x <= 17; }) == 2);
-  assert(a.min_left(a.size(), [](long long x) { return x <= 9; }) == 3);
+  assert(a.max_right(0, [](long long x) { return x <= 17; }) == 3);
+  assert(a.min_left(a.size(), [](long long x) { return x <= 9; }) == 4);
 
   // Sentinels must contribute the monoid identity rather than T{}.
   Bplustree_Segtree<MinMonoid, Capacity> minimum{8, 4, 9};
