@@ -13,7 +13,8 @@ concept Has_Monoid_op =
 
 template <class Tree, class F, class value_type>
 concept Has_Action_mapping =
-    requires(const F& f, const value_type& x) { Tree::Action::mapping(f, x); };
+    requires(const F& f, const value_type& x) { Tree::Action::mapping(f, x); } ||
+    requires(const F& f, const value_type& x) { Tree::Action::mapping(f, x, std::size_t{1}); };
 
 template <class Tree>
 class Setter {
@@ -67,7 +68,10 @@ class Setter {
   void apply(const F& action)
     requires Has_Action_mapping<Tree, F, value_type>
   {
-    it_.set(Tree::Action::mapping(action, *it_));
+    if constexpr (requires { Tree::Action::mapping(action, *it_); })
+      it_.set(Tree::Action::mapping(action, *it_));
+    else
+      it_.set(Tree::Action::mapping(action, *it_, std::size_t{1}));
   }
 
 #define BPLUSTREE_SETTER_COMPOUND(OP)                                \
