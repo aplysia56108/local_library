@@ -102,10 +102,11 @@ class Base {
       end_ = iterator{end.get()};
       level.push_back(std::move(end));
     }
+    std::size_t current_level = 0;
     while (level.size() > 1) {
       std::vector<std::unique_ptr<Internal>> next;
       for (size_type i = 0; i < level.size();) {
-        auto parent = std::make_unique<Internal>();
+        auto parent = std::make_unique<Internal>(current_level);
         while (parent->count < MaxCount && i < level.size())
           parent->children[parent->count++] = std::move(level[i++]);
         parent->refresh();
@@ -114,6 +115,7 @@ class Base {
       level.clear();
       level.reserve(next.size());
       for (auto& child : next) level.push_back(std::move(child));
+      ++current_level;
     }
     root_.reset(static_cast<Internal*>(level[0].release()));
     root_->parent = nullptr;
