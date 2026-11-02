@@ -1,6 +1,7 @@
 #include "data-structure/btree/components/bplustree-base.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <cassert>
 #include <cstddef>
 #include <initializer_list>
@@ -57,7 +58,8 @@ void construction() {
   check(a, {7, 7});
   a.clear();
   check(a, {});
-}
+
+  std::cerr << "base construction tests all passed! (capacity=" << Capacity << ")\n";}
 
 // Accessors, element updates, position/iterator overloads, search.
 template <std::size_t Capacity>
@@ -88,7 +90,8 @@ void access_and_edit() {
   assert(a.erase(a.nth(1), a.nth(1)) == a.nth(1));
   assert(a.erase(a.begin(), a.end()) == a.end());
   check(a, {});
-}
+
+  std::cerr << "base access and edit tests all passed! (capacity=" << Capacity << ")\n";}
 
 // split(index/iterator), merge, reverse(all/range) and boundary positions.
 template <std::size_t Capacity>
@@ -119,7 +122,8 @@ void structural_operations() {
   first.merge(a);
   check(first, {1, 2, 3, 4, 5, 6});
   check(a, {});
-}
+
+  std::cerr << "base structural operations tests all passed! (capacity=" << Capacity << ")\n";}
 
 int main() {
   construction<4>();
@@ -128,4 +132,5 @@ int main() {
   access_and_edit<8>();
   structural_operations<4>();
   structural_operations<8>();
-}
+
+  std::cerr << "All B+tree base test cases passed!\n";}
