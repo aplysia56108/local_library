@@ -81,14 +81,18 @@ void access_and_edit() {
   a.push_front(5);
   a.push_back(45);
   check(a, {5, 11, 15, 21, 30, 40, 45});
-  assert(a.erase(a.nth(2)) == a.nth(2));
+  auto after_erase = a.erase(a.nth(2));
+  assert(after_erase == a.nth(2));
+  assert(*after_erase == 21);
   assert(a.erase(0) == a.begin());
   a.pop_front();
   a.pop_back();
   check(a, {15, 21, 30, 40});
-  assert(a.erase(1, 3) == a.nth(1));
+  auto after_range_erase = a.erase(1, 3);
+  assert(after_range_erase == a.nth(1));
   check(a, {15, 40});
-  assert(a.erase(a.nth(1), a.nth(1)) == a.nth(1));
+  auto after_empty_erase = a.erase(a.nth(1), a.nth(1));
+  assert(after_empty_erase == a.nth(1));
   assert(a.erase(a.begin(), a.end()) == a.end());
   check(a, {});
 
