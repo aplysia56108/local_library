@@ -55,7 +55,8 @@ void test_leaf_and_internal() {
   }
   assert(Node::live_nodes == before);
 
-  std::cerr << "node leaf/internal tests all passed! (capacity=" << Capacity << ")\n";}
+  std::cerr << "node leaf/internal tests all passed! (capacity=" << Capacity << ")\n";
+}
 
 void test_integrate() {
   using Traits = Bplustree::Traits<long long, 6>;
@@ -89,7 +90,8 @@ void test_integrate() {
   assert(root->get_child(0) == survivor);
   assert(root->locate(3)->get() == 4);
 
-  std::cerr << "node integration tests all passed!\n";}
+  std::cerr << "node integration tests all passed!\n";
+}
 
 int main() {
   test_leaf_and_internal<3>();
@@ -97,4 +99,5 @@ int main() {
   test_leaf_and_internal<6>();
   test_integrate();
 
-  std::cerr << "All node test cases passed!\n";}
+  std::cerr << "All node test cases passed!\n";
+}
