@@ -23,12 +23,12 @@ void check(const T& tree, std::initializer_list<long long> expected,
   const std::vector<long long> actual(tree.begin(), tree.end());
   if (!std::equal(actual.begin(), actual.end(), expected.begin(), expected.end())) {
     std::cerr << "Mismatch at " << where.file_name() << ":"
-              << where.line() << " (" << where.function_name() << ")\\n";
+              << where.line() << " (" << where.function_name() << ")\n";
     std::cerr << "  expected:";
     for (auto x : expected) std::cerr << ' ' << x;
-    std::cerr << "\\n  actual:  ";
+    std::cerr << "\n  actual:  ";
     for (auto x : actual) std::cerr << ' ' << x;
-    std::cerr << '\\n';
+    std::cerr << '\n';
     assert(false && "B+tree contents differ from expected");
   }
 
