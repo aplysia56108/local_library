@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <source_location>
 #include <cassert>
 #include <cstddef>
 #include <initializer_list>
@@ -14,10 +15,23 @@ template <std::size_t Capacity>
 using Tree = Bplustree::Base<Bplustree::Traits<long long, Capacity>>;
 
 template <class T>
-void check(const T& tree, std::initializer_list<long long> expected) {
+void check(const T& tree, std::initializer_list<long long> expected,
+           std::source_location where = std::source_location::current()) {
   assert(tree.size() == expected.size());
   assert(tree.empty() == (expected.size() == 0));
-  assert(std::equal(tree.begin(), tree.end(), expected.begin(), expected.end()));
+
+  const std::vector<long long> actual(tree.begin(), tree.end());
+  if (!std::equal(actual.begin(), actual.end(), expected.begin(), expected.end())) {
+    std::cerr << "Mismatch at " << where.file_name() << ":"
+              << where.line() << " (" << where.function_name() << ")\\n";
+    std::cerr << "  expected:";
+    for (auto x : expected) std::cerr << ' ' << x;
+    std::cerr << "\\n  actual:  ";
+    for (auto x : actual) std::cerr << ' ' << x;
+    std::cerr << '\\n';
+    assert(false && "B+tree contents differ from expected");
+  }
+
   assert(tree.end() - tree.begin() == static_cast<std::ptrdiff_t>(expected.size()));
   assert(tree.bbegin() + 1 == tree.begin());
   assert(tree.nth(expected.size()) == tree.end());
