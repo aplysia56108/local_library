@@ -217,14 +217,23 @@ class Base {
     }
     if (left->level < right->level) {
       Internal* target = right.get();
-      while (left->level + 1 < target->level) target = target->get_child(0);
+      while (left->level + 1 < target->level) {
+        target->materialize();
+        target = target->get_child(0);
+      }
+      // Expand pending reversal before attaching a new leftmost child.
+      target->materialize();
       insert(target, 0, std::move(left), right);
       integrate_path(right->locate(left_size));
       return right;
     }
     Internal* target = left.get();
-    while (right->level + 1 < target->level)
+    while (right->level + 1 < target->level) {
+      target->materialize();
       target = target->get_child(target->count - 1);
+    }
+    // Expand pending reversal before attaching a new rightmost child.
+    target->materialize();
     insert(target, target->count, std::move(right), left);
     integrate_path(left->locate(left_size));
     return left;
