@@ -125,6 +125,7 @@ struct Internal : Traits::Node {
   using T = typename Traits::T;
   using N = typename Traits::Node;
   using L = typename Traits::Leaf;
+  using I = typename Traits::Internal;
   inline static long long internal_count = 0;
   inline static long long peak_internal_count = 0;
   std::size_t count = 0;
@@ -141,8 +142,8 @@ struct Internal : Traits::Node {
     --internal_count;
   }
 
-  Internal* get_child(std::size_t index) const {
-    return static_cast<Internal*>(children[index].get());
+  I* get_child(std::size_t index) const {
+    return static_cast<I*>(children[index].get());
   }
 
   std::size_t child_size(std::size_t index) const {
@@ -166,7 +167,7 @@ struct Internal : Traits::Node {
     count = 0;
     for (std::size_t i = 0; i < NodeCap; ++i) {
       if (children[i] == nullptr) break;
-      children[i]->parent = this;
+      children[i]->parent = static_cast<I*>(this);
       children[i]->position = i;
       if (level == 0)
         ++size;
@@ -268,12 +269,12 @@ struct Internal : Traits::Node {
    * 完成した木に空 Internal を残さないことは上位の処理が保証する。
    * @return 分割後の右 Internal。左側はこの Node を再利用する。
    */
-  std::unique_ptr<Internal> split(std::size_t left_count = HalfNodeCap) {
+  std::unique_ptr<I> split(std::size_t left_count = HalfNodeCap) {
     assert(count <= NodeCap);
     assert(left_count <= count);
     assert(left_count < NodeCap && count - left_count < NodeCap);
     const std::size_t right_count = count - left_count;
-    auto right = std::make_unique<Internal>(level);
+    auto right = std::make_unique<I>(level);
 
     for (std::size_t i = 0; i < right_count; ++i) {
       right->children[i] = std::move(children[left_count + i]);
