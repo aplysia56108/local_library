@@ -208,7 +208,14 @@ class Base {
     if (right->size == 0) return left;
     if (left->size == 0) return right;
     std::size_t left_size = left->size;
-    if (left->level <= right->level) {
+    if (left->level == right->level) {
+      const std::size_t new_level = left->level + 1;
+      auto root = make_new_root(std::move(left), std::move(right), new_level);
+      integrate_path(root->locate(left_size));
+      cut_root(root);
+      return root;
+    }
+    if (left->level < right->level) {
       Internal* target = right.get();
       while (left->level + 1 < target->level) target = target->get_child(0);
       insert(target, 0, std::move(left), right);
