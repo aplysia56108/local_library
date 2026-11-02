@@ -47,7 +47,12 @@ class Base {
   std::unique_ptr<Internal> root_;
   iterator bbegin_, end_;
 
-  const T init_value = T{};
+  const T init_value = [] {
+    if constexpr (requires { Traits::identity(); })
+      return Traits::identity();
+    else
+      return T{};
+  }();
 
   /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
   void init() {
