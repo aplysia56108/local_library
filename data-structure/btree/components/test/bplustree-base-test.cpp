@@ -84,16 +84,18 @@ void access_and_edit() {
   auto after_erase = a.erase(a.nth(2));
   assert(after_erase == a.nth(2));
   assert(*after_erase == 21);
-  assert(a.erase(0) == a.begin());
+  auto after_front_erase = a.erase(0);
+  assert(after_front_erase == a.begin());
   a.pop_front();
   a.pop_back();
-  check(a, {15, 21, 30, 40});
+  check(a, {21, 30, 40});
   auto after_range_erase = a.erase(1, 3);
   assert(after_range_erase == a.nth(1));
-  check(a, {15, 40});
+  check(a, {21});
   auto after_empty_erase = a.erase(a.nth(1), a.nth(1));
   assert(after_empty_erase == a.nth(1));
-  assert(a.erase(a.begin(), a.end()) == a.end());
+  auto after_all_erase = a.erase(a.begin(), a.end());
+  assert(after_all_erase == a.end());
   check(a, {});
 
   std::cerr << "base access and edit tests all passed! (capacity=" << Capacity << ")\n";
