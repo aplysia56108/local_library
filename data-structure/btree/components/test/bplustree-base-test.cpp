@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <initializer_list>
 #include <iterator>
 #include <numeric>
 #include <utility>
@@ -13,7 +15,7 @@ using Tree = Bplustree::Base<Bplustree::Traits<long long, Capacity>>;
 template <class T>
 void check(const T& tree, std::initializer_list<long long> expected) {
   assert(tree.size() == expected.size());
-  assert(tree.empty() == expected.size() == 0);
+  assert(tree.empty() == (expected.size() == 0));
   assert(std::equal(tree.begin(), tree.end(), expected.begin(), expected.end()));
   assert(tree.end() - tree.begin() == static_cast<std::ptrdiff_t>(expected.size()));
   assert(tree.bbegin() + 1 == tree.begin());
