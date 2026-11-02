@@ -60,13 +60,11 @@ class Base {
   const T init_value = T{};
 
   void init() {
-    root_ = std::make_unique<Internal>();
     auto bbegin = std::make_unique<Leaf>(init_value);
     auto end = std::make_unique<Leaf>(init_value);
+    root_ = make_new_root(std::move(bbegin), std::move(end));
     bbegin_ = iterator{bbegin.get()};
     end_ = iterator{end.get()};
-    root_->insert(std::move(bbegin), 0);
-    root_->insert(std::move(end), 1);
   }
   static void cut_root(std::unique_ptr<Internal>& root) {
     while (root->count == 1 && root->level) {
@@ -122,6 +120,11 @@ class Base {
     return parent;
   }
 
+  static void refresh_recursive(Internal* node) {
+    node->refresh();
+    if (node->parent) refresh_recursive(node->parent);
+  }
+
   static std::unique_ptr<Internal> insert_recursive(
       Internal* parent, std::size_t index,
       std::unique_ptr<Node> child = nullptr) {
@@ -134,10 +137,9 @@ class Base {
                                   parent->split());
         return parent->split();
       }
-    } else
-      parent->refresh();
-
-    return insert_recursive(parent->parent, parent->position + 1);
+    }
+    refresh_recursive(parent);
+    return nullptr;
   };
 
   static void integrate_path(Internal* node) {
@@ -155,6 +157,18 @@ class Base {
       auto level = right->level + 1;
       root = make_new_root(std::move(root), std::move(right), level);
     }
+  }
+
+  static void erase_recursive(Internal* parent, std::size_t index) {
+    if (parent->erase(index))
+      return erase_recursive(parent->parent, parent->position);
+    if (parent->parent) refresh_recursive(parent->parent);
+  }
+
+  static void erase(Internal* parent, std::size_t index,
+                    std::unique_ptr<Internal>& root) {
+    erase_recursive(parent, index);
+    cut_root(root);
   }
 
   static std::unique_ptr<Internal> devide(std::unique_ptr<Internal>& root,
@@ -385,14 +399,7 @@ class Base {
     return find(value) != end();
   }
   Base split(size_type index) {
-    assert(index <= size());
-    Base right;
-    if (index == size()) return right;
-    if (index == 0) {
-      swap(*this, right);
-      return right;
-    }
-    auto right = devide(root_, ) return right;
+    return split(nth(index));
   }
   Base split(iterator pos) {
     Base right;
@@ -401,10 +408,17 @@ class Base {
       swap(*this, right);
       return right;
     }
-    auto right_ = devide(root_, pos.leaf_);
-    auto bbegin_ = std::make_unique<Leaf>();
-
-    return split(pos - begin());
+    right.root_ = devide(root_, pos.leaf_);
+    auto bbegin = std::make_unique<Leaf>(init_value);
+    auto end = std::make_unique<Leaf>(init_value);
+    right.end_ = end_;
+    right.bbegin_ = iterator{bbegin.get()};
+    end_ = iterator{end.get()};
+    auto end_parent = root_->locate<false>(root_->size - 1)->parent;
+    insert(end_parent, end_parent->count, end, root_);
+    auto bbegin_parent = right.root_->locate<false>(0)->parent;
+    insert(bbegin_parent, 0, end, root_);
+    return right;
   }
   void merge(Base& right)
     requires(IsMergable)
@@ -415,22 +429,23 @@ class Base {
       swap(*this, right);
       return;
     }
-    auto parts = join_nodes(std::move(root_), std::move(right.root_));
-    root_ = std::move(parts.first);
-    if (parts.second) {
-      auto parent = std::make_unique<Internal>();
-      parent->insert(std::move(root_), 0);
-      parent->insert(std::move(parts.second), 1);
-      root_ = std::move(parent);
-    }
-    root_->parent = nullptr;
-    normalize_root();
+
+    auto end_pos = root_->locate<false>(root_->size - 1);
+    erase(end_pos->parent, end_pos->position, root_);
+    auto bbegin_pos = right.root_->locate<false>(right.root_->size - 1);
+    erase(bbegin_pos->parent, bbegin_pos->position, root_);
+
+    root_ = unite(std::move(root_), std::move(right.root_));
+    this->end_ = right.end_;
     right.init();
   }
+
   void reverse()
     requires(IsMergable)
   {
     root_->push_reverse();
+    using std::swap;
+    swap(bbegin_, end_);
   }
   void reverse(size_type first, size_type last)
     requires(IsMergable)
@@ -438,19 +453,16 @@ class Base {
     assert(first <= last && last <= size());
     if (last - first < 2) return;
     if (first == 0 && last == size()) return reverse();
-    auto right = split(last);
-    auto middle = split(first);
-    middle.reverse();
-    merge(middle);
-    merge(right);
+    reverse(nth(first), nth(last));
   }
   void reverse(iterator first, iterator last)
     requires(IsMergable)
   {
-    reverse(first - begin(), last - begin());
+    auto right = devide(root_, last.leaf_);
+    auto middle = devide(root_, first.leaf_);
+    middle->push_reverse();
+    root_ = unite(std::move(root_), std::move(middle));
+    root_ = unite(std::move(root_), std::move(right));
   }
 };
 }  // namespace Bplustree
-
-template <class Traits>
-using Bplustree_Base = Bplustree::Base<Traits>;
