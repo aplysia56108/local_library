@@ -16,11 +16,11 @@
 
 namespace Bplustree {
 
-// template <class Traits>
+template <class Traits>
 struct Node;
-// template <class Traits>
+template <class Traits>
 struct Leaf;
-// template <class Traits>
+template <class Traits>
 struct Internal;
 
 // template <class Value, std::size_t Capacity = 32>
@@ -31,9 +31,9 @@ struct Traits {
   using T = value_type;
   static constexpr std::size_t kNodeCapacity = Capacity;
   static constexpr std::size_t kNodeHalf = Capacity / 2;
-  using Node = Bplustree::Node;
-  using Leaf = Bplustree::Leaf;
-  using Internal = Bplustree::Internal;
+  using Node = Bplustree::Node<Traits>;
+  using Leaf = Bplustree::Leaf<Traits>;
+  using Internal = Bplustree::Internal<Traits>;
   static const bool IsReversible = true;
   static const bool IsMergable = true;
 };
@@ -46,7 +46,7 @@ enum class NodeKind { kLeaf, kInternal };
  * @details parent と position は親 Internal の children 配列での所属を表す。
  * 根だけは parent == nullptr とする。構造変更後は Internal::sync() で更新する。
  */
-// template <class Traits>
+template <class Traits>
 struct Node {
   using L = Traits::Leaf;
   using I = Traits::Internal;
@@ -78,7 +78,7 @@ struct Node {
  * 自身のアドレスは変わらない。 ただし、その Leaf
  * を消去した場合や木を再構築した場合は無効になる。
  */
-// template <class Traits>
+template <class Traits>
 struct Leaf : Traits::Node {
   using T = typename Traits::T;
   using N = typename Traits::Node;
@@ -114,7 +114,7 @@ struct Leaf : Traits::Node {
  * level は構築時に確定し、通常状態では count < NodeCap を保つ。
  * 子の所有権は children の unique_ptr が持つ。
  */
-// template <class Traits>
+template <class Traits>
 struct Internal : Traits::Node {
   // 通常状態では count < NodeCap を保つ。
   // insert が true を返した直後だけ count == NodeCap になり、
@@ -365,7 +365,7 @@ struct Internal : Traits::Node {
    */
   void integrate() {
     if (this->parent == nullptr) return;
-    parent->integrate_child(position);
+    this->parent->integrate_child(this->position);
   };
 };
 

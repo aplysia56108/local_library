@@ -15,26 +15,16 @@
 
 namespace Bplustree {
 
-template <class Tree>
-concept Has_Monoid_e = requires {
-  { Tree::Monoid::e() } -> std::convertible_to<typename Tree::valuetype>;
-};
-/** Shared positional storage. Traits provides T, kNodeCapacity, Node, Leaf and
- * Internal. Stable nodes hold count < NodeCap; full insertions split
- * immediately. Iterators expose const elements so writes cannot bypass metadata
- * maintenance. Structural mutations invalidate iterators. See README.md for
- * extension hooks.
- */
 // Traitsが含む情報
 // T:要素の型
 // IsReversible:回転操作を許容するかどうか
 // IsMergable:マージ操作を許容するかどうか
 // Node, Leaf, Internal:それぞれ要素の型。Leaf, InternalはNodeを継承している。
 // kNodeCapacity:Internalのmax容量
-// template <class Traits>
+template <class Traits>
 class Base {
  public:
-  // using traits_type = Traits;
+  using traits_type = Traits;
   using value_type = typename Traits::T;
   using size_type = std::size_t;
   using difference_type = std::ptrdiff_t;
@@ -46,9 +36,9 @@ class Base {
 
  protected:
   using T = value_type;
-  // using Node = typename Traits::Node;
-  // using Leaf = typename Traits::Leaf;
-  // using Internal = typename Traits::Internal;
+  using Node = typename Traits::Node;
+  using Leaf = typename Traits::Leaf;
+  using Internal = typename Traits::Internal;
   static constexpr size_type NodeCap = Traits::kNodeCapacity;
   static constexpr bool IsReversible = Traits::IsReversible;
   static constexpr bool IsMergable = Traits::IsMergable;
@@ -457,9 +447,7 @@ class Base {
    * @details 中間の番兵を除去し、要素 Leaf の所有権を移す。
    * 結合後の right は空の木に戻す。自身との結合は不可。
    */
-  void merge(Base& right)
-    requires(IsMergable)
-  {
+  void merge(Base& right) {
     assert(this != &right);
     if (right.empty()) return;
     if (empty()) {
@@ -477,24 +465,18 @@ class Base {
     right.init();
   }
 
-  void reverse()
-    requires(IsMergable)
-  {
+  void reverse() {
     root_->push_reverse();
     using std::swap;
     swap(bbegin_, end_);
   }
-  void reverse(size_type first, size_type last)
-    requires(IsMergable)
-  {
+  void reverse(size_type first, size_type last) {
     assert(first <= last && last <= size());
     if (last - first < 2) return;
     if (first == 0 && last == size()) return reverse();
     reverse(nth(first), nth(last));
   }
-  void reverse(iterator first, iterator last)
-    requires(IsMergable)
-  {
+  void reverse(iterator first, iterator last) {
     auto right = devide(root_, last.leaf_);
     auto middle = devide(root_, first.leaf_);
     middle->push_reverse();
