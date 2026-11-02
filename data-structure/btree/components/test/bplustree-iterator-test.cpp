@@ -1,6 +1,7 @@
 #include "data-structure/btree/components/bplustree-base.hpp"
 
 #include <cassert>
+#include <iostream>
 #include <compare>
 #include <concepts>
 #include <iterator>
@@ -49,7 +50,8 @@ void random_access() {
   assert(*tree.crbegin() == 60);
   assert(std::vector<long long>(tree.begin(), tree.end()) ==
          std::vector<long long>({10, 20, 30, 40, 50, 60}));
-}
+
+  std::cerr << "iterator random access tests all passed!\n";}
 
 // set(value): refresh ancestors; iterator retains Leaf identity on insertion.
 void mutation() {
@@ -59,10 +61,12 @@ void mutation() {
   assert(tree[2] == 30);
   tree.insert(0, 0);
   assert(*it == 30 && it == tree.nth(3));
-}
+
+  std::cerr << "iterator mutation tests all passed!\n";}
 
 int main() {
   assert(It{} == It{});
   random_access();
   mutation();
-}
+
+  std::cerr << "All iterator test cases passed!\n";}
