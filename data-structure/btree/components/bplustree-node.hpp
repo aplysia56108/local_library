@@ -175,7 +175,7 @@ struct Internal : Traits::Node {
   // reverseなど、位置を変更するような遅延伝搬のフラグをつける。実際の位置は変更しない。
   void push_reverse() {
     this->is_reversed = !this->is_reversed;
-    push_reverse_impl();
+    static_cast<typename Traits::Internal*>(this)->push_reverse_impl();
   }
 
   void push_reverse_impl() {
@@ -185,9 +185,11 @@ struct Internal : Traits::Node {
   // 位置を変更しない遅延伝搬について、実際に適用する。
   // その後何らかの処理のあと、子Node全てにpushする想定。
   void apply_lazy() {
-    if (!apply_lazy_impl()) return;
+    if (!(static_cast<typename Traits::Internal*>(this)->apply_lazy_impl()))
+      return;
     if (level)
-      for (std::size_t i = 0; i < count; ++i) get_child(i)->push_lazy();
+      for (std::size_t i = 0; i < count; ++i)
+        static_cast<typename Traits::Internal*>(get_child(i))->push_lazy();
   }
 
   bool apply_lazy_impl() {

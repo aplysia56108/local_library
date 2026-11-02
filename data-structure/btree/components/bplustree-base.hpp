@@ -265,7 +265,7 @@ class Base {
     return root_->size - 2;
   }
   bool empty() const noexcept {
-    return size() == 2;
+    return size() == 0;
   }
   iterator nth(size_type index) const {
     return {locate(index)};
@@ -432,7 +432,7 @@ class Base {
 
     auto end_pos = root_->locate<false>(root_->size - 1);
     erase(end_pos->parent, end_pos->position, root_);
-    auto bbegin_pos = right.root_->locate<false>(right.root_->size - 1);
+    auto bbegin_pos = right.root_->locate<false>(0);
     erase(bbegin_pos->parent, bbegin_pos->position, root_);
 
     root_ = unite(std::move(root_), std::move(right.root_));
