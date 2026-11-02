@@ -70,10 +70,12 @@ class Iterator {
 
   void advance(std::ptrdiff_t offset) {
     assert(leaf_ != nullptr);
-    std::ptrdiff_t to_index =
-        static_cast<std::size_t>(leaf_->position) + offset;
-    Internal* node = leaf_->parent;
+    // Reversal changes each Leaf's position. Materialize it before reading
+    // the current position or computing the target index.
     if constexpr (!VisitAll) apply_reverse_path();
+    std::ptrdiff_t to_index =
+        static_cast<std::ptrdiff_t>(leaf_->position) + offset;
+    Internal* node = leaf_->parent;
 
     while (true) {
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node->size)) {
