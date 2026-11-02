@@ -82,4 +82,5 @@ int main() {
   assert(std::vector<long long>(ordered.begin(), ordered.end()) ==
          std::vector<long long>({1, 3, 5}));
 
-  std::cerr << "All Traits extension test cases passed!\n";}
+  std::cerr << "All Traits extension test cases passed!\n";
+}
