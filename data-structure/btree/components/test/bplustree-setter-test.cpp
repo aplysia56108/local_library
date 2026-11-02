@@ -31,7 +31,8 @@ void arithmetic_setter() {
   tree(0) = tree(0);
   assert(tree[0] == 14);
 
-  std::cerr << "setter arithmetic tests all passed!\n";}
+  std::cerr << "setter arithmetic tests all passed!\n";
+}
 
 // Monoid / Action extension detection and left/right operation order.
 struct ConcatMonoid {
@@ -72,10 +73,12 @@ void monoid_action_setter() {
   tree().apply("!");
   assert(tree.value == "!abcd");
 
-  std::cerr << "setter monoid/action tests all passed!\n";}
+  std::cerr << "setter monoid/action tests all passed!\n";
+}
 
 int main() {
   arithmetic_setter();
   monoid_action_setter();
 
-  std::cerr << "All setter test cases passed!\n";}
+  std::cerr << "All setter test cases passed!\n";
+}
