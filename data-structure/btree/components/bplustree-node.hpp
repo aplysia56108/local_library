@@ -158,7 +158,7 @@ struct Internal : Traits::Node {
 
   void refresh() {
     sync();
-    return after_sync();
+    static_cast<typename Traits::Internal*>(this)->after_sync();
   }
 
   // reverseなど、位置を変更するような遅延伝搬について、実際に位置を変更する。
@@ -270,35 +270,36 @@ struct Internal : Traits::Node {
     return nullptr;
   }
 
-  // 左右のノードをみて、capacityが許すならくっつける。
-  Internal* integrate() {
-    if (this->parent == nullptr) return this;
-    Internal* parent = this->parent;
-    std::size_t position = this->position;
-    Internal* right = nullptr;
-    Internal* left = nullptr;
-    std::size_t right_position;
-    if (position && parent->child_count(position - 1) + count < NodeCap) {
-      left = parent->get_child(position - 1);
-      right = this;
-      right_position = position;
-    } else if (position + 1 < this->count &&
-               parent->child_count(position + 1) + count < NodeCap) {
-      left = this;
-      right = parent->get_child(position + 1);
-      right_position = position + 1;
+  void integrate_child(std::size_t index) {
+    if (index && child_count(index - 1) + child_count(index) < NodeCap) {
+      auto left = get_child(index - 1);
+      auto right = get_child(index);
+      left->materialize();
+      right->materialize();
+      for (std::size_t i = 0; i < right->count; ++i)
+        left->children[left->count + i] = std::move(right->children[i]);
+      left->refresh();
+    } else if (index + 1 < count &&
+               child_count(index + 1) + child_count(index) < NodeCap) {
+      auto left = get_child(index);
+      auto right = get_child(index + 1);
+      left->materialize();
+      right->materialize();
+      for (std::size_t i = right->count; i > 0; --i)
+        right->children[left->count + i - 1] =
+            std::move(right->children[i - 1]);
+      for (std::size_t i = 0; i < left->count; ++i)
+        right->children[i] = std::move(left->children[i]);
+      right->refresh();
     } else
-      return this;
+      return;
 
-    left->materialize();
-    right->materialize();
-
-    for (std::size_t i = 0; i < right->count; ++i)
-      left->children[left->count + i] = std::move(right->children[i]);
-    left->refresh();
-
-    erase(right_position);
-    return left;
+    erase(index);
+  }
+  // 左右のノードをみて、capacityが許すならくっつける。
+  void integrate() {
+    if (this->parent == nullptr) return;
+    parent->integrate_child(position);
   };
 };
 

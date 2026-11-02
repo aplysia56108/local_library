@@ -62,9 +62,9 @@ class Base {
   void init() {
     auto bbegin = std::make_unique<Leaf>(init_value);
     auto end = std::make_unique<Leaf>(init_value);
-    root_ = make_new_root(std::move(bbegin), std::move(end));
     bbegin_ = iterator{bbegin.get()};
     end_ = iterator{end.get()};
+    root_ = make_new_root(std::move(bbegin), std::move(end));
   }
   static void cut_root(std::unique_ptr<Internal>& root) {
     while (root->count == 1 && root->level) {
@@ -78,13 +78,13 @@ class Base {
     if (values.empty()) return init();
     constexpr size_type MaxCount = NodeCap - 1;
     std::vector<std::unique_ptr<Node>> level;
-    level.resize(values.size() + 2);
+    level.reserve(values.size() + 2);
     {
       auto bbegin = std::make_unique<Leaf>(init_value);
       bbegin_ = iterator{bbegin.get()};
       level.push_back(std::move(bbegin));
     }
-    for (size_type i = 0; i < values.size();) {
+    for (size_type i = 0; i < values.size(); ++i) {
       auto leaf = std::make_unique<Leaf>(std::move(values[i]));
       level.push_back(std::move(leaf));
     }
@@ -175,7 +175,7 @@ class Base {
                                           Leaf* leaf) {
     Internal* parent = leaf->parent;
     std::size_t position = leaf->position;
-    std::unique_ptr<Internal> right;
+    auto right = std::make_unique<Internal>();
     while (parent) {
       auto next = parent->split(position);
       if (right->count) next->insert(std::move(right), 0);
@@ -415,9 +415,9 @@ class Base {
     right.bbegin_ = iterator{bbegin.get()};
     end_ = iterator{end.get()};
     auto end_parent = root_->locate<false>(root_->size - 1)->parent;
-    insert(end_parent, end_parent->count, end, root_);
+    insert(end_parent, end_parent->count, std::move(end), root_);
     auto bbegin_parent = right.root_->locate<false>(0)->parent;
-    insert(bbegin_parent, 0, end, root_);
+    insert(bbegin_parent, 0, std::move(bbegin), right.root_);
     return right;
   }
   void merge(Base& right)
