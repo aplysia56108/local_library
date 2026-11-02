@@ -124,6 +124,11 @@ class Base {
     return parent;
   }
 
+  static void materialize_path(Internal* node) {
+    if (node->parent) materialize_path(node->parent);
+    node->materialize();
+  }
+
   static void refresh_recursive(Internal* node) {
     node->refresh();
     if (node->parent) refresh_recursive(node->parent);
@@ -191,6 +196,7 @@ class Base {
    */
   static std::unique_ptr<Internal> devide(std::unique_ptr<Internal>& root,
                                           Leaf* leaf) {
+    materialize_path(leaf->parent);
     Internal* parent = leaf->parent;
     std::size_t position = leaf->position;
     std::unique_ptr<Internal> right;
@@ -355,6 +361,7 @@ class Base {
     return insert(locate<true>(index), value);
   }
   iterator insert(iterator pos, const T& value) {
+    materialize_path(pos.leaf_->parent);
     Internal* parent = pos.leaf_->parent;
     std::size_t position = pos.leaf_->position;
     std::unique_ptr<Node> child = std::make_unique<Leaf>(value);
@@ -379,6 +386,7 @@ class Base {
 
   iterator erase(iterator pos) {
     iterator res = pos + 1;
+    materialize_path(pos.leaf_->parent);
     Internal* parent = pos.leaf_->parent;
     std::size_t position = pos.leaf_->position;
     bool erase_flg = true;
