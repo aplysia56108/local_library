@@ -79,6 +79,7 @@ class Base {
       root->materialize();
       auto child = std::move(root->children[0]);
       root.reset(static_cast<Internal*>(child.release()));
+      root->parent = nullptr;
     }
   }
 
@@ -111,7 +112,7 @@ class Base {
         next.push_back(std::move(parent));
       }
       level.clear();
-      level.resize(next.size());
+      level.reserve(next.size());
       for (auto& child : next) level.push_back(std::move(child));
     }
     root_.reset(static_cast<Internal*>(level[0].release()));
@@ -189,25 +190,26 @@ class Base {
    * @brief 指定 Leaf の直前で木を左右に分割し、右側の根を返す。
    * @details 分割境界を下位から上位へたどり、各段で右側の部分木を移す。
    * 処理中は空の Internal を一時的に許し、最後に根と境界を整理する。
-   * 呼び出し側は、境界までの reverse / lazy が適切に伝搬されていることを保証する。
+   * 呼び出し側は、境界までの reverse / lazy
+   * が適切に伝搬されていることを保証する。
    * @return 右側の木の根。root には左側を残す。
    */
   static std::unique_ptr<Internal> devide(std::unique_ptr<Internal>& root,
                                           Leaf* leaf) {
     Internal* parent = leaf->parent;
     std::size_t position = leaf->position;
-    auto right = std::make_unique<Internal>();
+    std::unique_ptr<Internal> right;
     while (parent) {
       auto next = parent->split(position);
-      if (right->count) next->insert(std::move(right), 0);
+      if (right && right->count) next->insert(std::move(right), 0);
       right = std::move(next);
       position = parent->position + 1;
       parent = parent->parent;
     }
     cut_root(root);
-    integrate_path(root->locate<false>(root->size - 1));
+    integrate_path(root->locate(root->size - 1));
     cut_root(right);
-    integrate_path(right->locate<false>(0));
+    integrate_path(right->locate(0));
     return right;
   }
 
@@ -220,14 +222,14 @@ class Base {
       Internal* target = right.get();
       while (left->level + 1 < target->level) target = target->get_child(0);
       insert(target, 0, std::move(left), right);
-      integrate_path(right->locate<false>(left_size));
+      integrate_path(right->locate(left_size));
       return right;
     }
     Internal* target = left.get();
     while (right->level + 1 < target->level)
       target = target->get_child(target->count - 1);
     insert(target, target->count, std::move(right), left);
-    integrate_path(left->locate<false>(left_size));
+    integrate_path(left->locate(left_size));
     return left;
   };
 
@@ -319,23 +321,23 @@ class Base {
     return rend();
   }
   const T& get(size_type index) const {
-    return locate(index)->get();
+    return *nth(index);
   }
   const T& operator[](size_type index) const {
     return get(index);
   }
   const T& front() const {
-    return get(1);
+    return get(0);
   }
   const T& back() const {
     return get(size() - 1);
   }
   setter_type operator()(size_type index) {
-    return {locate<true>(index)};
+    return {locate(index)};
   }
 
   void set(size_type index, const T& value) {
-    locate<true>(index)->set(value);
+    nth(index).set(value);
   }
 
   iterator insert(size_type index, const T& value) {
@@ -360,7 +362,7 @@ class Base {
   }
 
   iterator erase(size_type index) {
-    auto leaf = locate<false>(index);
+    auto leaf = locate(index);
     return erase(iterator{leaf});
   }
 
@@ -421,8 +423,9 @@ class Base {
   }
   /**
    * @brief index 番目の実要素の直前で分割し、右側の木を返す。
-   * @details 位置は番兵を除いた 0-indexed。左右の木は分割後もそれぞれ番兵を持つ。
-   * 分割境界の既存 Leaf は移動させ、要素をコピーしない。
+   * @details 位置は番兵を除いた
+   * 0-indexed。左右の木は分割後もそれぞれ番兵を持つ。 分割境界の既存 Leaf
+   * は移動させ、要素をコピーしない。
    * @return 右側の木。自身には左側を残す。
    */
   Base split(size_type index) {
@@ -441,9 +444,9 @@ class Base {
     right.end_ = end_;
     right.bbegin_ = iterator{bbegin.get()};
     end_ = iterator{end.get()};
-    auto end_parent = root_->locate<false>(root_->size - 1)->parent;
+    auto end_parent = root_->locate(root_->size - 1)->parent;
     insert(end_parent, end_parent->count, std::move(end), root_);
-    auto bbegin_parent = right.root_->locate<false>(0)->parent;
+    auto bbegin_parent = right.root_->locate(0)->parent;
     insert(bbegin_parent, 0, std::move(bbegin), right.root_);
     return right;
   }
@@ -462,9 +465,9 @@ class Base {
       return;
     }
 
-    auto end_pos = root_->locate<false>(root_->size - 1);
+    auto end_pos = root_->locate(root_->size - 1);
     erase(end_pos->parent, end_pos->position, root_);
-    auto bbegin_pos = right.root_->locate<false>(0);
+    auto bbegin_pos = right.root_->locate(0);
     erase(bbegin_pos->parent, bbegin_pos->position, root_);
 
     root_ = unite(std::move(root_), std::move(right.root_));

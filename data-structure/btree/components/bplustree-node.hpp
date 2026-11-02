@@ -72,9 +72,11 @@ struct Node {
 };
 
 /**
- * @brief 1要素を保持する Leaf。要素ごとに Node を分け、Leaf* を安定した識別子にする。
- * @details Internal の子ポインタを並べ替えても Leaf 自身のアドレスは変わらない。
- * ただし、その Leaf を消去した場合や木を再構築した場合は無効になる。
+ * @brief 1要素を保持する Leaf。要素ごとに Node を分け、Leaf*
+ * を安定した識別子にする。
+ * @details Internal の子ポインタを並べ替えても Leaf
+ * 自身のアドレスは変わらない。 ただし、その Leaf
+ * を消去した場合や木を再構築した場合は無効になる。
  */
 // template <class Traits>
 struct Leaf : Traits::Node {
@@ -252,13 +254,15 @@ struct Internal : Traits::Node {
       children[i] = std::move(children[i - 1]);
     }
     children[child_index] = std::move(child);
-    if (count + 1 == NodeCap) return true;
+    ++count;
+    if (count == NodeCap) return true;
     refresh();
     return false;
   }
 
   /**
-   * @brief 先頭 left_count 個の子を自身に残し、残りを同じ level の右兄弟へ移す。
+   * @brief 先頭 left_count 個の子を自身に残し、残りを同じ level
+   * の右兄弟へ移す。
    * @details 子の移動前に呼び出し側が必要な遅延情報を伝搬する。
    * 分割処理中は片側の count が 0 になることも許容する。
    * 完成した木に空 Internal を残さないことは上位の処理が保証する。
@@ -286,6 +290,7 @@ struct Internal : Traits::Node {
     for (std::size_t i = child_index + 1; i < count; ++i)
       children[i - 1] = std::move(children[i]);
 
+    children[count - 1].reset();
     refresh();
     return this->count == 0;
   }
@@ -299,7 +304,7 @@ struct Internal : Traits::Node {
    * ### 計算量
    * O(NodeCapacity log_{NodeCapacity} N)
    */
-  template <bool WithLazy>
+  template <bool WithLazy = false>
   L* locate(std::size_t index) {
     apply_reverse();
     if constexpr (WithLazy) apply_lazy();
@@ -318,7 +323,8 @@ struct Internal : Traits::Node {
 
   /**
    * @brief index 番目の Internal 子を、容量に余裕のある隣接兄弟へ吸収する。
-   * @details level > 0、index < count、親の配置変更に関する遅延は伝搬済みとする。
+   * @details level > 0、index <
+   * count、親の配置変更に関する遅延は伝搬済みとする。
    * 統合可能なら指定した子だけを破棄し、兄弟の生存を保証する。
    * 指定した子の子孫は兄弟へ移動するため、子孫 Node 自体は破棄しない。
    * 統合できない場合は何もしない。統合後は子の position が変わりうる。
