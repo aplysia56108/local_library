@@ -55,6 +55,7 @@ struct ExtendedTree {
     const std::string& operator*() const { return tree->value; }
     void set(const std::string& v) const { tree->value = v; }
   };
+  using iterator = Iterator;
   std::string value;
   Bplustree::Setter<ExtendedTree> operator()() { return {Iterator{this}}; }
 };
