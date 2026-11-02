@@ -1,49 +1,85 @@
-#include "data-structure/btree/components/bplustree-setter.hpp"
 #include "data-structure/btree/components/bplustree-base.hpp"
 
 #include <cassert>
+#include <iostream>
+#include <concepts>
 #include <string>
 #include <type_traits>
+#include <utility>
 
-struct Action { std::string text; };
-struct StringTree {
+using Tree = Bplustree::Base<Bplustree::Traits<long long, 4>>;
+using Setter = Tree::setter_type;
+static_assert(!std::default_initializable<Setter>);
+
+// Setter: assignment, val and all supported compound assignment operators.
+void arithmetic_setter() {
+  Tree tree{12};
+  tree(0) = 20;
+  assert(tree(0).val() == 20);
+  tree(0) += 5;
+  tree(0) -= 2;
+  tree(0) *= 3;
+  tree(0) /= 2;
+  tree(0) %= 10;
+  assert(tree[0] == 4);
+  tree(0) |= 8;
+  tree(0) &= 14;
+  tree(0) ^= 2;
+  tree(0) <<= 1;
+  tree(0) >>= 1;
+  assert(tree[0] == 14);
+  tree(0) = tree(0);
+  assert(tree[0] == 14);
+
+  std::cerr << "setter arithmetic tests all passed!\n";
+}
+
+// Monoid / Action extension detection and left/right operation order.
+struct ConcatMonoid {
+  static std::string op(const std::string& a, const std::string& b) {
+    return a + b;
+  }
+};
+struct PrefixAction {
+  static std::string mapping(const std::string& prefix, const std::string& s) {
+    return prefix + s;
+  }
+};
+struct ExtendedTree {
   using value_type = std::string;
+  using Monoid = ConcatMonoid;
+  using Action = PrefixAction;
+  struct Iterator {
+    using value_type = std::string;
+    ExtendedTree* tree;
+    const std::string& operator*() const { return tree->value; }
+    void set(const std::string& v) const { tree->value = v; }
+  };
+  using iterator = Iterator;
   std::string value;
-  Bplustree::Setter<StringTree> operator()(std::size_t i) { return {*this, i}; }
-  const std::string& get(std::size_t) const { return value; }
-  void set(std::size_t, const std::string& x) { value = x; }
-  void prod_right(std::size_t, const std::string& x) { value += x; }
-  void prod_left(std::size_t, const std::string& x) { value = x + value; }
-  void apply(std::size_t, const Action& x) { value += x.text; }
-  void apply_left(std::size_t, const Action& x) { value = x.text + value; }
+  Bplustree::Setter<ExtendedTree> operator()() { return {Iterator{this}}; }
 };
 template <class S>
-concept HasMinus = requires(S s) { std::move(s) -= std::string{}; };
-template <class S>
-concept HasApply = requires(S s) { std::move(s).apply(Action{}); };
-using StringSetter = Bplustree::Setter<StringTree>;
-using Plain = Bplustree::Base<Bplustree::Traits<int>>;
-static_assert(!std::is_copy_constructible_v<StringSetter>);
-static_assert(!std::is_move_constructible_v<StringSetter>);
-static_assert(!HasMinus<StringSetter> && HasApply<StringSetter>);
-static_assert(!HasApply<typename Plain::setter_type>);
+concept CanApply = requires(S s) { s.apply(std::string{"prefix"}); };
+static_assert(CanApply<Bplustree::Setter<ExtendedTree>>);
+static_assert(!CanApply<Setter>);
+
+void monoid_action_setter() {
+  ExtendedTree tree;
+  tree() = "b";
+  tree().prod_right("c");
+  tree().prod_left("a");
+  tree().prod("d");
+  assert(tree.value == "abcd");
+  tree().apply("!");
+  assert(tree.value == "!abcd");
+
+  std::cerr << "setter monoid/action tests all passed!\n";
+}
 
 int main() {
-  StringTree tree;
-  tree(0) = "x";
-  tree(0).prod_right("r"); tree(0).prod_left("l"); tree(0).prod("p");
-  tree(0).apply(Action{"a"}); tree(0).apply_left(Action{"b"});
-  tree(0) += "z";
-  assert(tree(0).val() == "blxrpaz");
-  Plain plain{20};
-  plain(0) += 4; assert(plain[0] == 24);
-  plain(0) -= 2; assert(plain[0] == 22);
-  plain(0) *= 3; assert(plain[0] == 66);
-  plain(0) /= 2; assert(plain[0] == 33);
-  plain(0) %= 10; assert(plain[0] == 3);
-  plain(0) |= 4; assert(plain[0] == 7);
-  plain(0) &= 6; assert(plain[0] == 6);
-  plain(0) ^= 3; assert(plain[0] == 5);
-  plain(0) <<= 2; assert(plain[0] == 20);
-  plain(0) >>= 1; assert(plain[0] == 10);
+  arithmetic_setter();
+  monoid_action_setter();
+
+  std::cerr << "All setter test cases passed!\n";
 }

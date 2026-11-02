@@ -39,7 +39,7 @@ struct Traits {
 };
 
 /** @brief 子 Node の実体型を識別する。 */
-enum class NodeKind { kLeaf, kInternal };
+// enum class NodeKind { kLeaf, kInternal };
 
 /**
  * @brief Leaf / Internal が共有する親へのリンクとノード種別。
@@ -53,21 +53,17 @@ struct Node {
 
   I* parent = nullptr;
   std::size_t position = 0;
-  const NodeKind kind;
+  // const NodeKind kind;
 
   inline static long long live_nodes = 0;
   inline static long long peak_nodes = 0;
 
-  explicit Node(NodeKind kind) : kind(kind) {
+  explicit Node() {
     ++live_nodes;
     peak_nodes = std::max(peak_nodes, live_nodes);
   }
   virtual ~Node() {
     --live_nodes;
-  }
-
-  bool is_leaf() const {
-    return kind == NodeKind::kLeaf;
   }
 };
 
@@ -90,7 +86,7 @@ struct Leaf : Traits::Node {
   inline static long long leaf_count = 0;
   inline static long long peak_leaf_count = 0;
 
-  Leaf(const T& value) : N(NodeKind::kLeaf), value(value) {
+  Leaf(const T& value) : N(), value(value) {
     ++leaf_count;
     peak_leaf_count = std::max(peak_leaf_count, leaf_count);
   }
@@ -104,6 +100,10 @@ struct Leaf : Traits::Node {
   }
 
   const T& get() const {
+    return value;
+  }
+
+  T& get() {
     return value;
   }
 };
@@ -134,7 +134,7 @@ struct Internal : Traits::Node {
   bool is_reversed = false;
   std::array<std::unique_ptr<N>, NodeCap> children{};
 
-  Internal(std::size_t level = 0) : N(NodeKind::kInternal), level(level) {
+  Internal(std::size_t level = 0) : N(), level(level) {
     ++internal_count;
     peak_internal_count = std::max(peak_internal_count, internal_count);
   }
@@ -314,7 +314,7 @@ struct Internal : Traits::Node {
 
     for (std::size_t i = 0; i < count; ++i) {
       if (index < child_size(i)) {
-        return get_child(i)->locate<WithLazy>(index);
+        return get_child(i)->template locate<WithLazy>(index);
       }
       index -= child_size(i);
     }

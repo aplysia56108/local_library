@@ -29,7 +29,7 @@ namespace Bplustree {
 
 template <class Traits, class Tree, bool IsConst, bool VisitAll = false>
 class Iterator {
-  template <class, bool, bool>
+  template <class, class, bool, bool>
   friend class Iterator;
   friend Tree;
 
@@ -79,11 +79,11 @@ class Iterator {
 
     while (true) {
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node->size)) {
-        leaf_ = node->locate<VisitAll>(to_index);
+        leaf_ = node->template locate<VisitAll>(to_index);
         return;
       }
       if (node->parent == nullptr) {
-        leaf_ = node->locate<VisitAll>(to_index);
+        leaf_ = node->template locate<VisitAll>(to_index);
         return;
       }
       for (std::size_t i = 0; i < node->position; ++i) {
