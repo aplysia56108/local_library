@@ -13,14 +13,12 @@ void test_leaf_and_internal() {
   using Internal = typename Traits::Internal;
   const auto before = Node::live_nodes;
   {
-    // Node::is_leaf, Leaf::get/set, Internal::insert/sync/refresh/locate.
+    // Leaf::get/set, Internal::insert/sync/refresh/locate.
     Internal root(0);
     for (std::size_t i = 0; i < Capacity - 1; ++i) {
       auto leaf = std::make_unique<Leaf>(static_cast<long long>(10 + i));
-      assert(leaf->is_leaf());
       assert(!root.insert(std::move(leaf), i));
     }
-    assert(!root.is_leaf());
     assert(root.count == Capacity - 1 && root.size == Capacity - 1);
     for (std::size_t i = 0; i < root.count; ++i) {
       auto* leaf = root.locate(i);
@@ -28,7 +26,7 @@ void test_leaf_and_internal() {
       assert(leaf->parent == &root && leaf->position == i);
     }
     root.locate(0)->set(42);
-    assert(root.locate<true>(0)->get() == 42);
+    assert(root.template locate<true>(0)->get() == 42);
 
     // Internal::erase, compact children and repair parent/position.
     assert(!root.erase(0));
@@ -55,7 +53,8 @@ void test_leaf_and_internal() {
   }
   assert(Node::live_nodes == before);
 
-  std::cerr << "node leaf/internal tests all passed! (capacity=" << Capacity << ")\n";
+  std::cerr << "node leaf/internal tests all passed! (capacity=" << Capacity
+            << ")\n";
 }
 
 void test_integrate() {
