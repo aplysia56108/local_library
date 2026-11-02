@@ -54,11 +54,14 @@ class Base {
   static constexpr bool IsMergable = Traits::IsMergable;
   static_assert(NodeCap >= 3);
 
+  // 根の所有権は root_ が持つ。両端の番兵 Leaf も木の中で所有する。
+  // bbegin_ / end_ は番兵への非所有ポインタで、実要素数は root_->size - 2。
   std::unique_ptr<Internal> root_;
   iterator bbegin_, end_;
 
   const T init_value = T{};
 
+  /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
   void init() {
     auto bbegin = std::make_unique<Leaf>(init_value);
     auto end = std::make_unique<Leaf>(init_value);
@@ -66,6 +69,11 @@ class Base {
     end_ = iterator{end.get()};
     root_ = make_new_root(std::move(bbegin), std::move(end));
   }
+  /**
+   * @brief 子が1つだけの根を縮める。
+   * @details 各 Internal の level は変更せず、子の Internal を新たな根にする。
+   * 引数の root は所有権を保持したまま置き換わる。
+   */
   static void cut_root(std::unique_ptr<Internal>& root) {
     while (root->count == 1 && root->level) {
       root->materialize();
@@ -142,6 +150,12 @@ class Base {
     return nullptr;
   };
 
+  /**
+   * @brief 指定 Node までの経路を、祖先から子孫へ順に統合する。
+   * @details integrate() は対象自身を破棄しうるため、祖先を先に処理する。
+   * 各統合では対象以外の Node を破棄しない契約に依存している。
+   * 呼び出し後、渡した node が生存する保証はない。
+   */
   static void integrate_path(Internal* node) {
     if (node->parent) integrate_path(node->parent);
     node->integrate();
@@ -171,6 +185,13 @@ class Base {
     cut_root(root);
   }
 
+  /**
+   * @brief 指定 Leaf の直前で木を左右に分割し、右側の根を返す。
+   * @details 分割境界を下位から上位へたどり、各段で右側の部分木を移す。
+   * 処理中は空の Internal を一時的に許し、最後に根と境界を整理する。
+   * 呼び出し側は、境界までの reverse / lazy が適切に伝搬されていることを保証する。
+   * @return 右側の木の根。root には左側を残す。
+   */
   static std::unique_ptr<Internal> devide(std::unique_ptr<Internal>& root,
                                           Leaf* leaf) {
     Internal* parent = leaf->parent;
@@ -398,6 +419,12 @@ class Base {
   bool contains(const T& value) const {
     return find(value) != end();
   }
+  /**
+   * @brief index 番目の実要素の直前で分割し、右側の木を返す。
+   * @details 位置は番兵を除いた 0-indexed。左右の木は分割後もそれぞれ番兵を持つ。
+   * 分割境界の既存 Leaf は移動させ、要素をコピーしない。
+   * @return 右側の木。自身には左側を残す。
+   */
   Base split(size_type index) {
     return split(nth(index));
   }
@@ -420,6 +447,11 @@ class Base {
     insert(bbegin_parent, 0, std::move(bbegin), right.root_);
     return right;
   }
+  /**
+   * @brief right の全要素を自身の末尾に結合する。
+   * @details 中間の番兵を除去し、要素 Leaf の所有権を移す。
+   * 結合後の right は空の木に戻す。自身との結合は不可。
+   */
   void merge(Base& right)
     requires(IsMergable)
   {

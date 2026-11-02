@@ -38,8 +38,14 @@ struct Traits {
   static const bool IsMergable = true;
 };
 
+/** @brief 子 Node の実体型を識別する。 */
 enum class NodeKind { kLeaf, kInternal };
 
+/**
+ * @brief Leaf / Internal が共有する親へのリンクとノード種別。
+ * @details parent と position は親 Internal の children 配列での所属を表す。
+ * 根だけは parent == nullptr とする。構造変更後は Internal::sync() で更新する。
+ */
 // template <class Traits>
 struct Node {
   using L = Traits::Leaf;
@@ -65,6 +71,11 @@ struct Node {
   }
 };
 
+/**
+ * @brief 1要素を保持する Leaf。要素ごとに Node を分け、Leaf* を安定した識別子にする。
+ * @details Internal の子ポインタを並べ替えても Leaf 自身のアドレスは変わらない。
+ * ただし、その Leaf を消去した場合や木を再構築した場合は無効になる。
+ */
 // template <class Traits>
 struct Leaf : Traits::Node {
   using T = typename Traits::T;
@@ -95,6 +106,12 @@ struct Leaf : Traits::Node {
   }
 };
 
+/**
+ * @brief 子 Node の所有権と部分木の構造情報を管理する内部ノード。
+ * @details level == 0 の子は Leaf、それ以外の子は Internal。
+ * level は構築時に確定し、通常状態では count < NodeCap を保つ。
+ * 子の所有権は children の unique_ptr が持つ。
+ */
 // template <class Traits>
 struct Internal : Traits::Node {
   // 通常状態では count < NodeCap を保つ。
@@ -136,6 +153,11 @@ struct Internal : Traits::Node {
     return get_child(index)->count;
   }
 
+  /**
+   * @brief 子配列から size / count と各子の parent / position を再計算する。
+   * @details children[0, count) は null のない連続領域とする。
+   * 挿入直後の count == NodeCap の一時状態にも対応する。
+   */
   void sync() {
     // insert / split の内部処理でも使うため、満杯の一時状態も同期する。
     size = 0;
@@ -156,6 +178,10 @@ struct Internal : Traits::Node {
     return;
   }
 
+  /**
+   * @brief 構造情報を同期し、派生 Internal の追加情報も更新する。
+   * @details after_sync() は Traits::Internal へ静的にディスパッチする。
+   */
   void refresh() {
     sync();
     static_cast<typename Traits::Internal*>(this)->after_sync();
@@ -201,11 +227,22 @@ struct Internal : Traits::Node {
     return;
   }
 
+  /**
+   * @brief この Node に残った reverse / lazy を子へ伝搬する。
+   * @details 子配列の順序や所有権を変更する前に呼び出す。
+   * 派生クラスの集約値は論理状態と整合していることを前提とする。
+   */
   void materialize() {
     apply_reverse();
     apply_lazy();
   }
 
+  /**
+   * @brief child を child_index に挿入する。
+   * @details 呼び出し側は必要な遅延情報を事前に伝搬しておく。
+   * @return 満杯になり、直ちに split() する必要がある場合 true。
+   * @warning true を返した直後は count == NodeCap の一時状態となる。
+   */
   bool insert(std::unique_ptr<N> child, std::size_t child_index) {
     assert(child != nullptr);
     assert(child_index <= this->count);
@@ -220,6 +257,13 @@ struct Internal : Traits::Node {
     return false;
   }
 
+  /**
+   * @brief 先頭 left_count 個の子を自身に残し、残りを同じ level の右兄弟へ移す。
+   * @details 子の移動前に呼び出し側が必要な遅延情報を伝搬する。
+   * 分割処理中は片側の count が 0 になることも許容する。
+   * 完成した木に空 Internal を残さないことは上位の処理が保証する。
+   * @return 分割後の右 Internal。左側はこの Node を再利用する。
+   */
   std::unique_ptr<Internal> split(std::size_t left_count = HalfNodeCap) {
     assert(count <= NodeCap);
     assert(left_count <= count);
@@ -272,6 +316,13 @@ struct Internal : Traits::Node {
     return nullptr;
   }
 
+  /**
+   * @brief index 番目の Internal 子を、容量に余裕のある隣接兄弟へ吸収する。
+   * @details level > 0、index < count、親の配置変更に関する遅延は伝搬済みとする。
+   * 統合可能なら指定した子だけを破棄し、兄弟の生存を保証する。
+   * 指定した子の子孫は兄弟へ移動するため、子孫 Node 自体は破棄しない。
+   * 統合できない場合は何もしない。統合後は子の position が変わりうる。
+   */
   void integrate_child(std::size_t index) {
     if (index && child_count(index - 1) + child_count(index) < NodeCap) {
       auto left = get_child(index - 1);
@@ -298,7 +349,14 @@ struct Internal : Traits::Node {
 
     erase(index);
   }
-  // 左右のノードをみて、capacityが許すならくっつける。
+  /**
+   * @brief 容量が許す場合、自身を左右いずれかの兄弟 Internal に統合する。
+   * @details 統合に成功した場合、この Node 自身は破棄されうる。
+   * この呼び出しによって、ほかの Node は破棄しない。
+   * 親・兄弟・子孫へのポインタは維持されるが、position は更新されうる。
+   * 呼び出し後は this にアクセスしないこと。
+   * 根に対しては何もしない。
+   */
   void integrate() {
     if (this->parent == nullptr) return;
     parent->integrate_child(position);
