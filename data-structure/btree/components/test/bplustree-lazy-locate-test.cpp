@@ -69,4 +69,5 @@ int main() {
   assert(tree.get(0) == 16);
   assert(tree.get(6) == 22);
 
-  std::cerr << "All lazy locate test cases passed!\n";}
+  std::cerr << "All lazy locate test cases passed!\n";
+}
