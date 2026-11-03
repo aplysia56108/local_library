@@ -219,11 +219,6 @@ struct Internal : Traits::Node {
   // その後何らかの処理のあと、子Node全てにpushする想定。
   void apply_lazy() {
     static_cast<typename Traits::Internal*>(this)->apply_lazy_impl();
-    if (level)
-      for (std::size_t i = 0; i < count; ++i) get_child(i)->push_lazy();
-    else
-      for (std::size_t i = 0; i < count; ++i)
-        static_cast<typename Traits::Leaf*>(i)->push_lazy();
   }
 
   void apply_lazy_impl() {
