@@ -300,6 +300,8 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using Parent::size;
 
   AggregateTree() = default;
+  /** @brief モノイド単位元で count 要素を初期化する。 */
+  explicit AggregateTree(size_type count) : Parent(count, M::e()) {}
 
   /** @brief 全要素の積。O(1)。 */
   T all_prod() const { return this->root_->forward; }
