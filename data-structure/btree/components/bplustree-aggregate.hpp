@@ -5,10 +5,7 @@
 #include <concepts>
 #include <cstddef>
 #include <initializer_list>
-#include <iostream>
-#include <memory>
 #include <optional>
-#include <type_traits>
 #include <utility>
 
 #include "data-structure/btree/components/bplustree-base.hpp"
@@ -33,141 +30,166 @@ struct AggregateTraits {
   struct Internal;
 };
 
-/** @brief 順方向・逆方向の積と遅延作用を共有する Node。 */
+/** @brief Leaf と Internal に共通する親・位置情報だけを持つ Node。 */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits<M, A, R, C>::Node
     : Bplustree::Node<AggregateTraits<M, A, R, C>> {
-  using Traits = AggregateTraits<M, A, R, C>;
-  using Bplustree::Node<Traits>::Node;
-
-  T forward = M::e();
-  T backward = M::e();
-  std::optional<F> pending;
-
-  /** @brief 部分木全体への作用。Leaf は値に直接反映する。 */
-  void apply_action(const F& f) requires(Traits::lazy);
+  using Bplustree::Node<AggregateTraits<M, A, R, C>>::Node;
 };
 
-/** @brief 1要素の集約値を持つ Leaf。 */
+/**
+ * @brief 1要素だけを保持する Leaf。
+ * @details 集約値や遅延タグは持たず、作用を受けた時点で値を更新する。
+ */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits<M, A, R, C>::Leaf
     : Bplustree::Leaf<AggregateTraits<M, A, R, C>> {
   using Traits = AggregateTraits<M, A, R, C>;
   using Parent = Bplustree::Leaf<Traits>;
   using T = typename Traits::T;
+  using F = typename Traits::F;
 
-  explicit Leaf(const T& value) : Parent(value) {
-    this->forward = this->backward = value;
-  }
+  using Parent::Parent;
 
-  void set(const T& value) {
-    Parent::set(value);
-    this->forward = this->backward = value;
+  void push_lazy(const F& f) requires(Traits::lazy) {
+    this->set(A::mapping(f, this->get(), 1));
   }
 };
 
-/** @brief 集約値の再計算・反転・遅延伝搬を提供する Internal。 */
+/**
+ * @brief 順方向・逆方向の積と未伝搬の作用を持つ Internal。
+ * @details level==0 の子は Leaf、それ以外は Internal。
+ * Leaf に集約値・遅延タグを設けないため、Leaf の作用は即時反映する。
+ */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits<M, A, R, C>::Internal
     : Bplustree::Internal<AggregateTraits<M, A, R, C>> {
   using Traits = AggregateTraits<M, A, R, C>;
   using Parent = Bplustree::Internal<Traits>;
+  using T = typename Traits::T;
+  using F = typename Traits::F;
+  using Leaf = typename Traits::Leaf;
 
   using Parent::Parent;
 
+  T forward = M::e();
+  T backward = M::e();
+  std::optional<F> pending;
+
+  /**
+   * @brief 構造や子の値から積を再計算する。
+   * @details is_reversed / pending が残っていれば、再計算した物理状態の積に
+   * それらを適用して論理状態の積を維持する。
+   */
   void after_sync() {
-    this->forward = this->backward = M::e();
-    for (std::size_t i = 0; i < this->count; ++i)
-      this->forward = M::op(this->forward, this->children[i]->forward);
-    if constexpr (R) {
-      this->backward = this->forward;
+    forward = backward = M::e();
+    if (this->level == 0) {
+      for (std::size_t i = 0; i < this->count; ++i)
+        forward = M::op(forward, static_cast<Leaf*>(this->children[i].get())->get());
+      if constexpr (R) {
+        backward = forward;
+      } else {
+        for (std::size_t i = this->count; i > 0; --i)
+          backward = M::op(backward,
+                           static_cast<Leaf*>(this->children[i - 1].get())->get());
+      }
     } else {
-      for (std::size_t i = this->count; i > 0; --i)
-        this->backward = M::op(this->backward, this->children[i - 1]->backward);
-      if (this->is_reversed) std::swap(this->forward, this->backward);
+      for (std::size_t i = 0; i < this->count; ++i)
+        forward = M::op(forward, this->get_child(i)->forward);
+      if constexpr (R) {
+        backward = forward;
+      } else {
+        for (std::size_t i = this->count; i > 0; --i)
+          backward = M::op(backward, this->get_child(i - 1)->backward);
+      }
+    }
+
+    if constexpr (!R) {
+      if (this->is_reversed) std::swap(forward, backward);
     }
     if constexpr (Traits::lazy) {
-      if (this->pending) {
-        this->forward = A::mapping(*this->pending, this->forward, this->size);
+      if (pending) {
+        forward = A::mapping(*pending, forward, this->size);
         if constexpr (R)
-          this->backward = this->forward;
+          backward = forward;
         else
-          this->backward = A::mapping(*this->pending, this->backward, this->size);
+          backward = A::mapping(*pending, backward, this->size);
       }
     }
   }
 
+  /** @brief ノード全体への作用を遅延登録し、積だけ即時更新する。 */
+  void push_lazy(const F& f) requires(Traits::lazy) {
+    forward = A::mapping(f, forward, this->size);
+    if constexpr (R)
+      backward = forward;
+    else
+      backward = A::mapping(f, backward, this->size);
+    pending = pending ? A::composition(f, *pending) : f;
+  }
+
+  /** @brief 反転フラグの変更に合わせて順・逆方向の積を交換する。 */
   void push_reverse_impl() {
-    if constexpr (!R) std::swap(this->forward, this->backward);
+    if constexpr (!R) std::swap(forward, backward);
   }
 
-  bool apply_lazy_impl() {
+  /** @brief 未伝搬の作用を子へ渡す。Leaf には直接適用する。 */
+  void apply_lazy_impl() {
     if constexpr (Traits::lazy) {
-      if (this->pending) {
-        const F f = *this->pending;
-        this->pending.reset();
+      if (!pending) return;
+      F f = *pending;
+      pending.reset();
+      if (this->level == 0) {
         for (std::size_t i = 0; i < this->count; ++i)
-          this->children[i]->apply_action(f);
+          static_cast<Leaf*>(this->children[i].get())->push_lazy(f);
+      } else {
+        for (std::size_t i = 0; i < this->count; ++i)
+          this->get_child(i)->push_lazy(f);
       }
     }
-    return false;
   }
-
- private:
-  using F = typename Traits::F;
 };
-
-template <class M, class A, bool R, std::size_t C>
-void AggregateTraits<M, A, R, C>::Node::apply_action(const F& f)
-    requires(Traits::lazy) {
-  if (this->is_leaf()) {
-    auto* leaf = static_cast<typename Traits::Leaf*>(this);
-    leaf->set(A::mapping(f, leaf->get(), 1));
-    return;
-  }
-  auto* internal = static_cast<typename Traits::Internal*>(this);
-  this->forward = A::mapping(f, this->forward, internal->size);
-  if constexpr (R)
-    this->backward = this->forward;
-  else
-    this->backward = A::mapping(f, this->backward, internal->size);
-  this->pending = this->pending ? A::composition(f, *this->pending) : f;
-}
 
 /**
  * @brief 1要素1Leafの B+ tree にモノイド積と遅延作用を追加する。
- * @details 番兵の値はモノイド単位元とし、公開する位置は番兵を除く0-indexed。
- * 集約と遅延作用の反転は Traits::Internal のフックを利用する。
+ * @details 番兵の値はモノイド単位元。Leaf の集約値を持たず、
+ * level==0 で Leaf を読み、その他のレベルでは Internal の積を使う。
  */
 template <class Derived, class M, class A, bool R, std::size_t C>
 class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using Traits = AggregateTraits<M, A, R, C>;
   using Parent = Base<Traits>;
-  using Node = typename Traits::Node;
   using Leaf = typename Traits::Leaf;
   using Internal = typename Traits::Internal;
   using T = typename Traits::T;
   using F = typename Traits::F;
 
-  static std::size_t node_size(const Node* node) {
-    return node->is_leaf() ? 1 : static_cast<const Internal*>(node)->size;
-  }
-
-  static T product(Node* node, std::size_t first, std::size_t last,
+  static T product(Internal* node, std::size_t first, std::size_t last,
                    bool reverse) {
     if (first == last) return M::e();
-    if (first == 0 && last == node_size(node))
+    if (first == 0 && last == node->size)
       return reverse ? node->backward : node->forward;
-    if (node->is_leaf()) return static_cast<Leaf*>(node)->get();
 
-    auto* internal = static_cast<Internal*>(node);
-    internal->materialize();
+    node->materialize();
     T result = M::e();
-    std::size_t offset = 0;
+
+    if (node->level == 0) {
+      if (!reverse) {
+        for (std::size_t i = first; i < last; ++i)
+          result = M::op(result, static_cast<Leaf*>(node->children[i].get())->get());
+      } else {
+        for (std::size_t i = last; i > first; --i)
+          result = M::op(result,
+                         static_cast<Leaf*>(node->children[i - 1].get())->get());
+      }
+      return result;
+    }
+
     if (!reverse) {
-      for (std::size_t i = 0; i < internal->count; ++i) {
-        Node* child = internal->children[i].get();
-        const std::size_t length = node_size(child);
+      std::size_t offset = 0;
+      for (std::size_t i = 0; i < node->count; ++i) {
+        auto* child = node->get_child(i);
+        const std::size_t length = child->size;
         if (first < offset + length && offset < last)
           result = M::op(result, product(child,
               first > offset ? first - offset : 0,
@@ -176,10 +198,10 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         if (offset >= last) break;
       }
     } else {
-      offset = internal->size;
-      for (std::size_t i = internal->count; i > 0; --i) {
-        Node* child = internal->children[i - 1].get();
-        const std::size_t length = node_size(child);
+      std::size_t offset = node->size;
+      for (std::size_t i = node->count; i > 0; --i) {
+        auto* child = node->get_child(i - 1);
+        const std::size_t length = child->size;
         offset -= length;
         if (first < offset + length && offset < last)
           result = M::op(result, product(child,
@@ -191,34 +213,39 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     return result;
   }
 
-  static void update(Node* node, std::size_t first, std::size_t last,
+  static void update(Internal* node, std::size_t first, std::size_t last,
                      const F& f) requires(Traits::lazy) {
     if (first == last) return;
-    if (first == 0 && last == node_size(node)) {
-      node->apply_action(f);
+    if (first == 0 && last == node->size) {
+      node->push_lazy(f);
       return;
     }
-    auto* internal = static_cast<Internal*>(node);
-    internal->materialize();
-    std::size_t offset = 0;
-    for (std::size_t i = 0; i < internal->count; ++i) {
-      Node* child = internal->children[i].get();
-      const std::size_t length = node_size(child);
-      if (first < offset + length && offset < last)
-        update(child, first > offset ? first - offset : 0,
-               std::min(last - offset, length), f);
-      offset += length;
-      if (offset >= last) break;
+
+    node->materialize();
+    if (node->level == 0) {
+      for (std::size_t i = first; i < last; ++i)
+        static_cast<Leaf*>(node->children[i].get())->push_lazy(f);
+    } else {
+      std::size_t offset = 0;
+      for (std::size_t i = 0; i < node->count; ++i) {
+        auto* child = node->get_child(i);
+        const std::size_t length = child->size;
+        if (first < offset + length && offset < last)
+          update(child, first > offset ? first - offset : 0,
+                 std::min(last - offset, length), f);
+        offset += length;
+        if (offset >= last) break;
+      }
     }
-    internal->refresh();
+    node->refresh();
   }
 
-  // Scan a logical interval, accepting whole subtrees when possible.
+  // predicate が破れた部分木だけを再帰的に探索する。
   template <bool Leftward, class Predicate>
-  static bool search(Node* node, std::size_t offset,
+  static bool search(Internal* node, std::size_t offset,
                      std::size_t first, std::size_t last,
                      T& value, Predicate& predicate, std::size_t& result) {
-    const std::size_t end = offset + node_size(node);
+    const std::size_t end = offset + node->size;
     if (end <= first || last <= offset) return true;
     if (first <= offset && end <= last) {
       T next = Leftward ? M::op(node->forward, value)
@@ -230,24 +257,35 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
       }
     }
 
-    if (node->is_leaf()) return false;
-    auto* internal = static_cast<Internal*>(node);
-    internal->materialize();
+    node->materialize();
+    if (node->level == 0) {
+      for (std::size_t j = 0; j < node->count; ++j) {
+        const std::size_t i = Leftward ? node->count - 1 - j : j;
+        const std::size_t pos = offset + i;
+        if (pos < first || pos >= last) continue;
+        const T& x = static_cast<Leaf*>(node->children[i].get())->get();
+        T next = Leftward ? M::op(x, value) : M::op(value, x);
+        if (!predicate(next)) return false;
+        value = std::move(next);
+        result = Leftward ? pos : pos + 1;
+      }
+      return true;
+    }
     if constexpr (Leftward) {
       std::size_t pos = end;
-      for (std::size_t i = internal->count; i > 0; --i) {
-        Node* child = internal->children[i - 1].get();
-        pos -= node_size(child);
-        if (!search<Leftward>(child, pos, first, last,
-                              value, predicate, result)) return false;
+      for (std::size_t i = node->count; i > 0; --i) {
+        auto* child = node->get_child(i - 1);
+        pos -= child->size;
+        if (!search<true>(child, pos, first, last,
+                          value, predicate, result)) return false;
       }
     } else {
       std::size_t pos = offset;
-      for (std::size_t i = 0; i < internal->count; ++i) {
-        Node* child = internal->children[i].get();
-        if (!search<Leftward>(child, pos, first, last,
-                              value, predicate, result)) return false;
-        pos += node_size(child);
+      for (std::size_t i = 0; i < node->count; ++i) {
+        auto* child = node->get_child(i);
+        if (!search<false>(child, pos, first, last,
+                           value, predicate, result)) return false;
+        pos += child->size;
       }
     }
     return true;
@@ -263,7 +301,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   AggregateTree() = default;
 
-  /** @brief すべての要素の積。O(1)。 */
+  /** @brief 全要素の積。O(1)。 */
   T all_prod() const { return this->root_->forward; }
 
   /** @brief 半開区間 [first,last) の順方向の積。 */
@@ -347,9 +385,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   void resize(size_type count, const T& value = M::e()) {
     Parent::resize(count, value);
   }
-
   using Parent::assign;
-  using Parent::split;
 
   Derived split(size_type index) {
     Derived right;
@@ -365,12 +401,6 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   Setter<Derived> operator()(size_type index) {
     assert(index < size());
     return {this->nth(index)};
-  }
-
-  void debug_node_stats() const {
-    std::cerr << "nodes: " << Node::live_nodes << " / " << Node::peak_nodes << '\n';
-    std::cerr << "leaf: " << Leaf::leaf_count << " / " << Leaf::peak_leaf_count << '\n';
-    std::cerr << "internal: " << Internal::internal_count << " / " << Internal::peak_internal_count << '\n';
   }
 };
 
