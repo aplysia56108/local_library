@@ -21,10 +21,10 @@ struct AggregateTraits {
   using T = typename M::value_type;
   using F = typename A::action_type;
   static constexpr std::size_t kNodeCapacity = C;
-  static constexpr bool IsReversible = true;
-  static constexpr bool IsMergable = true;
   static constexpr bool lazy = !std::same_as<A, NoAction>;
-  static T identity() { return M::e(); }
+  static T identity() {
+    return M::e();
+  }
   struct Node;
   struct Leaf;
   struct Internal;
@@ -51,7 +51,9 @@ struct AggregateTraits<M, A, R, C>::Leaf
 
   using Parent::Parent;
 
-  void push_lazy(const F& f) requires(Traits::lazy) {
+  void push_lazy(const F& f)
+    requires(Traits::lazy)
+  {
     this->set(A::mapping(f, this->get(), 1));
   }
 };
@@ -85,13 +87,14 @@ struct AggregateTraits<M, A, R, C>::Internal
     forward = backward = M::e();
     if (this->level == 0) {
       for (std::size_t i = 0; i < this->count; ++i)
-        forward = M::op(forward, static_cast<Leaf*>(this->children[i].get())->get());
+        forward =
+            M::op(forward, static_cast<Leaf*>(this->children[i].get())->get());
       if constexpr (R) {
         backward = forward;
       } else {
         for (std::size_t i = this->count; i > 0; --i)
-          backward = M::op(backward,
-                           static_cast<Leaf*>(this->children[i - 1].get())->get());
+          backward = M::op(
+              backward, static_cast<Leaf*>(this->children[i - 1].get())->get());
       }
     } else {
       for (std::size_t i = 0; i < this->count; ++i)
@@ -119,7 +122,9 @@ struct AggregateTraits<M, A, R, C>::Internal
   }
 
   /** @brief ノード全体への作用を遅延登録し、積だけ即時更新する。 */
-  void push_lazy(const F& f) requires(Traits::lazy) {
+  void push_lazy(const F& f)
+    requires(Traits::lazy)
+  {
     forward = A::mapping(f, forward, this->size);
     if constexpr (R)
       backward = forward;
@@ -176,11 +181,12 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if (node->level == 0) {
       if (!reverse) {
         for (std::size_t i = first; i < last; ++i)
-          result = M::op(result, static_cast<Leaf*>(node->children[i].get())->get());
+          result =
+              M::op(result, static_cast<Leaf*>(node->children[i].get())->get());
       } else {
         for (std::size_t i = last; i > first; --i)
-          result = M::op(result,
-                         static_cast<Leaf*>(node->children[i - 1].get())->get());
+          result = M::op(
+              result, static_cast<Leaf*>(node->children[i - 1].get())->get());
       }
       return result;
     }
@@ -191,9 +197,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         auto* child = node->get_child(i);
         const std::size_t length = child->size;
         if (first < offset + length && offset < last)
-          result = M::op(result, product(child,
-              first > offset ? first - offset : 0,
-              std::min(last - offset, length), false));
+          result =
+              M::op(result, product(child, first > offset ? first - offset : 0,
+                                    std::min(last - offset, length), false));
         offset += length;
         if (offset >= last) break;
       }
@@ -204,9 +210,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         const std::size_t length = child->size;
         offset -= length;
         if (first < offset + length && offset < last)
-          result = M::op(result, product(child,
-              first > offset ? first - offset : 0,
-              std::min(last - offset, length), true));
+          result =
+              M::op(result, product(child, first > offset ? first - offset : 0,
+                                    std::min(last - offset, length), true));
         if (offset <= first) break;
       }
     }
@@ -214,7 +220,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   }
 
   static void update(Internal* node, std::size_t first, std::size_t last,
-                     const F& f) requires(Traits::lazy) {
+                     const F& f)
+    requires(Traits::lazy)
+  {
     if (first == last) return;
     if (first == 0 && last == node->size) {
       node->push_lazy(f);
@@ -242,14 +250,14 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   // predicate が破れた部分木だけを再帰的に探索する。
   template <bool Leftward, class Predicate>
-  static bool search(Internal* node, std::size_t offset,
-                     std::size_t first, std::size_t last,
-                     T& value, Predicate& predicate, std::size_t& result) {
+  static bool search(Internal* node, std::size_t offset, std::size_t first,
+                     std::size_t last, T& value, Predicate& predicate,
+                     std::size_t& result) {
     const std::size_t end = offset + node->size;
     if (end <= first || last <= offset) return true;
     if (first <= offset && end <= last) {
-      T next = Leftward ? M::op(node->forward, value)
-                        : M::op(value, node->forward);
+      T next =
+          Leftward ? M::op(node->forward, value) : M::op(value, node->forward);
       if (predicate(next)) {
         value = std::move(next);
         result = Leftward ? offset : end;
@@ -276,15 +284,15 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
       for (std::size_t i = node->count; i > 0; --i) {
         auto* child = node->get_child(i - 1);
         pos -= child->size;
-        if (!search<true>(child, pos, first, last,
-                          value, predicate, result)) return false;
+        if (!search<true>(child, pos, first, last, value, predicate, result))
+          return false;
       }
     } else {
       std::size_t pos = offset;
       for (std::size_t i = 0; i < node->count; ++i) {
         auto* child = node->get_child(i);
-        if (!search<false>(child, pos, first, last,
-                           value, predicate, result)) return false;
+        if (!search<false>(child, pos, first, last, value, predicate, result))
+          return false;
         pos += child->size;
       }
     }
@@ -294,17 +302,19 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
  public:
   using Monoid = M;
   using Action = A;
-  using typename Parent::size_type;
-  using typename Parent::iterator;
   using Parent::Parent;
   using Parent::size;
+  using typename Parent::iterator;
+  using typename Parent::size_type;
 
   AggregateTree() = default;
   /** @brief モノイド単位元で count 要素を初期化する。 */
   explicit AggregateTree(size_type count) : Parent(count, M::e()) {}
 
   /** @brief 全要素の積。O(1)。 */
-  T all_prod() const { return this->root_->forward; }
+  T all_prod() const {
+    return this->root_->forward;
+  }
 
   /** @brief 半開区間 [first,last) の順方向の積。 */
   T prod(size_type first, size_type last) const {
@@ -330,21 +340,28 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   void apply_left(size_type index, const T& value) {
     prod_left(index, value);
   }
-  void apply(size_type index, const T& value) requires(!Traits::lazy) {
+  void apply(size_type index, const T& value)
+    requires(!Traits::lazy)
+  {
     prod_right(index, value);
   }
 
   /** @brief 1要素への作用。 */
-  void apply(size_type index, const F& f) requires(Traits::lazy) {
+  void apply(size_type index, const F& f)
+    requires(Traits::lazy)
+  {
     apply(index, index + 1, f);
   }
   /** @brief 半開区間 [first,last) への作用。 */
   void apply(size_type first, size_type last, const F& f)
-      requires(Traits::lazy) {
+    requires(Traits::lazy)
+  {
     assert(first <= last && last <= size());
     update(this->root_.get(), first + 1, last + 1, f);
   }
-  void all_apply(const F& f) requires(Traits::lazy) {
+  void all_apply(const F& f)
+    requires(Traits::lazy)
+  {
     apply(0, size(), f);
   }
 
@@ -355,8 +372,8 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     assert(predicate(M::e()));
     T value = M::e();
     size_type result = left + 1;
-    search<false>(this->root_.get(), 0, left + 1, size() + 1,
-                  value, predicate, result);
+    search<false>(this->root_.get(), 0, left + 1, size() + 1, value, predicate,
+                  result);
     return result - 1;
   }
 
@@ -367,8 +384,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     assert(predicate(M::e()));
     T value = M::e();
     size_type result = right + 1;
-    search<true>(this->root_.get(), 0, 1, right + 1,
-                 value, predicate, result);
+    search<true>(this->root_.get(), 0, 1, right + 1, value, predicate, result);
     return result - 1;
   }
 
@@ -397,7 +413,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   Derived split(iterator position) {
     return split(static_cast<size_type>(position - this->begin()));
   }
-  void merge(Derived& right) { Parent::merge(right); }
+  void merge(Derived& right) {
+    Parent::merge(right);
+  }
 
   /** @brief Monoid対応の Setter を返す。 */
   Setter<Derived> operator()(size_type index) {
