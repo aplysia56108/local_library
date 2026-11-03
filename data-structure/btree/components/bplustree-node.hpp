@@ -106,6 +106,10 @@ struct Leaf : Traits::Node {
   T& get() {
     return value;
   }
+
+  void push_lazy() {
+    return;
+  }
 };
 
 /**
@@ -143,7 +147,7 @@ struct Internal : Traits::Node {
   }
 
   I* get_child(std::size_t index) const {
-    return static_cast<I*>(children[index].get());
+    return static_cast<typename Traits::Internal*>(children[index].get());
   }
 
   std::size_t child_size(std::size_t index) const {
@@ -214,15 +218,16 @@ struct Internal : Traits::Node {
   // 位置を変更しない遅延伝搬について、実際に適用する。
   // その後何らかの処理のあと、子Node全てにpushする想定。
   void apply_lazy() {
-    if (!(static_cast<typename Traits::Internal*>(this)->apply_lazy_impl()))
-      return;
+    static_cast<typename Traits::Internal*>(this)->apply_lazy_impl();
     if (level)
+      for (std::size_t i = 0; i < count; ++i) get_child(i)->push_lazy();
+    else
       for (std::size_t i = 0; i < count; ++i)
-        static_cast<typename Traits::Internal*>(get_child(i))->push_lazy();
+        static_cast<typename Traits::Leaf*>(i)->push_lazy();
   }
 
-  bool apply_lazy_impl() {
-    return false;
+  void apply_lazy_impl() {
+    return;
   }
 
   // 位置を変更しないような遅延伝搬のフラグをつける。実際には適用しない。

@@ -8,6 +8,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "data-structure/btree/components/bplustree-node.hpp"
 #include "data-structure/btree/components/bplustree-iterator.hpp"
@@ -509,6 +510,14 @@ class Base {
     middle->push_reverse();
     root_ = unite(std::move(root_), std::move(middle));
     root_ = unite(std::move(root_), std::move(right));
+  }
+  void debug_node_stats() const {
+    std::cerr << "nodes: " << Node::live_nodes << " / " << Node::peak_nodes
+              << '\n';
+    std::cerr << "leaf: " << Leaf::leaf_count << " / " << Leaf::peak_leaf_count
+              << '\n';
+    std::cerr << "internal: " << Internal::internal_count << " / "
+              << Internal::peak_internal_count << '\n';
   }
 };
 }  // namespace Bplustree
