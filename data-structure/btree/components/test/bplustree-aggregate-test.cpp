@@ -43,6 +43,11 @@ void segtree_tests() {
   assert(minimum.prod(0, 1) == 8);
   Bplustree_Segtree<MinMonoid, Capacity> empty;
   assert(empty.all_prod() == MinMonoid::e());
+  // Count-only construction and resize must also use the monoid identity.
+  Bplustree_Segtree<MinMonoid, Capacity> filled(3);
+  assert(filled.all_prod() == MinMonoid::e());
+  filled.resize(5);
+  assert(filled.all_prod() == MinMonoid::e());
   std::cerr << "aggregate segtree tests all passed! (capacity=" << Capacity << ")\n";
 }
 
