@@ -88,7 +88,63 @@ void lazy_tests() {
   std::cerr << "aggregate lazy tests all passed! (capacity=" << Capacity << ")\n";
 }
 
+
+// Leaf must not carry aggregate or lazy-tag payloads.
+template <std::size_t Capacity>
+void leaf_storage_tests() {
+  using Traits = Bplustree::AggregateTraits<SumMonoid, Bplustree::NoAction,
+                                            false, Capacity>;
+  static_assert(sizeof(typename Traits::Leaf) ==
+                sizeof(Bplustree::Leaf<Traits>));
+
+  // With an action, applying it to a Leaf updates the value immediately.
+  using LazyTraits = Bplustree::AggregateTraits<
+      SumMonoid, Action<long long, long long, AddSumMapping, AddComposition>,
+      true, Capacity>;
+  static_assert(sizeof(typename LazyTraits::Leaf) ==
+                sizeof(Bplustree::Leaf<LazyTraits>));
+  typename LazyTraits::Leaf leaf(7);
+  leaf.push_lazy(5);
+  assert(leaf.get() == 12);
+  leaf.push_lazy(-2);
+  assert(leaf.get() == 10);
+
+  std::cerr << "aggregate leaf storage tests all passed! (capacity="
+            << Capacity << ")\n";
+}
+
+template <std::size_t Capacity>
+void lazy_composition_tests() {
+  // Pending composition, including an assignment to zero, must be preserved.
+  using Tree = BLazySegtree<long long, long long,
+      [](long long a, long long b) { return a + b; },
+      []() { return 0LL; },
+      ChangeSumMapping, ChangeComposition, true, Capacity>;
+  Tree a{1, 2, 3, 4, 5, 6};
+  a.apply(1, 5, 10);
+  a.apply(2, 4, 0);
+  assert(a.all_prod() == 1 + 10 + 0 + 0 + 10 + 6);
+  assert(a.prod(0, 6) == 27);
+  assert(a.get(2) == 0);
+  a.reverse(1, 5);
+  assert(a.get(1) == 10);
+  assert(a.get(2) == 0);
+  a.apply(0, 6, 3);
+  assert(a.all_prod() == 18);
+  auto right = a.split(3);
+  assert(a.all_prod() + right.all_prod() == 18);
+  a.merge(right);
+  assert(a.all_prod() == 18);
+
+  std::cerr << "aggregate lazy composition tests all passed! (capacity="
+            << Capacity << ")\n";
+}
+
 int main() {
+  leaf_storage_tests<4>();
+  leaf_storage_tests<8>();
+  lazy_composition_tests<4>();
+  lazy_composition_tests<8>();
   segtree_tests<4>();
   segtree_tests<8>();
   noncommutative_tests<4>();
