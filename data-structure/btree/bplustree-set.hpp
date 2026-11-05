@@ -71,8 +71,8 @@ class Bplustree_Set
   [[no_unique_address]] Compare compare_;
 
   bool inner_comp(const Key& a, const Key& b) const {
-    const Key* left = std::addressof(this->bbegin_.leaf_->get());
-    const Key* right = std::addressof(this->end_.leaf_->get());
+    const Key* left = std::addressof(*this->bbegin_);
+    const Key* right = std::addressof(*this->end_);
     const Key* pa = std::addressof(a);
     const Key* pb = std::addressof(b);
 
@@ -238,10 +238,10 @@ class Bplustree_Set
     return upper_bound(key);
   }
   iterator max_lt(const Key& key) const {
-    return {max_l<false>(this->root_, key)};
+    return {max_l<false>(this->root_.get(), key)};
   }
   iterator max_le(const Key& key) const {
-    return {max_l<true>(this->root_, key)};
+    return {max_l<true>(this->root_.get(), key)};
   }
 
   iterator find(const Key& key) const {
@@ -256,20 +256,20 @@ class Bplustree_Set
   }
 
   std::pair<iterator, bool> insert(const Key& key) {
-    auto it = base_iterator{max_l<true>(this->root_, key)};
+    auto it = base_iterator{max_l<true>(this->root_.get(), key)};
     if constexpr (Type == SetType::Set) {
-      if (equivalent(*it, key)) return {it, false};
+      if (equivalent(*it, key)) return {iterator{it}, false};
     }
-    return {Parent::insert(it, key), true};
+    return {iterator{Parent::insert(it, key)}, true};
   }
   template <std::input_iterator It>
   void insert(It first, It last) {
     for (; first != last; ++first) insert(*first);
   }
   size_type erase(const Key& key, bool single_erase = false) {
-    const iterator first = lower_bound(key);
+    const base_iterator first = lower_bound(key);
     if (!equivalent(*first, key)) return 0;
-    const iterator last = single_erase ? first + 1 : upper_bound(key);
+    const base_iterator last = single_erase ? first + 1 : upper_bound(key);
     const std::size_t res = single_erase ? 1 : last - first;
     Parent::erase(first, last);
     return res;
