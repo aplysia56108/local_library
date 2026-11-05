@@ -3,9 +3,20 @@
 #include "data-structure/btree/components/bplustree-aggregate.hpp"
 #include "common/monoid.hpp"
 
-/** Dynamic lazy segment tree. Action::composition(f,g) applies g then f.
- * mapping(f,x,n) must distribute over the monoid, including reversed products.
- * ReverseInvariant allows the reverse aggregate to reuse the forward aggregate.
+/**
+ * @brief 1要素1Leafの B+ tree 上に構築した遅延セグメント木。
+ * @tparam Monoid 積と単位元を定義するモノイド。
+ * @tparam Action 写像と合成を定義する作用。
+ * @tparam ReverseInvariant 積が反転で不変なら true。
+ * @tparam NodeCapacity Internal の子配列容量。
+ * @details
+ * Action::composition(f, g) は g の後に f を作用させる。
+ * Action::mapping(f, x, size) は部分木の区間積への作用。
+ * Leaf は遅延タグを持たず、作用を受けたら値に即時反映する。
+ *
+ * ### 計算量
+ * 区間作用・区間積は O(NodeCapacity log_{NodeCapacity} N)。
+ * all_prod / all_reverse_prod は O(1)。
  */
 template <class Monoid, class Action, bool ReverseInvariant = false,
           std::size_t NodeCapacity = 15>
