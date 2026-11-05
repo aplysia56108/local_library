@@ -51,6 +51,24 @@ void segtree_tests() {
   std::cerr << "aggregate segtree tests all passed! (capacity=" << Capacity << ")\n";
 }
 
+// Boundary predicates may reject the empty product, provided all
+// non-empty extensions are monotone (true, then possibly false).
+template <std::size_t Capacity>
+void boundary_predicate_tests() {
+  Bplustree_Segtree<SumMonoid, Capacity> a{1, 2, 3, 4, 5};
+  auto pred3 = [](long long x) { return x > 0 && x <= 3; };
+  auto pred9 = [](long long x) { return x > 0 && x <= 9; };
+  assert(!pred3(SumMonoid::e()));
+  assert(a.max_right(0, pred3) == 2);
+  assert(a.max_right(2, pred9) == 4);
+  assert(a.min_left(5, pred9) == 3);
+  assert(a.min_left(0, pred9) == 0);
+  assert(a.max_right(a.size(), pred9) == a.size());
+
+  std::cerr << "aggregate boundary predicate tests all passed! (capacity="
+            << Capacity << ")\n";
+}
+
 template <std::size_t Capacity>
 void noncommutative_tests() {
   // Both directional aggregates must remain correct after reversals.
@@ -150,6 +168,8 @@ int main() {
   leaf_storage_tests<8>();
   lazy_composition_tests<4>();
   lazy_composition_tests<8>();
+  boundary_predicate_tests<4>();
+  boundary_predicate_tests<8>();
   segtree_tests<4>();
   segtree_tests<8>();
   noncommutative_tests<4>();
