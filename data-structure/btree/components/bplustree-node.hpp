@@ -34,8 +34,6 @@ struct Traits {
   using Node = Bplustree::Node<Traits>;
   using Leaf = Bplustree::Leaf<Traits>;
   using Internal = Bplustree::Internal<Traits>;
-  static const bool IsReversible = true;
-  static const bool IsMergable = true;
 };
 
 /** @brief 子 Node の実体型を識別する。 */
@@ -143,7 +141,7 @@ struct Internal : Traits::Node {
   }
 
   I* get_child(std::size_t index) const {
-    return static_cast<I*>(children[index].get());
+    return static_cast<typename Traits::Internal*>(children[index].get());
   }
 
   std::size_t child_size(std::size_t index) const {
@@ -214,19 +212,6 @@ struct Internal : Traits::Node {
   // 位置を変更しない遅延伝搬について、実際に適用する。
   // その後何らかの処理のあと、子Node全てにpushする想定。
   void apply_lazy() {
-    if (!(static_cast<typename Traits::Internal*>(this)->apply_lazy_impl()))
-      return;
-    if (level)
-      for (std::size_t i = 0; i < count; ++i)
-        static_cast<typename Traits::Internal*>(get_child(i))->push_lazy();
-  }
-
-  bool apply_lazy_impl() {
-    return false;
-  }
-
-  // 位置を変更しないような遅延伝搬のフラグをつける。実際には適用しない。
-  void push_lazy() {
     return;
   }
 
@@ -237,7 +222,7 @@ struct Internal : Traits::Node {
    */
   void materialize() {
     apply_reverse();
-    apply_lazy();
+    static_cast<I*>(this)->apply_lazy();
   }
 
   /**
@@ -308,7 +293,7 @@ struct Internal : Traits::Node {
   template <bool WithLazy = false>
   L* locate(std::size_t index) {
     apply_reverse();
-    if constexpr (WithLazy) apply_lazy();
+    if constexpr (WithLazy) static_cast<I*>(this)->apply_lazy();
 
     if (level == 0) return static_cast<L*>(children[index].get());
 

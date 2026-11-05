@@ -8,6 +8,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "data-structure/btree/components/bplustree-node.hpp"
 #include "data-structure/btree/components/bplustree-iterator.hpp"
@@ -47,12 +48,17 @@ class Base {
   std::unique_ptr<Internal> root_;
   iterator bbegin_, end_;
 
-  const T init_value = T{};
+  static T init_value() {
+    if constexpr (requires { Traits::identity(); })
+      return Traits::identity();
+    else
+      return T{};
+  };
 
   /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
   void init() {
-    auto bbegin = std::make_unique<Leaf>(init_value);
-    auto end = std::make_unique<Leaf>(init_value);
+    auto bbegin = std::make_unique<Leaf>(init_value());
+    auto end = std::make_unique<Leaf>(init_value());
     bbegin_ = iterator{bbegin.get()};
     end_ = iterator{end.get()};
     root_ = make_new_root(std::move(bbegin), std::move(end));
@@ -77,7 +83,7 @@ class Base {
     std::vector<std::unique_ptr<Node>> level;
     level.reserve(values.size() + 2);
     {
-      auto bbegin = std::make_unique<Leaf>(init_value);
+      auto bbegin = std::make_unique<Leaf>(init_value());
       bbegin_ = iterator{bbegin.get()};
       level.push_back(std::move(bbegin));
     }
@@ -86,7 +92,7 @@ class Base {
       level.push_back(std::move(leaf));
     }
     {
-      auto end = std::make_unique<Leaf>(init_value);
+      auto end = std::make_unique<Leaf>(init_value());
       end_ = iterator{end.get()};
       level.push_back(std::move(end));
     }
@@ -117,6 +123,11 @@ class Base {
     parent->insert(std::move(right), 1);
     parent->refresh();
     return parent;
+  }
+
+  static void materialize_path(Internal* node) {
+    if (node->parent) materialize_path(node->parent);
+    node->materialize();
   }
 
   static void refresh_recursive(Internal* node) {
@@ -186,6 +197,7 @@ class Base {
    */
   static std::unique_ptr<Internal> devide(std::unique_ptr<Internal>& root,
                                           Leaf* leaf) {
+    materialize_path(leaf->parent);
     Internal* parent = leaf->parent;
     std::size_t position = leaf->position;
     std::unique_ptr<Internal> right;
@@ -350,6 +362,7 @@ class Base {
     return insert(locate<true>(index), value);
   }
   iterator insert(iterator pos, const T& value) {
+    materialize_path(pos.leaf_->parent);
     Internal* parent = pos.leaf_->parent;
     std::size_t position = pos.leaf_->position;
     std::unique_ptr<Node> child = std::make_unique<Leaf>(value);
@@ -374,6 +387,7 @@ class Base {
 
   iterator erase(iterator pos) {
     iterator res = pos + 1;
+    materialize_path(pos.leaf_->parent);
     Internal* parent = pos.leaf_->parent;
     std::size_t position = pos.leaf_->position;
     bool erase_flg = true;
@@ -445,8 +459,8 @@ class Base {
       return right;
     }
     right.root_ = devide(root_, pos.leaf_);
-    auto bbegin = std::make_unique<Leaf>(init_value);
-    auto end = std::make_unique<Leaf>(init_value);
+    auto bbegin = std::make_unique<Leaf>(init_value());
+    auto end = std::make_unique<Leaf>(init_value());
     right.end_ = end_;
     right.bbegin_ = iterator{bbegin.get()};
     end_ = iterator{end.get()};
@@ -496,6 +510,14 @@ class Base {
     middle->push_reverse();
     root_ = unite(std::move(root_), std::move(middle));
     root_ = unite(std::move(root_), std::move(right));
+  }
+  void debug_node_stats() const {
+    std::cerr << "nodes: " << Node::live_nodes << " / " << Node::peak_nodes
+              << '\n';
+    std::cerr << "leaf: " << Leaf::leaf_count << " / " << Leaf::peak_leaf_count
+              << '\n';
+    std::cerr << "internal: " << Internal::internal_count << " / "
+              << Internal::peak_internal_count << '\n';
   }
 };
 }  // namespace Bplustree

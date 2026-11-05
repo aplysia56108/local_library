@@ -1,308 +1,432 @@
 #pragma once
 
-#include <iostream>
+#include <algorithm>
+#include <cassert>
+#include <concepts>
+#include <cstddef>
+#include <initializer_list>
 #include <optional>
+#include <utility>
 
 #include "data-structure/btree/components/bplustree-base.hpp"
 
 namespace Bplustree {
 
-// The non-lazy tree shares aggregation and traversal with the lazy tree.
 struct NoAction {
-  using action_type = int;
+  using action_type = long long;
 };
 
-template <class Monoid, class Action, bool ReverseInvariant, std::size_t Capacity>
+template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits {
-  using T = typename Monoid::value_type;
-  using F = typename Action::action_type;
-  static constexpr std::size_t kNodeCapacity = Capacity;
-  static constexpr bool lazy = !std::same_as<Action, NoAction>;
+  using T = typename M::value_type;
+  using F = typename A::action_type;
+  static constexpr std::size_t kNodeCapacity = C;
+  static constexpr bool lazy = !std::same_as<A, NoAction>;
+  static T identity() {
+    return M::e();
+  }
   struct Node;
   struct Leaf;
   struct Internal;
 };
 
+/** @brief Leaf と Internal に共通する親・位置情報だけを持つ Node。 */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits<M, A, R, C>::Node
     : Bplustree::Node<AggregateTraits<M, A, R, C>> {
-  using Traits = AggregateTraits<M, A, R, C>;
-  using Bplustree::Node<Traits>::Node;
-  T forward = M::e(), backward = M::e();
-  std::optional<F> pending;
-
-  void apply_action(const F& f) requires(Traits::lazy) {
-    if (this->size == 0) return;
-    forward = A::mapping(f, forward, this->size);
-    if constexpr (R) backward = forward;
-    else backward = A::mapping(f, backward, this->size);
-    pending = pending ? A::composition(f, *pending) : f;
-  }
-  // after_sync starts from physical values/children, then restores logical state.
-  void evaluate() {
-    if constexpr (R) backward = forward;
-    else if (this->is_reversed) std::swap(forward, backward);
-    if constexpr (Traits::lazy) {
-      if (pending) {
-        forward = A::mapping(*pending, forward, this->size);
-        if constexpr (R) backward = forward;
-        else backward = A::mapping(*pending, backward, this->size);
-      }
-    }
-  }
+  using Bplustree::Node<AggregateTraits<M, A, R, C>>::Node;
 };
 
+/**
+ * @brief 1要素だけを保持する Leaf。
+ * @details 集約値や遅延タグは持たず、作用を受けた時点で値を更新する。
+ */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits<M, A, R, C>::Leaf
     : Bplustree::Leaf<AggregateTraits<M, A, R, C>> {
   using Traits = AggregateTraits<M, A, R, C>;
-  void after_sync() {
-    this->forward = this->backward = M::e();
-    for (std::size_t i = 0; i < this->count; ++i)
-      this->forward = M::op(this->forward, this->values[i]);
-    if constexpr (!R)
-      for (std::size_t i = this->count; i > 0; --i)
-        this->backward = M::op(this->backward, this->values[i - 1]);
-    this->evaluate();
-  }
-  void push_reverse() {
-    Bplustree::Leaf<Traits>::push_reverse();
-    if constexpr (!R) std::swap(this->forward, this->backward);
-  }
-  void apply_lazy() {
-    if constexpr (Traits::lazy) {
-      if (!this->pending) return;
-      for (std::size_t i = 0; i < this->count; ++i)
-        this->values[i] = A::mapping(*this->pending, this->values[i], 1);
-      this->pending.reset();
-    }
+  using Parent = Bplustree::Leaf<Traits>;
+  using T = typename Traits::T;
+  using F = typename Traits::F;
+
+  using Parent::Parent;
+
+  void push_lazy(const F& f)
+    requires(Traits::lazy)
+  {
+    this->set(A::mapping(f, this->get(), 1));
   }
 };
 
+/**
+ * @brief 順方向・逆方向の積と未伝搬の作用を持つ Internal。
+ * @details level==0 の子は Leaf、それ以外は Internal。
+ * Leaf に集約値・遅延タグを設けないため、Leaf の作用は即時反映する。
+ */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits<M, A, R, C>::Internal
     : Bplustree::Internal<AggregateTraits<M, A, R, C>> {
   using Traits = AggregateTraits<M, A, R, C>;
+  using Parent = Bplustree::Internal<Traits>;
+  using T = typename Traits::T;
+  using F = typename Traits::F;
+  using Leaf = typename Traits::Leaf;
+
+  using Parent::Parent;
+
+  T forward = M::e();
+  T backward = M::e();
+  std::optional<F> pending;
+
+  /**
+   * @brief 構造や子の値から積を再計算する。
+   * @details is_reversed / pending が残っていれば、再計算した物理状態の積に
+   * それらを適用して論理状態の積を維持する。
+   */
   void after_sync() {
-    this->forward = this->backward = M::e();
-    for (std::size_t i = 0; i < this->count; ++i)
-      this->forward = M::op(this->forward, this->children[i]->forward);
-    if constexpr (!R)
-      for (std::size_t i = this->count; i > 0; --i)
-        this->backward = M::op(this->backward, this->children[i - 1]->backward);
-    this->evaluate();
+    forward = backward = M::e();
+    if (this->level == 0) {
+      for (std::size_t i = 0; i < this->count; ++i)
+        forward =
+            M::op(forward, static_cast<Leaf*>(this->children[i].get())->get());
+      if constexpr (R) {
+        backward = forward;
+      } else {
+        for (std::size_t i = this->count; i > 0; --i)
+          backward = M::op(
+              backward, static_cast<Leaf*>(this->children[i - 1].get())->get());
+      }
+    } else {
+      for (std::size_t i = 0; i < this->count; ++i)
+        forward = M::op(forward, this->get_child(i)->forward);
+      if constexpr (R) {
+        backward = forward;
+      } else {
+        for (std::size_t i = this->count; i > 0; --i)
+          backward = M::op(backward, this->get_child(i - 1)->backward);
+      }
+    }
+
+    if constexpr (!R) {
+      if (this->is_reversed) std::swap(forward, backward);
+    }
+    if constexpr (Traits::lazy) {
+      if (pending) {
+        forward = A::mapping(*pending, forward, this->size);
+        if constexpr (R)
+          backward = forward;
+        else
+          backward = A::mapping(*pending, backward, this->size);
+      }
+    }
   }
-  void push_reverse() {
-    Bplustree::Internal<Traits>::push_reverse();
-    if constexpr (!R) std::swap(this->forward, this->backward);
+
+  /** @brief ノード全体への作用を遅延登録し、積だけ即時更新する。 */
+  void push_lazy(const F& f)
+    requires(Traits::lazy)
+  {
+    forward = A::mapping(f, forward, this->size);
+    if constexpr (R)
+      backward = forward;
+    else
+      backward = A::mapping(f, backward, this->size);
+    pending = pending ? A::composition(f, *pending) : f;
   }
+
+  /** @brief 反転フラグの変更に合わせて順・逆方向の積を交換する。 */
+  void push_reverse_impl() {
+    if constexpr (!R) std::swap(forward, backward);
+  }
+
+  /** @brief 未伝搬の作用を子へ渡す。Leaf には直接適用する。 */
   void apply_lazy() {
     if constexpr (Traits::lazy) {
-      if (!this->pending) return;
-      for (std::size_t i = 0; i < this->count; ++i)
-        this->children[i]->apply_action(*this->pending);
-      this->pending.reset();
+      if (!pending) return;
+      F f = *pending;
+      pending.reset();
+      if (this->level == 0) {
+        for (std::size_t i = 0; i < this->count; ++i)
+          static_cast<Leaf*>(this->children[i].get())->push_lazy(f);
+      } else {
+        for (std::size_t i = 0; i < this->count; ++i)
+          this->get_child(i)->push_lazy(f);
+      }
     }
   }
 };
 
-// CRTP keeps setters and split results typed as the public container.
+/**
+ * @brief 1要素1Leafの B+ tree にモノイド積と遅延作用を追加する。
+ * @details 番兵の値はモノイド単位元。Leaf の集約値を持たず、
+ * level==0 で Leaf を読み、その他のレベルでは Internal の積を使う。
+ */
 template <class Derived, class M, class A, bool R, std::size_t C>
-class AggregateTree : public Base<AggregateTraits<M, A, R, C>, true> {
+class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using Traits = AggregateTraits<M, A, R, C>;
-  using Parent = Base<Traits, true>;
-  using typename Parent::Node;
-  using typename Parent::Leaf;
-  using typename Parent::Internal;
-  using T = typename M::value_type;
-  using F = typename A::action_type;
+  using Parent = Base<Traits>;
+  using Leaf = typename Traits::Leaf;
+  using Internal = typename Traits::Internal;
+  using T = typename Traits::T;
+  using F = typename Traits::F;
 
-  static T product(Node* node, std::size_t first, std::size_t last, bool reverse) {
+  template <bool Reversed = false>
+  static T prod_recursive(Internal* node, std::size_t first, std::size_t last) {
     if (first == last) return M::e();
-    if (first == 0 && last == node->size)
-      return reverse ? node->backward : node->forward;
-    Parent::materialize(node);
+    if (first == 0 && last == node->size) {
+      if constexpr (Reversed) return node->backward;
+      return node->forward;
+    }
+
+    node->materialize();
     T result = M::e();
-    if (node->is_leaf()) {
-      auto* leaf = static_cast<Leaf*>(node);
-      for (std::size_t i = first; i < last; ++i) {
-        const T& value = leaf->values[reverse ? last - 1 - (i - first) : i];
-        result = M::op(result, value);
+
+    if (node->level == 0) {
+      if constexpr (Reversed) {
+        for (std::size_t i = last; i > first; --i)
+          result = M::op(
+              result, static_cast<Leaf*>(node->children[i - 1].get())->get());
+      } else {
+        for (std::size_t i = first; i < last; ++i)
+          result =
+              M::op(result, static_cast<Leaf*>(node->children[i].get())->get());
+      }
+      return result;
+    }
+
+    if constexpr (Reversed) {
+      std::size_t offset = node->size;
+      for (std::size_t i = node->count; i > 0; --i) {
+        auto* child = node->get_child(i - 1);
+        const std::size_t length = child->size;
+        offset -= length;
+        if (first < offset + length && offset < last)
+          result = M::op(result, prod_recursive<true>(
+                                     child, first > offset ? first - offset : 0,
+                                     std::min(last - offset, length)));
+        if (offset <= first) break;
       }
     } else {
-      auto* internal = static_cast<Internal*>(node);
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node->count; ++i) {
-        Node* child = internal->children[i].get();
-        if (first < offset + child->size && offset < last) {
-          T value = product(child, first > offset ? first - offset : 0,
-                            std::min(last - offset, child->size), reverse);
-          result = reverse ? M::op(value, result) : M::op(result, value);
-        }
-        offset += child->size;
+        auto* child = node->get_child(i);
+        const std::size_t length = child->size;
+        if (first < offset + length && offset < last)
+          result = M::op(
+              result, prod_recursive(child, first > offset ? first - offset : 0,
+                                     std::min(last - offset, length)));
+        offset += length;
         if (offset >= last) break;
       }
     }
     return result;
   }
 
-  static void update(Node* node, std::size_t first, std::size_t last, const F& f)
-      requires(Traits::lazy) {
+  static void apply_recursive(Internal* node, std::size_t first,
+                              std::size_t last, const F& f)
+    requires(Traits::lazy)
+  {
     if (first == last) return;
-    if (first == 0 && last == node->size) return node->apply_action(f);
-    Parent::materialize(node);
-    if (node->is_leaf()) {
-      auto* leaf = static_cast<Leaf*>(node);
+    if (first == 0 && last == node->size) {
+      node->push_lazy(f);
+      return;
+    }
+
+    node->materialize();
+    if (node->level == 0) {
       for (std::size_t i = first; i < last; ++i)
-        leaf->values[i] = A::mapping(f, leaf->values[i], 1);
+        static_cast<Leaf*>(node->children[i].get())->push_lazy(f);
+
     } else {
-      auto* internal = static_cast<Internal*>(node);
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node->count; ++i) {
-        Node* child = internal->children[i].get();
-        if (first < offset + child->size && offset < last)
-          update(child, first > offset ? first - offset : 0,
-                 std::min(last - offset, child->size), f);
-        offset += child->size;
+        auto* child = node->get_child(i);
+        const std::size_t length = child->size;
+        if (first < offset + length && offset < last)
+          apply_recursive(child, first > offset ? first - offset : 0,
+                          std::min(last - offset, length), f);
+        offset += length;
         if (offset >= last) break;
       }
     }
-    Parent::refresh(node);
+    node->refresh();
   }
 
-  // Skip accepted subtrees and descend only at the failing boundary.
+  // predicate が破れた部分木だけを再帰的に探索する。
   template <bool Leftward, class Predicate>
-  static bool search(Node* node, std::size_t offset, std::size_t boundary,
-                     T& value, Predicate& predicate, std::size_t& result) {
+  static bool search(Internal* node, std::size_t offset, std::size_t first,
+                     std::size_t last, T& value, Predicate& predicate,
+                     std::size_t& result) {
     const std::size_t end = offset + node->size;
-    if constexpr (Leftward) {
-      if (offset >= boundary) return true;
-    } else {
-      if (end <= boundary) return true;
-    }
-    const bool whole = Leftward ? end <= boundary : offset >= boundary;
-    if (whole) {
-      T next = Leftward ? M::op(node->forward, value) : M::op(value, node->forward);
+    if (end <= first || last <= offset) return true;
+    if (first <= offset && end <= last) {
+      T next =
+          Leftward ? M::op(node->forward, value) : M::op(value, node->forward);
       if (predicate(next)) {
         value = std::move(next);
         result = Leftward ? offset : end;
         return true;
       }
     }
-    Parent::materialize(node);
-    if (node->is_leaf()) {
-      auto* leaf = static_cast<Leaf*>(node);
+
+    node->materialize();
+    if (node->level == 0) {
       for (std::size_t j = 0; j < node->count; ++j) {
-        std::size_t i = Leftward ? node->count - 1 - j : j;
-        if (Leftward ? offset + i >= boundary : offset + i < boundary) continue;
-        T next = Leftward ? M::op(leaf->values[i], value) : M::op(value, leaf->values[i]);
+        const std::size_t i = Leftward ? node->count - 1 - j : j;
+        const std::size_t pos = offset + i;
+        if (pos < first || pos >= last) continue;
+        const T& x = static_cast<Leaf*>(node->children[i].get())->get();
+        T next = Leftward ? M::op(x, value) : M::op(value, x);
         if (!predicate(next)) return false;
         value = std::move(next);
-        result = offset + i + (Leftward ? 0 : 1);
+        result = Leftward ? pos : pos + 1;
+      }
+      return true;
+    }
+    if constexpr (Leftward) {
+      std::size_t pos = end;
+      for (std::size_t i = node->count; i > 0; --i) {
+        auto* child = node->get_child(i - 1);
+        pos -= child->size;
+        if (!search<true>(child, pos, first, last, value, predicate, result))
+          return false;
       }
     } else {
-      auto* internal = static_cast<Internal*>(node);
-      std::size_t position = Leftward ? end : offset;
-      for (std::size_t j = 0; j < node->count; ++j) {
-        Node* child = internal->children[Leftward ? node->count - 1 - j : j].get();
-        if constexpr (Leftward) position -= child->size;
-        if (!search<Leftward>(child, position, boundary, value, predicate, result))
+      std::size_t pos = offset;
+      for (std::size_t i = 0; i < node->count; ++i) {
+        auto* child = node->get_child(i);
+        if (!search<false>(child, pos, first, last, value, predicate, result))
           return false;
-        if constexpr (!Leftward) position += child->size;
+        pos += child->size;
       }
     }
     return true;
   }
 
  public:
-  using typename Parent::size_type;
-  using typename Parent::iterator;
+  using Monoid = M;
+  using Action = A;
+  using Parent::Parent;
   using Parent::size;
-  using Parent::get;
-  using Parent::set;
-  using Parent::begin;
-  using setter_type = Setter<Derived, T>;
+  using typename Parent::iterator;
+  using typename Parent::size_type;
+
   AggregateTree() = default;
-  template <std::input_iterator It>
-  AggregateTree(It first, It last) : Parent(first, last) {}
+  /** @brief モノイド単位元で count 要素を初期化する。 */
   explicit AggregateTree(size_type count) : Parent(count, M::e()) {}
-  AggregateTree(size_type count, const T& value) : Parent(count, value) {}
-  AggregateTree(std::initializer_list<T> values) : Parent(values) {}
-  template <std::input_iterator It>
-  void assign(It first, It last) { Parent::assign(first, last); }
-  void assign(size_type count, const T& value) { Parent::assign(count, value); }
-  void assign(size_type count) { Parent::assign(count, M::e()); }
-  void resize(size_type count, const T& value = M::e()) { Parent::resize(count, value); }
-  setter_type operator()(size_type index) {
-    assert(index < size());
-    return {static_cast<Derived&>(*this), index};
+
+  /** @brief 全要素の積。O(1)。 */
+  T all_prod() const {
+    return this->root_->forward;
   }
-  void prod_right(size_type index, const T& value) {
-    set(index, M::op(get(index), value));
-  }
-  void prod_left(size_type index, const T& value) {
-    set(index, M::op(value, get(index)));
-  }
-  void apply_right(size_type index, const T& value) { prod_right(index, value); }
-  void apply_left(size_type index, const T& value) { prod_left(index, value); }
-  void apply(size_type index, const T& value) requires(!Traits::lazy) {
-    prod_right(index, value);
-  }
-  void apply(size_type index, const F& f) requires(Traits::lazy) {
-    assert(index < size());
-    update(this->root_.get(), index, index + 1, f);
-  }
-  void apply(size_type first, size_type last, const F& f) requires(Traits::lazy) {
-    assert(first <= last && last <= size());
-    update(this->root_.get(), first, last, f);
-  }
-  void all_apply(const F& f) requires(Traits::lazy) { this->root_->apply_action(f); }
+
+  /** @brief 半開区間 [first,last) の順方向の積。 */
   T prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return product(this->root_.get(), first, last, false);
+    return prod_recursive(this->root_.get(), first + 1, last + 1);
   }
+
+  /** @brief 全要素の逆方向の積。O(1)。 */
+  T all_reverse_prod() const {
+    return this->root_->backward;
+  }
+
+  /** @brief 半開区間 [first,last) の逆方向の積。 */
   T reverse_prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return product(this->root_.get(), first, last, true);
+    return prod_recursive<true>(this->root_.get(), first + 1, last + 1);
   }
-  T all_prod() const { return this->root_->forward; }
+
+  void prod_right(size_type index, const T& value) {
+    this->set(index, M::op(this->get(index), value));
+  }
+  void prod_left(size_type index, const T& value) {
+    this->set(index, M::op(value, this->get(index)));
+  }
+
+  /** @brief 1要素への作用。 */
+  void apply(size_type index, const F& f)
+    requires(Traits::lazy)
+  {
+    apply(index, index + 1, f);
+  }
+  /** @brief 半開区間 [first,last) への作用。 */
+  void apply(size_type first, size_type last, const F& f)
+    requires(Traits::lazy)
+  {
+    assert(first <= last && last <= size());
+    apply_recursive(this->root_.get(), first + 1, last + 1, f);
+  }
+  void all_apply(const F& f)
+    requires(Traits::lazy)
+  {
+    apply(0, size(), f);
+  }
+
+  /**
+   * @brief predicate(prod(left,r)) が真である最大の r。
+   * @details 非空区間の積に対して、区間を伸ばしたときに真から偽へのみ
+   * 変化することを要求する。predicate(M::e()) は真でなくてもよい。
+   */
   template <class Predicate>
   size_type max_right(size_type left, Predicate&& predicate) const {
     assert(left <= size());
-    if (left == size()) return left;
+
     T value = M::e();
-    size_type result = left;
-    search<false>(this->root_.get(), 0, left, value, predicate, result);
-    return result;
+    size_type result = left + 1;
+    search<false>(this->root_.get(), 0, left + 1, size() + 1, value, predicate,
+                  result);
+    return result - 1;
   }
+
+  /**
+   * @brief predicate(prod(l,right)) が真である最小の l。
+   * @details 非空区間の積に対して、区間を伸ばしたときに真から偽へのみ
+   * 変化することを要求する。predicate(M::e()) は真でなくてもよい。
+   */
   template <class Predicate>
   size_type min_left(size_type right, Predicate&& predicate) const {
     assert(right <= size());
-    if (right == 0) return 0;
+
     T value = M::e();
-    size_type result = right;
-    search<true>(this->root_.get(), 0, right, value, predicate, result);
-    return result;
+    size_type result = right + 1;
+    search<true>(this->root_.get(), 0, 1, right + 1, value, predicate, result);
+    return result - 1;
+  }
+
+  template <class Predicate>
+  size_type right_bound(size_type left, Predicate&& predicate) const {
+    return max_right(left, std::forward<Predicate>(predicate));
   }
   template <class Predicate>
-  size_type right_bound(size_type left, Predicate&& f) const {
-    return max_right(left, std::forward<Predicate>(f));
+  size_type left_bound(size_type right, Predicate&& predicate) const {
+    return min_left(right, std::forward<Predicate>(predicate));
   }
-  template <class Predicate>
-  size_type left_bound(size_type right, Predicate&& f) const {
-    return min_left(right, std::forward<Predicate>(f));
+
+  void assign(size_type count, const T& value = M::e()) {
+    Parent::assign(count, value);
   }
+  void resize(size_type count, const T& value = M::e()) {
+    Parent::resize(count, value);
+  }
+  using Parent::assign;
+
   Derived split(size_type index) {
     Derived right;
     static_cast<Parent&>(right) = Parent::split(index);
     return right;
   }
-  Derived split(iterator position) { return split(position - begin()); }
-  void merge(Derived& right) { Parent::merge(right); }
-  void debug_node_stats() const {
-    std::cerr << "nodes: " << Node::live_nodes << " / " << Node::peak_nodes << '\n';
-    std::cerr << "leaf: " << Leaf::leaf_count << " / " << Leaf::peak_leaf_count << '\n';
-    std::cerr << "internal: " << Internal::internal_count << " / " << Internal::peak_internal_count << '\n';
+  Derived split(iterator position) {
+    return split(static_cast<size_type>(position - this->begin()));
+  }
+  void merge(Derived& right) {
+    Parent::merge(right);
+  }
+
+  /** @brief Monoid対応の Setter を返す。 */
+  Setter<Derived> operator()(size_type index) {
+    assert(index < size());
+    return {this->nth(index)};
   }
 };
+
 }  // namespace Bplustree
