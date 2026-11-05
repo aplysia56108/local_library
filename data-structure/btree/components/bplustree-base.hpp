@@ -48,17 +48,17 @@ class Base {
   std::unique_ptr<Internal> root_;
   iterator bbegin_, end_;
 
-  const T init_value = [] {
+  static T init_value() {
     if constexpr (requires { Traits::identity(); })
       return Traits::identity();
     else
       return T{};
-  }();
+  };
 
   /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
   void init() {
-    auto bbegin = std::make_unique<Leaf>(init_value);
-    auto end = std::make_unique<Leaf>(init_value);
+    auto bbegin = std::make_unique<Leaf>(init_value());
+    auto end = std::make_unique<Leaf>(init_value());
     bbegin_ = iterator{bbegin.get()};
     end_ = iterator{end.get()};
     root_ = make_new_root(std::move(bbegin), std::move(end));
@@ -83,7 +83,7 @@ class Base {
     std::vector<std::unique_ptr<Node>> level;
     level.reserve(values.size() + 2);
     {
-      auto bbegin = std::make_unique<Leaf>(init_value);
+      auto bbegin = std::make_unique<Leaf>(init_value());
       bbegin_ = iterator{bbegin.get()};
       level.push_back(std::move(bbegin));
     }
@@ -92,7 +92,7 @@ class Base {
       level.push_back(std::move(leaf));
     }
     {
-      auto end = std::make_unique<Leaf>(init_value);
+      auto end = std::make_unique<Leaf>(init_value());
       end_ = iterator{end.get()};
       level.push_back(std::move(end));
     }
@@ -459,8 +459,8 @@ class Base {
       return right;
     }
     right.root_ = devide(root_, pos.leaf_);
-    auto bbegin = std::make_unique<Leaf>(init_value);
-    auto end = std::make_unique<Leaf>(init_value);
+    auto bbegin = std::make_unique<Leaf>(init_value());
+    auto end = std::make_unique<Leaf>(init_value());
     right.end_ = end_;
     right.bbegin_ = iterator{bbegin.get()};
     end_ = iterator{end.get()};

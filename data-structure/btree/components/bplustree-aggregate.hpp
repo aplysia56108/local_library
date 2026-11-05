@@ -139,7 +139,7 @@ struct AggregateTraits<M, A, R, C>::Internal
   }
 
   /** @brief 未伝搬の作用を子へ渡す。Leaf には直接適用する。 */
-  void apply_lazy_impl() {
+  void apply_lazy() {
     if constexpr (Traits::lazy) {
       if (!pending) return;
       F f = *pending;
@@ -169,58 +169,60 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using T = typename Traits::T;
   using F = typename Traits::F;
 
-  static T product(Internal* node, std::size_t first, std::size_t last,
-                   bool reverse) {
+  template <bool Reversed = false>
+  static T prod_recursive(Internal* node, std::size_t first, std::size_t last) {
     if (first == last) return M::e();
-    if (first == 0 && last == node->size)
-      return reverse ? node->backward : node->forward;
+    if (first == 0 && last == node->size) {
+      if constexpr (Reversed) return node->backward;
+      return node->forward;
+    }
 
     node->materialize();
     T result = M::e();
 
     if (node->level == 0) {
-      if (!reverse) {
-        for (std::size_t i = first; i < last; ++i)
-          result =
-              M::op(result, static_cast<Leaf*>(node->children[i].get())->get());
-      } else {
+      if constexpr (Reversed) {
         for (std::size_t i = last; i > first; --i)
           result = M::op(
               result, static_cast<Leaf*>(node->children[i - 1].get())->get());
+      } else {
+        for (std::size_t i = first; i < last; ++i)
+          result =
+              M::op(result, static_cast<Leaf*>(node->children[i].get())->get());
       }
       return result;
     }
 
-    if (!reverse) {
-      std::size_t offset = 0;
-      for (std::size_t i = 0; i < node->count; ++i) {
-        auto* child = node->get_child(i);
-        const std::size_t length = child->size;
-        if (first < offset + length && offset < last)
-          result =
-              M::op(result, product(child, first > offset ? first - offset : 0,
-                                    std::min(last - offset, length), false));
-        offset += length;
-        if (offset >= last) break;
-      }
-    } else {
+    if constexpr (Reversed) {
       std::size_t offset = node->size;
       for (std::size_t i = node->count; i > 0; --i) {
         auto* child = node->get_child(i - 1);
         const std::size_t length = child->size;
         offset -= length;
         if (first < offset + length && offset < last)
-          result =
-              M::op(result, product(child, first > offset ? first - offset : 0,
-                                    std::min(last - offset, length), true));
+          result = M::op(result, prod_recursive<true>(
+                                     child, first > offset ? first - offset : 0,
+                                     std::min(last - offset, length)));
         if (offset <= first) break;
+      }
+    } else {
+      std::size_t offset = 0;
+      for (std::size_t i = 0; i < node->count; ++i) {
+        auto* child = node->get_child(i);
+        const std::size_t length = child->size;
+        if (first < offset + length && offset < last)
+          result = M::op(
+              result, prod_recursive(child, first > offset ? first - offset : 0,
+                                     std::min(last - offset, length)));
+        offset += length;
+        if (offset >= last) break;
       }
     }
     return result;
   }
 
-  static void update(Internal* node, std::size_t first, std::size_t last,
-                     const F& f)
+  static void apply_recursive(Internal* node, std::size_t first,
+                              std::size_t last, const F& f)
     requires(Traits::lazy)
   {
     if (first == last) return;
@@ -233,14 +235,15 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if (node->level == 0) {
       for (std::size_t i = first; i < last; ++i)
         static_cast<Leaf*>(node->children[i].get())->push_lazy(f);
+
     } else {
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node->count; ++i) {
         auto* child = node->get_child(i);
         const std::size_t length = child->size;
         if (first < offset + length && offset < last)
-          update(child, first > offset ? first - offset : 0,
-                 std::min(last - offset, length), f);
+          apply_recursive(child, first > offset ? first - offset : 0,
+                          std::min(last - offset, length), f);
         offset += length;
         if (offset >= last) break;
       }
@@ -319,13 +322,18 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   /** @brief 半開区間 [first,last) の順方向の積。 */
   T prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return product(this->root_.get(), first + 1, last + 1, false);
+    return prod_recursive(this->root_.get(), first + 1, last + 1);
+  }
+
+  /** @brief 全要素の逆方向の積。O(1)。 */
+  T all_reverse_prod() {
+    return this->root_->backward;
   }
 
   /** @brief 半開区間 [first,last) の逆方向の積。 */
   T reverse_prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return product(this->root_.get(), first + 1, last + 1, true);
+    return prod_recursive<true>(this->root_.get(), first + 1, last + 1);
   }
 
   void prod_right(size_type index, const T& value) {
@@ -333,17 +341,6 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   }
   void prod_left(size_type index, const T& value) {
     this->set(index, M::op(value, this->get(index)));
-  }
-  void apply_right(size_type index, const T& value) {
-    prod_right(index, value);
-  }
-  void apply_left(size_type index, const T& value) {
-    prod_left(index, value);
-  }
-  void apply(size_type index, const T& value)
-    requires(!Traits::lazy)
-  {
-    prod_right(index, value);
   }
 
   /** @brief 1要素への作用。 */
@@ -357,7 +354,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     requires(Traits::lazy)
   {
     assert(first <= last && last <= size());
-    update(this->root_.get(), first + 1, last + 1, f);
+    apply_recursive(this->root_.get(), first + 1, last + 1, f);
   }
   void all_apply(const F& f)
     requires(Traits::lazy)
