@@ -21,6 +21,8 @@ struct AggregateTraits {
   using T = typename M::value_type;
   using F = typename A::action_type;
   static constexpr std::size_t kNodeCapacity = C;
+  static constexpr bool IsReversible = true;
+  static constexpr bool IsMergable = true;
   static constexpr bool lazy = !std::same_as<A, NoAction>;
   static T identity() {
     return M::e();
