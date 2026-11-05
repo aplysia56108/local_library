@@ -110,7 +110,7 @@ class Bplustree_Set
       else
         r = m;
     }
-    return static_cast<Leaf*>(this->children[l].get());
+    return static_cast<Leaf*>(node->children[l].get());
   }
 
  public:
@@ -256,7 +256,7 @@ class Bplustree_Set
   }
 
   std::pair<iterator, bool> insert(const Key& key) {
-    auto it = base_iterator{max_l<true>(this->root_.get(), key)};
+    auto it = this->mutable_iterator(max_le(key));
     if constexpr (Type == SetType::Set) {
       if (equivalent(*it, key)) return {iterator{it}, false};
     }
@@ -267,9 +267,11 @@ class Bplustree_Set
     for (; first != last; ++first) insert(*first);
   }
   size_type erase(const Key& key, bool single_erase = false) {
-    const base_iterator first = lower_bound(key);
+    const base_iterator first = this->mutable_iterator(lower_bound(key));
     if (!equivalent(*first, key)) return 0;
-    const base_iterator last = single_erase ? first + 1 : upper_bound(key);
+    const base_iterator last =
+        single_erase ? first + 1 : this->mutable_iterator(upper_bound(key));
+
     const std::size_t res = single_erase ? 1 : last - first;
     Parent::erase(first, last);
     return res;

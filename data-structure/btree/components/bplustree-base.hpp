@@ -256,6 +256,10 @@ class Base {
     return root_->template locate<WithLazy>(index);
   }
 
+  static iterator mutable_iterator(const const_iterator& it) {
+    return iterator{it.leaf_};
+  }
+
  public:
   Base() {
     init();
