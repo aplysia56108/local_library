@@ -362,11 +362,15 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     apply(0, size(), f);
   }
 
-  /** @brief predicate(prod(left,r)) が真である最大の r。 */
+  /**
+   * @brief predicate(prod(left,r)) が真である最大の r。
+   * @details 非空区間の積に対して、区間を伸ばしたときに真から偽へのみ
+   * 変化することを要求する。predicate(M::e()) は真でなくてもよい。
+   */
   template <class Predicate>
   size_type max_right(size_type left, Predicate&& predicate) const {
     assert(left <= size());
-    assert(predicate(M::e()));
+
     T value = M::e();
     size_type result = left + 1;
     search<false>(this->root_.get(), 0, left + 1, size() + 1, value, predicate,
@@ -374,11 +378,15 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     return result - 1;
   }
 
-  /** @brief predicate(prod(l,right)) が真である最小の l。 */
+  /**
+   * @brief predicate(prod(l,right)) が真である最小の l。
+   * @details 非空区間の積に対して、区間を伸ばしたときに真から偽へのみ
+   * 変化することを要求する。predicate(M::e()) は真でなくてもよい。
+   */
   template <class Predicate>
   size_type min_left(size_type right, Predicate&& predicate) const {
     assert(right <= size());
-    assert(predicate(M::e()));
+
     T value = M::e();
     size_type result = right + 1;
     search<true>(this->root_.get(), 0, 1, right + 1, value, predicate, result);
