@@ -33,7 +33,7 @@ void aggregate_tests() {
   a.reverse();
   assert(a.all_prod() == 28);
   assert(a.all_reverse_prod() == 28);
-  assert(a.max_right(0, [](long long x) { return x > 0 && x <= 12; }) == 3);
+  assert(a.max_right(0, [](long long x) { return x > 0 && x <= 12; }) == 2);
   assert(a.min_left(a.size(), [](long long x) { return x > 0 && x <= 13; }) == 3);
   auto right = a.split(2);
   assert(a.all_prod() + right.all_prod() == 28);
@@ -63,7 +63,7 @@ void order_tests() {
   a.reverse();
   assert(a.all_prod() == "bcda");
   a(1).prod_left("!");
-  assert(a.prod(0, 3) == "bc!d");
+  assert(a.prod(0, 3) == "b!cd");
   std::cerr << "segtree order tests all passed! (capacity="
             << Capacity << ")\n";
 }
