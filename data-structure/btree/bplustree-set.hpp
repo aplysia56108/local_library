@@ -70,7 +70,7 @@ class Bplustree_Set
   static_assert(std::strict_weak_order<Compare&, const Key&, const Key&>);
   [[no_unique_address]] Compare compare_;
 
-  bool inner_compare(const Key& a, const Key& b) {
+  bool inner_comp(const Key& a, const Key& b) {
     const Key* left = std::addressof(this->bbegin_.leaf_->get());
     const Key* right = std::addressof(this->end_.leaf_->get());
     const Key* pa = std::addressof(a);
@@ -83,51 +83,32 @@ class Bplustree_Set
     return compare_(a, b);
   }
 
+  template <bool Equal>
+  bool comp(const Key& a, const Key& b) {
+    if constexpr (Equal) return !inner_comp(b, a);
+    return inner_comp(a, b);
+  }
+
   bool equivalent(const Key& a, const Key& b) const {
     return !inner_compare(a, b) && !inner_compare(b, a);
   }
 
   using Leaf = typename Parent::Leaf;
   using Internal = typename Parent::Internal;
-  template <bool Equlal>
+  template <bool Equal>
   Leaf* max_g(Internal* node, const Key& key) {
     std::size_t l = 0;
     std::size_t r = node->count;
-    if (node->level) {
-      while (l + 1 < r) {
-        std::size_t m = (l + r) / 2;
-        if constexpr (Equlal) {
-          if (!inner_compare(node->get_child(m)->min_key, key))
-            l = m;
-          else
-            r = m;
 
-        } else {
-          if (inner_compare(key, node->get_child(m)->min_key))
-            l = m;
-          else
-            r = m;
-        }
-      }
-      return max_g<Equlal>(node->get_child(l), key);
-    }
     while (l + 1 < r) {
       std::size_t m = (l + r) / 2;
-      if constexpr (Equlal) {
-        if (inner_compare(static_cast<Leaf*>(this->children[m].get())->get(),
-                          key)) {
-          l = m;
-        } else {
-          r = m;
-        }
-      } else {
-        if (inner_compare(key,
-                          static_cast<Leaf*>(this->children[m].get())->get())) {
-          l = m;
-        } else {
-          r = m;
-        }
-      }
+      const Key& x = node->level
+                         ? *node->get_child(m)->min_key
+                         : static_cast<Leaf*>(node->children[m].get())->get();
+      if (comp<Equal>(x, key))
+        l = m;
+      else
+        r = m;
     }
     return static_cast<Leaf*>(this->children[l].get());
   }
@@ -242,10 +223,10 @@ class Bplustree_Set
   }
 
   iterator lower_bound(const Key& key) const {
-    return min_gt(key) + 1;
+    return max_gt(key) + 1;
   }
   iterator upper_bound(const Key& key) const {
-    return min_ge(key) + 1;
+    return max_ge(key) + 1;
   }
   std::pair<iterator, iterator> equal_range(const Key& key) const {
     return {lower_bound(key), upper_bound(key)};
