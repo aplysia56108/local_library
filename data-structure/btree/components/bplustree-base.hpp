@@ -39,8 +39,6 @@ class Base {
   using Leaf = typename Traits::Leaf;
   using Internal = typename Traits::Internal;
   static constexpr size_type NodeCap = Traits::kNodeCapacity;
-  static constexpr bool IsReversible = Traits::IsReversible;
-  static constexpr bool IsMergable = Traits::IsMergable;
   static_assert(NodeCap >= 3);
 
   // 根の所有権は root_ が持つ。両端の番兵 Leaf も木の中で所有する。
