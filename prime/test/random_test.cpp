@@ -15,7 +15,7 @@ signed main() {
     }
     assert(v == n);
     assert(p.is_prime(n) ==
-           (pf.size() == 1 && pf[0].first == n && pf[0].second == 1));
+           (pf.size() == 1 && pf[0].prime == n && pf[0].count == 1));
   }
   for (long long t = 0; t < 400; t++) {
     long long a = rng() % 1000000000LL + 1, b = rng() % 1000000000LL + 1;
