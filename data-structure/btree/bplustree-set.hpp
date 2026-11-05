@@ -70,7 +70,7 @@ class Bplustree_Set
   static_assert(std::strict_weak_order<Compare&, const Key&, const Key&>);
   [[no_unique_address]] Compare compare_;
 
-  bool inner_comp(const Key& a, const Key& b) {
+  bool inner_comp(const Key& a, const Key& b) const {
     const Key* left = std::addressof(this->bbegin_.leaf_->get());
     const Key* right = std::addressof(this->end_.leaf_->get());
     const Key* pa = std::addressof(a);
@@ -84,19 +84,19 @@ class Bplustree_Set
   }
 
   template <bool Equal>
-  bool comp(const Key& a, const Key& b) {
+  bool comp(const Key& a, const Key& b) const {
     if constexpr (Equal) return !inner_comp(b, a);
     return inner_comp(a, b);
   }
 
   bool equivalent(const Key& a, const Key& b) const {
-    return !inner_compare(a, b) && !inner_compare(b, a);
+    return !inner_comp(a, b) && !inner_comp(b, a);
   }
 
   using Leaf = typename Parent::Leaf;
   using Internal = typename Parent::Internal;
   template <bool Equal>
-  Leaf* max_g(Internal* node, const Key& key) {
+  Leaf* max_l(Internal* node, const Key& key) const {
     std::size_t l = 0;
     std::size_t r = node->count;
 
@@ -223,10 +223,10 @@ class Bplustree_Set
   }
 
   iterator lower_bound(const Key& key) const {
-    return max_gt(key) + 1;
+    return max_lt(key) + 1;
   }
   iterator upper_bound(const Key& key) const {
-    return max_ge(key) + 1;
+    return max_le(key) + 1;
   }
   std::pair<iterator, iterator> equal_range(const Key& key) const {
     return {lower_bound(key), upper_bound(key)};
@@ -238,10 +238,10 @@ class Bplustree_Set
     return upper_bound(key);
   }
   iterator max_lt(const Key& key) const {
-    return {max_g<false>(this->root_, key)};
+    return {max_l<false>(this->root_, key)};
   }
   iterator max_le(const Key& key) const {
-    return {max_g<true>(this->root_, key)};
+    return {max_l<true>(this->root_, key)};
   }
 
   iterator find(const Key& key) const {
@@ -256,7 +256,7 @@ class Bplustree_Set
   }
 
   std::pair<iterator, bool> insert(const Key& key) {
-    auto it = iterator{max_g<true>(this->root_, key)};
+    auto it = base_iterator{max_l<true>(this->root_, key)};
     if constexpr (Type == SetType::Set) {
       if (equivalent(*it, key)) return {it, false};
     }
