@@ -224,7 +224,7 @@ struct Internal : Traits::Node {
    */
   void materialize() {
     apply_reverse();
-    apply_lazy();
+    static_cast<I*>(this)->apply_lazy();
   }
 
   /**
@@ -295,7 +295,7 @@ struct Internal : Traits::Node {
   template <bool WithLazy = false>
   L* locate(std::size_t index) {
     apply_reverse();
-    if constexpr (WithLazy) apply_lazy();
+    if constexpr (WithLazy) static_cast<I*>(this)->apply_lazy();
 
     if (level == 0) return static_cast<L*>(children[index].get());
 
