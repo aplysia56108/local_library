@@ -3,7 +3,8 @@
 `Bplustree::Base<Traits>` は位置で操作する木の基盤です。
 node・iteratorの実装を再利用し、rootのみを所有します。sizeとlevelはrootの
 metadataを参照します。公開 `Bplustree_Set` / `Bplustree_Segtree` /
-`Bplustree_LazySegtree` はこのBaseを使います。`Bplustree_Vector` も共通Baseを使います。
+`Bplustree_LazySegtree` はこのBaseを使います。`Bplustree_Vector` も共通Baseを使います。旧Vectorの複数要素Leafは廃止し、
+1要素1Leafへ変更したため、メモリ使用量・定数倍の性能は変わります。
 
 ```cpp
 using Sequence = Bplustree::Base<Bplustree::Traits<long long, 32>>;
@@ -53,7 +54,8 @@ push_reverseはフラグを付け、apply_reverseが並び替えと子へのフ�
 基本Leaf/Internalは反転を実装済みです。遅延作用は派生ノードのapply_lazyなどで
 実装してください。Baseは構造変更前に対象経路の反転・遅延作用を実体化します。
 
-遅延タグを付けるときは、そのノードの集約値を直ちに論理上の値へ更新してください。
+遅延タグを付けるときは、そのInternalの集約値を直ちに論理上の値へ更新してください。
+Leafは遅延タグを持たず、作用を受けた時点で要素の値を書き換えます。
 非可換モノイドでの反転では順方向・逆方向の集約値を保持し、派生push_reverseで
 基本フラグを反転するとともに両集約値を交換します。after_syncは残っている
 遅延タグも考慮し、子の論理上の集約値から計算してください。
@@ -122,8 +124,8 @@ lazy.all_apply(1);      // 全体作用
 ```
 
 サイズだけを指定する構築・`assign`・`resize` は `Monoid::e()` を補充します。
-点のモノイド更新は `prod_right` / `prod_left`、Segtreeの従来の名前
-`apply_right` / `apply_left` でも利用できます。setterの `.prod()` は右積、
+点のモノイド更新は `prod_right` / `prod_left` を利用できます。
+setterの `.prod()` は右積、
 LazySegtreeの `.apply()` は `Action::action_type` による作用です。
 
 LazySegtreeでは `Action::mapping(f, x, size)` がモノイドの区間積に作用し、
@@ -134,7 +136,7 @@ LazySegtreeでは `Action::mapping(f, x, size)` がモノイドの区間積に�
 
 `prod` / `reverse_prod` / `max_right` / `min_left` / 区間作用は、モノイド演算と
 mapping・composition・述語がO(1)ならO(NodeCapacity × 木の高さ)です。
-`all_prod` / `all_apply` はO(1)です。境界探索の述語は区間を拡張するとtrueから
+`all_prod` / `all_reverse_prod` はO(1)です。境界探索の述語は区間を拡張するとtrueから
 falseへ高々1回変わるものとし、空区間の単位元には呼び出しません。
 `right_bound` / `left_bound` は `max_right` / `min_left` の別名です。
 
