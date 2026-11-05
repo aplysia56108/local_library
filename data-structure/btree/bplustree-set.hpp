@@ -270,17 +270,21 @@ class Bplustree_Set
   size_type erase(const Key& key, bool single_erase = false) {
     const base_iterator first = this->mutable_iterator(lower_bound(key));
     if (!equivalent(*first, key)) return 0;
-    const base_iterator last =
-        single_erase ? first + 1 : this->mutable_iterator(upper_bound(key));
-
-    const std::size_t res = single_erase ? 1 : last - first;
+    if (single_erase) {
+      erase(first);
+      return 1;
+    }
+    const base_iterator last = this->mutable_iterator(upper_bound(key));
+    const std::size_t res = last - first;
     Parent::erase(first, last);
     return res;
   }
   iterator erase(iterator pos) {
-    const auto index = static_cast<size_type>(pos - begin());
-    return Parent::erase(index);
+    return Parent::erase(this->mutable_iterator(pos));
   }
+  void debug_node_stats() {
+    Parent::debug_node_stats();
+  };
 };
 template <class T = long long>
 using BSet = Bplustree_Set<T>;
