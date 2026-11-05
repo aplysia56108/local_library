@@ -110,6 +110,7 @@ class Bplustree_Set
       else
         r = m;
     }
+    if (node->level) return max_l<Equal>(node->get_child(l), key);
     return static_cast<Leaf*>(node->children[l].get());
   }
 
@@ -256,7 +257,7 @@ class Bplustree_Set
   }
 
   std::pair<iterator, bool> insert(const Key& key) {
-    auto it = this->mutable_iterator(max_le(key));
+    auto it = this->mutable_iterator(lower_bound(key));
     if constexpr (Type == SetType::Set) {
       if (equivalent(*it, key)) return {iterator{it}, false};
     }
