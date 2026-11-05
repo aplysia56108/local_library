@@ -22,11 +22,21 @@ struct BplustreeSetTestAccess {
   static constexpr std::size_t capacity = Tree::kNodeCapacity;
 
   template <class Tree>
-  static auto root(Tree& tree) { return tree.header_.root_.get(); }
+  static auto root(Tree& tree) { return tree.root_.get(); }
   template <class Tree>
-  static auto first_leaf(Tree& tree) { return tree.header_.first_leaf_; }
+  static auto first_leaf(Tree& tree) {
+    auto* node = tree.root_.get();
+    while (!node->is_leaf())
+      node = static_cast<Internal<Tree>*>(node)->children[0].get();
+    return static_cast<Leaf<Tree>*>(node);
+  }
   template <class Tree>
-  static auto last_leaf(Tree& tree) { return tree.header_.last_leaf_; }
+  static auto last_leaf(Tree& tree) {
+    auto* node = tree.root_.get();
+    while (!node->is_leaf())
+      node = static_cast<Internal<Tree>*>(node)->children[node->count - 1].get();
+    return static_cast<Leaf<Tree>*>(node);
+  }
 };
 
 #define CHECK(expr)                                                    \
@@ -75,10 +85,10 @@ std::size_t validate_node(Tree& tree, BplustreeSetTestAccess::Node<Tree>* node,
     auto* leaf = static_cast<BplustreeSetTestAccess::Leaf<Tree>*>(node);
 
     CHECK(node->size == node->count);
-    CHECK(node->min_key == &leaf->keys[0]);
+    CHECK(node->min_key == &leaf->values[0]);
 
     for (std::size_t i = 1; i < leaf->count; ++i) {
-      CHECK(!tree.key_comp()(leaf->keys[i], leaf->keys[i - 1]));
+      CHECK(!tree.key_comp()(leaf->values[i], leaf->values[i - 1]));
     }
 
     if (leaf_depth == std::numeric_limits<std::size_t>::max()) {
@@ -119,60 +129,16 @@ std::size_t validate_node(Tree& tree, BplustreeSetTestAccess::Node<Tree>* node,
   return size_sum;
 }
 
-// Leaf の prev / next と、全要素の並びを確認する。
+// Shared storage uses parent links; check forward/backward leaf-boundary traversal.
 template <class Tree>
 std::vector<int> validate_leaf_links(Tree& tree) {
-  std::vector<int> values;
-
-  auto* leaf = BplustreeSetTestAccess::first_leaf(tree);
-  BplustreeSetTestAccess::Leaf<Tree>* prev = nullptr;
-  BplustreeSetTestAccess::Leaf<Tree>* last = nullptr;
-
-  std::size_t leaf_count = 0;
-
-  CHECK(leaf != nullptr);
-  CHECK(leaf->prev == nullptr);
-
-  while (leaf != nullptr) {
-    CHECK(leaf->prev == prev);
-
-    if (prev != nullptr) {
-      CHECK(prev->next == leaf);
-    }
-
-    for (std::size_t i = 0; i < leaf->count; ++i) {
-      values.push_back(leaf->keys[i]);
-    }
-
-    prev = leaf;
-    last = leaf;
-    leaf = leaf->next;
-
-    // link が循環していた場合に無限ループしないため。
-    CHECK(++leaf_count <= tree.size() + 1);
-  }
-
-  CHECK(last == BplustreeSetTestAccess::last_leaf(tree));
-  CHECK(last->next == nullptr);
-
-  // 逆方向も確認する。
-  auto* current = BplustreeSetTestAccess::last_leaf(tree);
-  BplustreeSetTestAccess::Leaf<Tree>* next = nullptr;
-  std::size_t reverse_leaf_count = 0;
-
-  while (current != nullptr) {
-    CHECK(current->next == next);
-    next = current;
-    current = current->prev;
-    CHECK(++reverse_leaf_count <= leaf_count);
-  }
-
-  CHECK(next == BplustreeSetTestAccess::first_leaf(tree));
-  CHECK(reverse_leaf_count == leaf_count);
-
+  std::vector<int> values(tree.begin(), tree.end());
+  std::vector<int> reverse(tree.rbegin(), tree.rend());
+  std::reverse(reverse.begin(), reverse.end());
+  CHECK(values == reverse);
+  CHECK(tree.end() - tree.begin() == static_cast<std::ptrdiff_t>(tree.size()));
   return values;
 }
-
 template <class Tree, class Ref>
 void check_tree_equals(Tree& tree, const Ref& ref) {
   CHECK(tree.size() == ref.size());
