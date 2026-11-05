@@ -21,7 +21,30 @@ struct SetTraits {
   static constexpr bool IsMergable = false;
   using Node = Bplustree::Node<SetTraits>;
   using Leaf = Bplustree::Leaf<SetTraits>;
-  using Internal = Bplustree::Internal<SetTraits>;
+  struct Internal;
+};
+
+/** @brief 子部分木の最小キーを Internal だけに保持する。 */
+template <class Key, std::size_t Capacity>
+struct SetTraits<Key, Capacity>::Internal
+    : Bplustree::Internal<SetTraits<Key, Capacity>> {
+  using Traits = SetTraits<Key, Capacity>;
+  using Parent = Bplustree::Internal<Traits>;
+  using Leaf = typename Traits::Leaf;
+  using Parent::Parent;
+
+  const Key* min_key = nullptr;
+
+  void after_sync() {
+    if (this->count == 0) {
+      min_key = nullptr;
+    } else if (this->level == 0) {
+      min_key = std::addressof(
+          static_cast<Leaf*>(this->children[0].get())->get());
+    } else {
+      min_key = this->get_child(0)->min_key;
+    }
+  }
 };
 
 }  // namespace Bplustree
@@ -33,9 +56,9 @@ enum class SetType { Set, MultiSet };
  * @details Base の位置変更・反転・点更新を公開しない。
  * Iterator は読み取り専用。キーの重複可否は Type で決まる。
  *
- * 境界探索は現時点では順位二分探索を用いる。
+ * 境界探索では Internal の最小キー情報を使い1経路だけを降りる。
  * ### 計算量
- * lower_bound / upper_bound: O(log N * NodeCapacity * 木の高さ)
+ * lower_bound / upper_bound: O(NodeCapacity * 木の高さ)
  * 挿入・削除: 上記探索 + Base の構造変更
  */
 template <class Key = long long, SetType Type = SetType::Set,
@@ -53,18 +76,38 @@ class Bplustree_Set
   }
 
   std::size_t bound_index(const Key& key, bool upper) const {
-    std::size_t low = 0, high = Parent::size();
-    while (low < high) {
-      const auto middle = low + (high - low) / 2;
-      const Key& value = *Parent::nth(middle);
-      const bool before = upper ? !compare_(key, value)
-                                : compare_(value, key);
-      if (before)
-        low = middle + 1;
-      else
-        high = middle;
+    const std::size_t end_position = size() + 1;
+    const auto before = [&](const Key& value) {
+      return upper ? !compare_(key, value) : compare_(value, key);
+    };
+
+    auto* node = this->root_.get();
+    std::size_t offset = 0;
+    while (node->level > 0) {
+      std::size_t child = 0;
+      while (child + 1 < node->count) {
+        const std::size_t next_offset = offset + node->child_size(child);
+        // The right end sentinel must never participate in comparison.
+        if (next_offset >= end_position ||
+            !before(*node->get_child(child + 1)->min_key))
+          break;
+        offset = next_offset;
+        ++child;
+      }
+      node = node->get_child(child);
     }
-    return low;
+
+    using Leaf = typename Parent::Leaf;
+    for (std::size_t i = 0; i < node->count; ++i) {
+      const std::size_t position = offset + i;
+      if (position == 0) continue;  // Left sentinel.
+      if (position >= end_position) return size();
+      const Key& value =
+          static_cast<const Leaf*>(node->children[i].get())->get();
+      if (!before(value)) return position - 1;
+    }
+    // The answer is the first position after this subtree.
+    return std::min(size(), offset + node->count - 1);
   }
 
  public:
