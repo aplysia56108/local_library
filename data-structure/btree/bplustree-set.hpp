@@ -270,8 +270,12 @@ class Bplustree_Set
   size_type erase(const Key& key, bool single_erase = false) {
     const base_iterator first = this->mutable_iterator(lower_bound(key));
     if (!equivalent(*first, key)) return 0;
+    if constexpr (Type == SetType::Set) {
+      Parent::erase(first);
+      return 1;
+    }
     if (single_erase) {
-      erase(first);
+      Parent::erase(first);
       return 1;
     }
     const base_iterator last = this->mutable_iterator(upper_bound(key));
