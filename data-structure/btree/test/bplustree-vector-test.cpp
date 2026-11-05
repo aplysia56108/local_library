@@ -18,7 +18,11 @@ void check(const Tree& a, const std::vector<long long>& expected) {
 // 公開API: 構築、Iterator、setter、挿入、削除、resize。
 template <std::size_t Capacity>
 void sequence_tests() {
-  Bplustree_Vector<long long, Capacity> a{1, 2, 3};
+  using Tree = Bplustree_Vector<long long, Capacity>;
+  static_assert(std::same_as<decltype(*std::declval<typename Tree::iterator>()),
+                             const long long&>);
+  static_assert(!requires(typename Tree::const_iterator it) { it.set(1LL); });
+  Tree a{1, 2, 3};
   assert(a.front() == 1 && a.back() == 3);
   assert(a.get(1) == 2 && a[1] == 2);
   a(1) = 5;
