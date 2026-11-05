@@ -4,6 +4,7 @@
 #include <concepts>
 #include <functional>
 #include <iterator>
+#include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -219,7 +220,8 @@ class Bplustree_Set
   }
   template <std::input_iterator It>
   void insert(It first, It last) {
-    const std::vector<Key> values(first, last);
+    std::vector<Key> values;
+    for (; first != last; ++first) values.push_back(*first);
     for (const auto& key : values) insert(key);
   }
   size_type erase(const Key& key, bool single_erase = false) {
