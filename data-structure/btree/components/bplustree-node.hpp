@@ -34,8 +34,6 @@ struct Traits {
   using Node = Bplustree::Node<Traits>;
   using Leaf = Bplustree::Leaf<Traits>;
   using Internal = Bplustree::Internal<Traits>;
-  static const bool IsReversible = true;
-  static const bool IsMergable = true;
 };
 
 /** @brief 子 Node の実体型を識別する。 */
