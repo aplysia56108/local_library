@@ -18,8 +18,6 @@ template <class Key, std::size_t Capacity>
 struct SetTraits {
   using T = Key;
   static constexpr std::size_t kNodeCapacity = Capacity;
-  static constexpr bool IsReversible = false;
-  static constexpr bool IsMergable = false;
   using Node = Bplustree::Node<SetTraits>;
   using Leaf = Bplustree::Leaf<SetTraits>;
   struct Internal;
@@ -39,11 +37,11 @@ struct SetTraits<Key, Capacity>::Internal
   void after_sync() {
     if (this->count == 0) {
       min_key = nullptr;
-    } else if (this->level == 0) {
-      min_key = std::addressof(
-          static_cast<Leaf*>(this->children[0].get())->get());
-    } else {
+    } else if (this->level) {
       min_key = this->get_child(0)->min_key;
+    } else {
+      min_key =
+          std::addressof(static_cast<Leaf*>(this->children[0].get())->get());
     }
   }
 };
@@ -72,43 +70,66 @@ class Bplustree_Set
   static_assert(std::strict_weak_order<Compare&, const Key&, const Key&>);
   [[no_unique_address]] Compare compare_;
 
-  bool equivalent(const Key& a, const Key& b) const {
-    return !compare_(a, b) && !compare_(b, a);
+  bool inner_compare(const Key& a, const Key& b) {
+    const Key* left = std::addressof(this->bbegin_.leaf_->get());
+    const Key* right = std::addressof(this->end_.leaf_->get());
+    const Key* pa = std::addressof(a);
+    const Key* pb = std::addressof(b);
+
+    if (pa == left) return pb != left;
+    if (pb == left) return false;
+    if (pb == right) return pa != right;
+    if (pa == right) return false;
+    return compare_(a, b);
   }
 
-  std::size_t bound_index(const Key& key, bool upper) const {
-    const std::size_t end_position = size() + 1;
-    const auto before = [&](const Key& value) {
-      return upper ? !compare_(key, value) : compare_(value, key);
-    };
+  bool equivalent(const Key& a, const Key& b) const {
+    return !inner_compare(a, b) && !inner_compare(b, a);
+  }
 
-    auto* node = this->root_.get();
-    std::size_t offset = 0;
-    while (node->level > 0) {
-      std::size_t child = 0;
-      while (child + 1 < node->count) {
-        const std::size_t next_offset = offset + node->child_size(child);
-        // The right end sentinel must never participate in comparison.
-        if (next_offset >= end_position ||
-            !before(*node->get_child(child + 1)->min_key))
-          break;
-        offset = next_offset;
-        ++child;
+  using Leaf = typename Parent::Leaf;
+  using Internal = typename Parent::Internal;
+  template <bool Equlal>
+  Leaf* max_g(Internal* node, const Key& key) {
+    std::size_t l = 0;
+    std::size_t r = node->count;
+    if (node->level) {
+      while (l + 1 < r) {
+        std::size_t m = (l + r) / 2;
+        if constexpr (Equlal) {
+          if (!inner_compare(node->get_child(m)->min_key, key))
+            l = m;
+          else
+            r = m;
+
+        } else {
+          if (inner_compare(key, node->get_child(m)->min_key))
+            l = m;
+          else
+            r = m;
+        }
       }
-      node = node->get_child(child);
+      return max_g<Equlal>(node->get_child(l), key);
     }
-
-    using Leaf = typename Parent::Leaf;
-    for (std::size_t i = 0; i < node->count; ++i) {
-      const std::size_t position = offset + i;
-      if (position == 0) continue;  // Left sentinel.
-      if (position >= end_position) return size();
-      const Key& value =
-          static_cast<const Leaf*>(node->children[i].get())->get();
-      if (!before(value)) return position - 1;
+    while (l + 1 < r) {
+      std::size_t m = (l + r) / 2;
+      if constexpr (Equlal) {
+        if (inner_compare(static_cast<Leaf*>(this->children[m].get())->get(),
+                          key)) {
+          l = m;
+        } else {
+          r = m;
+        }
+      } else {
+        if (inner_compare(key,
+                          static_cast<Leaf*>(this->children[m].get())->get())) {
+          l = m;
+        } else {
+          r = m;
+        }
+      }
     }
-    // The answer is the first position after this subtree.
-    return std::min(size(), offset + node->count - 1);
+    return static_cast<Leaf*>(this->children[l].get());
   }
 
  public:
@@ -122,7 +143,8 @@ class Bplustree_Set
   using reverse_iterator = std::reverse_iterator<iterator>;
   using const_reverse_iterator = reverse_iterator;
 
-  Bplustree_Set() requires std::default_initializable<Compare>
+  Bplustree_Set()
+    requires std::default_initializable<Compare>
       : Parent(), compare_() {}
   explicit Bplustree_Set(Compare compare)
       : Parent(), compare_(std::move(compare)) {}
@@ -144,8 +166,8 @@ class Bplustree_Set
   Bplustree_Set& operator=(const Bplustree_Set&) = default;
   Bplustree_Set& operator=(Bplustree_Set&&) = default;
 
-  friend void swap(Bplustree_Set& a, Bplustree_Set& b)
-      noexcept(std::is_nothrow_swappable_v<Compare>)
+  friend void swap(Bplustree_Set& a, Bplustree_Set& b) noexcept(
+      std::is_nothrow_swappable_v<Compare>)
     requires std::swappable<Compare>
   {
     using std::swap;
@@ -153,23 +175,55 @@ class Bplustree_Set
     swap(static_cast<Parent&>(a), static_cast<Parent&>(b));
   }
 
-  const Compare& key_comp() const { return compare_; }
-  size_type size() const { return Parent::size(); }
-  bool empty() const { return Parent::empty(); }
-  iterator bbegin() const { return Parent::bbegin(); }
-  iterator begin() const { return Parent::begin(); }
-  iterator end() const { return Parent::end(); }
-  iterator cbegin() const { return begin(); }
-  iterator cend() const { return end(); }
-  reverse_iterator rbegin() const { return reverse_iterator(end()); }
-  reverse_iterator rend() const { return reverse_iterator(begin()); }
-  const_reverse_iterator crbegin() const { return rbegin(); }
-  const_reverse_iterator crend() const { return rend(); }
-  const Key& operator[](size_type index) const { return Parent::get(index); }
-  iterator nth(size_type index) const { return Parent::nth(index); }
+  const Compare& key_comp() const {
+    return compare_;
+  }
+  size_type size() const {
+    return Parent::size();
+  }
+  bool empty() const {
+    return Parent::empty();
+  }
+  iterator bbegin() const {
+    return Parent::bbegin();
+  }
+  iterator begin() const {
+    return Parent::begin();
+  }
+  iterator end() const {
+    return Parent::end();
+  }
+  iterator cbegin() const {
+    return begin();
+  }
+  iterator cend() const {
+    return end();
+  }
+  reverse_iterator rbegin() const {
+    return reverse_iterator(end());
+  }
+  reverse_iterator rend() const {
+    return reverse_iterator(begin());
+  }
+  const_reverse_iterator crbegin() const {
+    return rbegin();
+  }
+  const_reverse_iterator crend() const {
+    return rend();
+  }
+  const Key& operator[](size_type index) const {
+    return Parent::get(index);
+  }
+  iterator nth(size_type index) const {
+    return Parent::nth(index);
+  }
 
-  void clear() { Parent::clear(); }
-  void rebuild() { Parent::rebuild(); }
+  void clear() {
+    Parent::clear();
+  }
+  void rebuild() {
+    Parent::rebuild();
+  }
 
   template <std::input_iterator It>
   void assign(It first, It last) {
@@ -188,49 +242,56 @@ class Bplustree_Set
   }
 
   iterator lower_bound(const Key& key) const {
-    return nth(bound_index(key, false));
+    return min_gt(key) + 1;
   }
   iterator upper_bound(const Key& key) const {
-    return nth(bound_index(key, true));
+    return min_ge(key) + 1;
   }
   std::pair<iterator, iterator> equal_range(const Key& key) const {
     return {lower_bound(key), upper_bound(key)};
   }
-  iterator min_ge(const Key& key) const { return lower_bound(key); }
-  iterator min_gt(const Key& key) const { return upper_bound(key); }
-  iterator max_lt(const Key& key) const { return lower_bound(key) - 1; }
-  iterator max_le(const Key& key) const { return upper_bound(key) - 1; }
+  iterator min_ge(const Key& key) const {
+    return lower_bound(key);
+  }
+  iterator min_gt(const Key& key) const {
+    return upper_bound(key);
+  }
+  iterator max_lt(const Key& key) const {
+    return {max_g<false>(this->root_, key)};
+  }
+  iterator max_le(const Key& key) const {
+    return {max_g<true>(this->root_, key)};
+  }
 
   iterator find(const Key& key) const {
     auto pos = lower_bound(key);
     return pos != end() && equivalent(*pos, key) ? pos : end();
   }
-  bool contains(const Key& key) const { return find(key) != end(); }
+  bool contains(const Key& key) const {
+    return find(key) != end();
+  }
   size_type count(const Key& key) const {
-    return bound_index(key, true) - bound_index(key, false);
+    return upper_bound(key) - lower_bound(key);
   }
 
   std::pair<iterator, bool> insert(const Key& key) {
-    auto index = bound_index(key, false);
+    auto it = iterator{max_g<true>(this->root_, key)};
     if constexpr (Type == SetType::Set) {
-      if (index < size() && equivalent(*nth(index), key))
-        return {nth(index), false};
+      if (equivalent(*it, key)) return {it, false};
     }
-    return {Parent::insert(index, key), true};
+    return {Parent::insert(it, key), true};
   }
   template <std::input_iterator It>
   void insert(It first, It last) {
-    std::vector<Key> values;
-    for (; first != last; ++first) values.push_back(*first);
-    for (const auto& key : values) insert(key);
+    for (; first != last; ++first) insert(*first);
   }
   size_type erase(const Key& key, bool single_erase = false) {
-    const size_type first = bound_index(key, false);
-    const size_type last = bound_index(key, true);
-    const size_type removed =
-        single_erase ? std::min<size_type>(last - first, 1) : last - first;
-    if (removed) Parent::erase(first, first + removed);
-    return removed;
+    const iterator first = lower_bound(key);
+    if (!equivalent(*first, key)) return 0;
+    const iterator last = single_erase ? first + 1 : upper_bound(key);
+    const std::size_t res = single_erase ? 1 : last - first;
+    Parent::erase(first, last);
+    return res;
   }
   iterator erase(iterator pos) {
     const auto index = static_cast<size_type>(pos - begin());
