@@ -112,10 +112,18 @@ class InspectableSet
   using Internal = typename Traits::Internal;
   using Leaf = typename Traits::Leaf;
 
-  static const long long* validate_node(const Internal* node) {
+  static const long long* validate_node(const Internal* node,
+                                        const char* phase, long long step,
+                                        std::size_t depth = 0) {
     assert(node != nullptr);
-    assert(node->count > 0);
-    assert(node->count < Capacity);
+    if (node->count == 0 || node->count >= Capacity) {
+      std::cerr << "invalid Internal: phase=" << phase << ", step=" << step
+                << ", depth=" << depth << ", level=" << node->level
+                << ", count=" << node->count << ", size=" << node->size
+                << ", parent=" << node->parent
+                << ", position=" << node->position << '\\n';
+      assert(node->count > 0 && node->count < Capacity);
+    }
     const long long* first = nullptr;
     std::size_t size = 0;
 
@@ -129,7 +137,7 @@ class InspectableSet
       if (node->level) {
         const auto* inner = node->get_child(i);
         assert(inner->level + 1 == node->level);
-        min_key = validate_node(inner);
+        min_key = validate_node(inner, phase, step, depth + 1);
         size += inner->size;
       } else {
         min_key = std::addressof(static_cast<const Leaf*>(child)->get());
@@ -150,9 +158,9 @@ class InspectableSet
     Base::erase(first, last);
   }
 
-  void validate_structure() const {
+  void validate_structure(const char* phase, long long step) const {
     assert(this->root_->parent == nullptr);
-    assert(validate_node(this->root_.get()) ==
+    assert(validate_node(this->root_.get(), phase, step) ==
            std::addressof(*this->bbegin()));
     assert(this->root_->size == this->size() + 2);
   }
@@ -172,8 +180,8 @@ void set_range_erase_tests() {
     reference.insert(value);
   }
 
-  auto verify = [&]() {
-    tree.validate_structure();
+  auto verify = [&](const char* phase, long long step) {
+    tree.validate_structure(phase, step);
     const std::vector<long long> expected(reference.begin(), reference.end());
     check(tree, expected);
 
@@ -186,7 +194,7 @@ void set_range_erase_tests() {
              std::distance(reference.begin(), upper));
     }
   };
-  verify();
+  verify("initial", -1);
 
   // 先頭・末尾・内部の区間を削除する。各ステップで木の深さや密度が変わる。
   for (long long step = 0; step < 200; ++step) {
@@ -201,7 +209,7 @@ void set_range_erase_tests() {
     auto it_last = std::next(it_first, width);
     reference.erase(it_first, it_last);
     tree.erase_range(first, last);
-    verify();
+    verify("after erase", step);
 
     // 削除した部分だけでなく、既存キーと同値の挿入も試す。
     for (long long j = 0; j < 3; ++j) {
@@ -216,7 +224,7 @@ void set_range_erase_tests() {
         reference.insert(key);
       }
     }
-    verify();
+    verify("after insert", step);
   }
 
   std::cerr << "set range erase tests all passed! (type="
