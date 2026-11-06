@@ -171,21 +171,23 @@ class Base {
 
   static void cut_zero_node(std::unique_ptr<Internal>& root) {
     Internal* current = root.get();
-    while (current->level) {
+    while (true) {
       current->apply_reverse();
       if (current->size == 0 && current->parent) {
         erase(current->parent, current->position, root);
         break;
       }
+      if (current->level == 0) break;
       current = current->get_child(0);
     }
     current = root.get();
-    while (current->level) {
+    while (true) {
       current->apply_reverse();
       if (current->size == 0 && current->parent) {
         erase(current->parent, current->position, root);
         break;
       }
+      if (current->level == 0) break;
       current = current->get_child(current->count - 1);
     }
   }
