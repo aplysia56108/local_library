@@ -6,6 +6,7 @@
 #include <functional>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <set>
 #include <type_traits>
 #include <vector>
@@ -97,10 +98,140 @@ void multiset_tests() {
   std::cerr << "multiset tests all passed! (capacity=" << Capacity << ")\n";
 }
 
+
+/**
+ * @brief Set の区間削除による分割・結合後の min_key を検証する。
+ * @details 通常の Set::erase(key) は単一要素削除経路を通るため、
+ * Base::erase(first, last) を明示的に使って別経路を検証する。
+ */
+template <SetType Type, std::size_t Capacity>
+class InspectableSet
+    : public Bplustree_Set<long long, Type, std::less<long long>, Capacity> {
+  using Traits = Bplustree::SetTraits<long long, Capacity>;
+  using Base = Bplustree::Base<Traits>;
+  using Internal = typename Traits::Internal;
+  using Leaf = typename Traits::Leaf;
+
+  static const long long* validate_node(const Internal* node) {
+    assert(node != nullptr);
+    assert(node->count > 0);
+    assert(node->count < Capacity);
+    const long long* first = nullptr;
+    std::size_t size = 0;
+
+    for (std::size_t i = 0; i < node->count; ++i) {
+      const auto* child = node->children[i].get();
+      assert(child != nullptr);
+      assert(child->parent == node);
+      assert(child->position == i);
+
+      const long long* min_key;
+      if (node->level) {
+        const auto* inner = node->get_child(i);
+        assert(inner->level + 1 == node->level);
+        min_key = validate_node(inner);
+        size += inner->size;
+      } else {
+        min_key = std::addressof(static_cast<const Leaf*>(child)->get());
+        ++size;
+      }
+      if (i == 0) first = min_key;
+    }
+
+    for (std::size_t i = node->count; i < Capacity; ++i)
+      assert(node->children[i] == nullptr);
+    assert(node->size == size);
+    assert(node->min_key == first);
+    return first;
+  }
+
+ public:
+  void erase_range(std::size_t first, std::size_t last) {
+    Base::erase(first, last);
+  }
+
+  void validate_structure() const {
+    assert(this->root_->parent == nullptr);
+    assert(validate_node(this->root_.get()) ==
+           std::addressof(*this->bbegin()));
+    assert(this->root_->size == this->size() + 2);
+  }
+};
+
+template <SetType Type, std::size_t Capacity>
+void set_range_erase_tests() {
+  InspectableSet<Type, Capacity> tree;
+  using Reference = std::conditional_t<Type == SetType::Set,
+                                       std::set<long long>,
+                                       std::multiset<long long>>;
+  Reference reference;
+
+  for (long long i = 0; i < 120; ++i) {
+    const long long value = Type == SetType::Set ? i : i / 3;
+    tree.insert(value);
+    reference.insert(value);
+  }
+
+  auto verify = [&]() {
+    tree.validate_structure();
+    const std::vector<long long> expected(reference.begin(), reference.end());
+    check(tree, expected);
+
+    for (long long key : {0LL, 7LL, 23LL, 50LL, 120LL, 200LL}) {
+      auto lower = reference.lower_bound(key);
+      auto upper = reference.upper_bound(key);
+      assert(tree.lower_bound(key) - tree.begin() ==
+             std::distance(reference.begin(), lower));
+      assert(tree.upper_bound(key) - tree.begin() ==
+             std::distance(reference.begin(), upper));
+    }
+  };
+  verify();
+
+  // 先頭・末尾・内部の区間を削除する。各ステップで木の深さや密度が変わる。
+  for (long long step = 0; step < 200; ++step) {
+    const std::size_t n = reference.size();
+    const std::size_t first =
+        step % 3 == 0 ? 0 : step % 3 == 1 ? n - 1 : (step * 37) % n;
+    const std::size_t width =
+        1 + (step * 13) % std::min<std::size_t>(20, n - first);
+    const std::size_t last = first + width;
+
+    auto it_first = std::next(reference.begin(), first);
+    auto it_last = std::next(it_first, width);
+    reference.erase(it_first, it_last);
+    tree.erase_range(first, last);
+    verify();
+
+    // 削除した部分だけでなく、既存キーと同値の挿入も試す。
+    for (long long j = 0; j < 3; ++j) {
+      const long long key = (step * 53 + j * 17) % 151;
+      tree.insert(key);
+      reference.insert(key);
+    }
+    if (reference.size() < 30) {
+      for (long long j = 0; j < 50; ++j) {
+        const long long key = 200 + step * 100 + j / 2;
+        tree.insert(key);
+        reference.insert(key);
+      }
+    }
+    verify();
+  }
+
+  std::cerr << "set range erase tests all passed! (type="
+            << (Type == SetType::Set ? "set" : "multiset")
+            << ", capacity=" << Capacity << ")\n";
+}
+
 int main() {
   set_tests<4>();
   set_tests<8>();
   multiset_tests<4>();
   multiset_tests<8>();
+  set_range_erase_tests<SetType::Set, 4>();
+  set_range_erase_tests<SetType::Set, 8>();
+  set_range_erase_tests<SetType::MultiSet, 4>();
+  set_range_erase_tests<SetType::MultiSet, 8>();
   std::cerr << "All B+tree set test cases passed!\n";
 }
