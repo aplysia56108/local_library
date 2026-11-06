@@ -174,19 +174,19 @@ class Base {
     while (current->level) {
       current->apply_reverse();
       if (current->size == 0 && current->parent) {
-        erase_recursive(current->parent, current->position);
+        erase(current->parent, current->position, root);
         break;
       }
-      current = current = current->get_child(0);
+      current = current->get_child(0);
     }
     current = root.get();
     while (current->level) {
       current->apply_reverse();
       if (current->size == 0 && current->parent) {
-        erase_recursive(current->parent, current->position);
+        erase(current->parent, current->position, root);
         break;
       }
-      current = current = current->get_child(current->count - 1);
+      current = current->get_child(current->count - 1);
     }
   }
 
