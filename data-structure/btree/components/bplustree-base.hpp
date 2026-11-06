@@ -150,19 +150,23 @@ class Base {
     return nullptr;
   };
 
-  /**
-   * @brief 指定 Node までの経路を、祖先から子孫へ順に統合する。
-   * @details integrate() は対象自身を破棄しうるため、祖先を先に処理する。
-   * 各統合では対象以外の Node を破棄しない契約に依存している。
-   * 呼び出し後、渡した node が生存する保証はない。
-   */
-  static void integrate_path(Internal* node) {
-    if (node->parent) integrate_path(node->parent);
-    node->integrate();
+  template <bool Left>
+  static std::vector<Internal*> end_nodes(std::unique_ptr<Internal>& root) {
+    std::vector<Internal*> nodes;
+    nodes.reserve(root->level + 1);
+    Internal* current = root.get();
+    nodes.push_back(current);
+    while (current->level) {
+      if constexpr (Left) {
+        current = current->get_child(0);
+      } else {
+        current = current->get_child(current->count - 1);
+      }
+      nodes.push_back(current);
+    }
+    return nodes;
   }
-  static void integrate_path(Leaf* leaf) {
-    integrate_path(leaf->parent);
-  }
+
   static void insert(Internal* parent, std::size_t index,
                      std::unique_ptr<Node> child,
                      std::unique_ptr<Internal>& root) {
@@ -217,9 +221,9 @@ class Base {
       parent = grandparent;
     }
     cut_root(root);
-    integrate_path(root->locate(root->size - 1));
+    for (auto node : end_nodes<false>(root)) node->integrate();
     cut_root(right);
-    integrate_path(right->locate(0));
+    for (auto node : end_nodes<true>(right)) node->integrate();
     return right;
   }
 
@@ -227,11 +231,13 @@ class Base {
                                          std::unique_ptr<Internal> right) {
     if (right->size == 0) return left;
     if (left->size == 0) return right;
+    auto integrate_nodes = end_nodes<false>(left);
+    for (auto node : end_nodes<true>(right)) integrate_nodes.push_back(node);
     std::size_t left_size = left->size;
     if (left->level == right->level) {
       const std::size_t new_level = left->level + 1;
       auto root = make_new_root(std::move(left), std::move(right), new_level);
-      integrate_path(root->locate(left_size));
+      for (auto node : integrate_nodes) node->integrate();
       cut_root(root);
       return root;
     }
@@ -244,7 +250,7 @@ class Base {
       // Expand pending reversal before attaching a new leftmost child.
       target->materialize();
       insert(target, 0, std::move(left), right);
-      integrate_path(right->locate(left_size));
+      for (auto node : integrate_nodes) node->integrate();
       return right;
     }
     Internal* target = left.get();
@@ -255,7 +261,7 @@ class Base {
     // Expand pending reversal before attaching a new rightmost child.
     target->materialize();
     insert(target, target->count, std::move(right), left);
-    integrate_path(left->locate(left_size));
+    for (auto node : integrate_nodes) node->integrate();
     return left;
   };
 
