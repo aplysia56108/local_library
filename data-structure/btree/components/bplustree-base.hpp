@@ -155,6 +155,7 @@ class Base {
     std::vector<Internal*> nodes;
     nodes.reserve(root->level + 1);
     Internal* current = root.get();
+    current->apply_reverse();
     nodes.push_back(current);
     while (current->level) {
       if constexpr (Left) {
@@ -162,6 +163,7 @@ class Base {
       } else {
         current = current->get_child(current->count - 1);
       }
+      current->apply_reverse();
       nodes.push_back(current);
     }
     return nodes;
