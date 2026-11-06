@@ -201,10 +201,20 @@ class Base {
     std::unique_ptr<Internal> right;
     while (parent) {
       auto next = parent->split(position);
+      Internal* grandparent = parent->parent;
+      std::size_t next_position = parent->position + 1;
+
+      // 境界が先頭に一致した場合、左に残る空 Internal を除去する。
+      // 除去した子の位置が、そのまま親における分割境界となる。
+      if (parent->count == 0 && grandparent) {
+        next_position = parent->position;
+        grandparent->erase(parent->position);
+      }
+
       if (right && right->count) next->insert(std::move(right), 0);
       right = std::move(next);
-      position = parent->position + 1;
-      parent = parent->parent;
+      position = next_position;
+      parent = grandparent;
     }
     cut_root(root);
     integrate_path(root->locate(root->size - 1));
