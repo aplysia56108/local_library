@@ -169,6 +169,27 @@ class Base {
     return nodes;
   }
 
+  static void cut_zero_node(std::unique_ptr<Internal>& root) {
+    Internal* current = root.get();
+    while (current->level) {
+      current->apply_reverse();
+      if (current->size == 0 && current->parent) {
+        erase_recursive(current->parent, current->position);
+        break;
+      }
+      current = current = current->get_child(0);
+    }
+    current = root.get();
+    while (current->level) {
+      current->apply_reverse();
+      if (current->size == 0 && current->parent) {
+        erase_recursive(current->parent, current->position);
+        break;
+      }
+      current = current = current->get_child(current->count - 1);
+    }
+  }
+
   static void insert(Internal* parent, std::size_t index,
                      std::unique_ptr<Node> child,
                      std::unique_ptr<Internal>& root) {
@@ -213,8 +234,10 @@ class Base {
       parent = parent->parent;
     }
     cut_root(root);
+    cut_zero_node(root);
     for (auto node : end_nodes<false>(root)) node->integrate();
     cut_root(right);
+    cut_zero_node(right);
     for (auto node : end_nodes<true>(right)) node->integrate();
     return right;
   }
