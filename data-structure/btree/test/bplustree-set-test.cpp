@@ -121,7 +121,7 @@ class InspectableSet
                 << ", depth=" << depth << ", level=" << node->level
                 << ", count=" << node->count << ", size=" << node->size
                 << ", parent=" << node->parent
-                << ", position=" << node->position << '\\n';
+                << ", position=" << node->position << '\n';
       assert(node->count > 0 && node->count < Capacity);
     }
     const long long* first = nullptr;
