@@ -98,8 +98,8 @@ class Iterator {
   using iterator_category = std::random_access_iterator_tag;
   using value_type = T;
   using difference_type = std::ptrdiff_t;
-  using reference = std::conditional_t<IsConst, const T&, T&>;
-  using pointer = std::conditional_t<IsConst, const T*, T*>;
+  using reference = const T&;
+  using pointer = const T*;
 
   Iterator() = default;
   Iterator(Leaf* leaf) : leaf_(leaf) {}
@@ -125,7 +125,9 @@ class Iterator {
     materialize_path();
   };
 
-  void set(const T& value) const {
+  void set(const T& value) const
+    requires(!IsConst)
+  {
     materialize_path();
     leaf_->set(value);
     refresh_path();

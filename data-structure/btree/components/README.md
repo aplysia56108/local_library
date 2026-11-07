@@ -1,20 +1,19 @@
 # B+ tree共通部品
 
-`Bplustree::Base<Traits, IsReversible = false>` は位置で操作する木の基盤です。
+`Bplustree::Base<Traits>` は位置で操作する木の基盤です。
 node・iteratorの実装を再利用し、rootのみを所有します。sizeとlevelはrootの
 metadataを参照します。公開 `Bplustree_Set` / `Bplustree_Segtree` /
-`Bplustree_LazySegtree` はこのBaseを使います。`Bplustree_Vector` は従来の
-独立した実装です。
+`Bplustree_LazySegtree` はこのBaseを使います。`Bplustree_Vector` も共通Baseを使います。旧Vectorの複数要素Leafは廃止し、
+1要素1Leafへ変更したため、メモリ使用量・定数倍の性能は変わります。
 
 ```cpp
-using Sequence = Bplustree::Base<Bplustree::Traits<long long, 32>, true>;
+using Sequence = Bplustree::Base<Bplustree::Traits<long long, 32>>;
 Sequence sequence{1, 2, 3};
 sequence(1) += 4;
 sequence.reverse(0, 3);
 ```
 
-`IsReversible == false` の型にはreverse APIがありません。
-Baseのiteratorと添字参照は常に読み取り専用です。集約値やソート順を壊す
+Baseのiteratorの参照と添字参照は読み取り専用です。集約値やソート順を壊す
 直接代入を防ぎ、更新はsetまたはsetterを通します。Base自体は位置指定の
 insert/setを公開するので、setを作る場合はprotected継承して、安全なAPIだけを
 usingで公開してください。比較器やキーの重複規則は派生クラスが管理します。
@@ -28,26 +27,21 @@ Traitsは `T`, `kNodeCapacity`, `Node`, `Leaf`, `Internal` を持ちます。
 struct MyTraits {
   using T = long long;
   static constexpr std::size_t kNodeCapacity = 32;
-  struct Node;
-  struct Leaf;
+  static constexpr bool IsReversible = true;
+  static constexpr bool IsMergable = true;
+  using Node = Bplustree::Node<MyTraits>;
+  using Leaf = Bplustree::Leaf<MyTraits>;
   struct Internal;
 };
-struct MyTraits::Node : Bplustree::Node<MyTraits> {
-  using Bplustree::Node<MyTraits>::Node;
-  long long aggregate = 0;
-};
-struct MyTraits::Leaf : Bplustree::Leaf<MyTraits> {
-  void after_sync(); // values[0,count)から集約値を更新
-};
 struct MyTraits::Internal : Bplustree::Internal<MyTraits> {
-  void after_sync(); // children[0,count)の集約値から更新
+  using Bplustree::Internal<MyTraits>::Internal;
+  long long aggregate = 0;
+  void after_sync(); // level==0ならLeafの値、その他は子Internalの積
 };
 ```
 
-派生コンテナはprotectedのroot_、Node/Leaf/Internal型、materialize、refresh、
-refresh_path、build、split_node、join_nodesを利用できます。集約値を持つ
-ノードではafter_syncを実装します。split/insert/erase/set/build/mergeの各経路で
-派生Leaf/Internalのフックが呼ばれます。通常状態はcount < NodeCapで、
+派生コンテナはprotectedのroot_、Node/Leaf/Internal型、buildなどを利用できます。
+集約値を持つ場合はInternalのafter_syncを実装します。通常状態はcount < NodeCapで、
 insertがtrueを返した場合は直ちにsplitします。
 
 BaseのsplitはBase型を返します。派生型はBaseのムーブコンストラクタへ渡す
@@ -60,24 +54,24 @@ push_reverseはフラグを付け、apply_reverseが並び替えと子へのフ�
 基本Leaf/Internalは反転を実装済みです。遅延作用は派生ノードのapply_lazyなどで
 実装してください。Baseは構造変更前に対象経路の反転・遅延作用を実体化します。
 
-遅延タグを付けるときは、そのノードの集約値を直ちに論理上の値へ更新してください。
+遅延タグを付けるときは、そのInternalの集約値を直ちに論理上の値へ更新してください。
+Leafは遅延タグを持たず、作用を受けた時点で要素の値を書き換えます。
 非可換モノイドでの反転では順方向・逆方向の集約値を保持し、派生push_reverseで
 基本フラグを反転するとともに両集約値を交換します。after_syncは残っている
 遅延タグも考慮し、子の論理上の集約値から計算してください。
 
 ## Setter
 
-`Bplustree::Setter<Tree, Value>` はコピー・ムーブ不可の一時proxyです。
-代入と複合代入はget/set、prod系はprod_right/prod_left、apply系は
-apply/apply_leftへ委譲します。各操作はTreeが対応する場合だけ利用可能です。
+`Bplustree::Setter<Tree>` はIteratorを保持する点更新Proxyです。
+代入と複合代入はIterator::set、prod系とapply系はMonoid/Actionを用いて更新します。各操作はTreeが対応する場合だけ利用可能です。
 applyの作用型はValueと異なっていても構いません。
 
 派生クラスはoperator()を次のように定義して、派生先の更新処理へ委譲します。
 
 ```cpp
-Bplustree::Setter<MyTree, value_type> operator()(std::size_t index) {
+Bplustree::Setter<MyTree> operator()(std::size_t index) {
   assert(index < size());
-  return {*this, index};
+  return {this->nth(index)};
 }
 ```
 
@@ -130,8 +124,8 @@ lazy.all_apply(1);      // 全体作用
 ```
 
 サイズだけを指定する構築・`assign`・`resize` は `Monoid::e()` を補充します。
-点のモノイド更新は `prod_right` / `prod_left`、Segtreeの従来の名前
-`apply_right` / `apply_left` でも利用できます。setterの `.prod()` は右積、
+点のモノイド更新は `prod_right` / `prod_left` を利用できます。
+setterの `.prod()` は右積、
 LazySegtreeの `.apply()` は `Action::action_type` による作用です。
 
 LazySegtreeでは `Action::mapping(f, x, size)` がモノイドの区間積に作用し、
@@ -142,9 +136,9 @@ LazySegtreeでは `Action::mapping(f, x, size)` がモノイドの区間積に�
 
 `prod` / `reverse_prod` / `max_right` / `min_left` / 区間作用は、モノイド演算と
 mapping・composition・述語がO(1)ならO(NodeCapacity × 木の高さ)です。
-`all_prod` / `all_apply` はO(1)です。境界探索の述語は区間を拡張するとtrueから
+`all_prod` / `all_reverse_prod` はO(1)です。境界探索の述語は区間を拡張するとtrueから
 falseへ高々1回変わるものとし、空区間の単位元には呼び出しません。
 `right_bound` / `left_bound` は `max_right` / `min_left` の別名です。
 
-`data-structure/test/bplustree_aggregate_test.cpp` で容量3/4/15/64、遅延タグを残した
-構造変更、非可換積、作用合成、コピー・move、比較器と重複キーを照合検証します。
+公開APIの新規テストは `data-structure/btree/test/` に配置します。旧テストは廃止し、
+重い乱択・パフォーマンス検証はverifyに委ねます。

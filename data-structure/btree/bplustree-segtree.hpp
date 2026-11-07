@@ -3,8 +3,18 @@
 #include "data-structure/btree/components/bplustree-aggregate.hpp"
 #include "common/monoid.hpp"
 
-/** Dynamic sequence with monoid products, reversal and boundary searches.
- * Structural operations share Bplustree::Base; references are read-only.
+/**
+ * @brief 1要素1Leafの B+ tree 上に構築した動的セグメント木。
+ * @tparam Monoid 結合則と単位元を提供するモノイド。
+ * @tparam NodeCapacity Internal の子配列容量。
+ * @details
+ * 要素の更新は set() または operator() の Setter を使用する。
+ * prod / reverse_prod / all_prod / all_reverse_prod、
+ * 境界探索、挿入削除、split / merge、反転を利用できる。
+ *
+ * ### 計算量
+ * 区間積・点更新・境界探索は O(NodeCapacity log_{NodeCapacity} N)。
+ * all_prod / all_reverse_prod は O(1)。
  */
 template <class Monoid, std::size_t NodeCapacity = 64>
 class Bplustree_Segtree
