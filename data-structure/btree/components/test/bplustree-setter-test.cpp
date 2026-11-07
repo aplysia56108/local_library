@@ -74,7 +74,7 @@ void returning_setter() {
   tree(1) = 42;
   assert(b.val() == 20);
 
-  std::cerr << "setter return/copy tests all passed!\\n";
+  std::cerr << "setter return/copy tests all passed!\n";
 }
 
 // Prefix operations return Setter; postfix operations return the previous value.
@@ -111,7 +111,7 @@ void increment_decrement_setter() {
   --(--tree(0));
   assert(tree[0] == 10);
 
-  std::cerr << "setter increment/decrement tests all passed!\\n";
+  std::cerr << "setter increment/decrement tests all passed!\n";
 }
 
 // Monoid / Action extension detection and left/right operation order.
