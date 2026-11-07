@@ -12,9 +12,11 @@ concept Has_Monoid_op =
     };
 
 template <class Tree, class F, class value_type>
-concept Has_Action_mapping =
-    requires(const F& f, const value_type& x) { Tree::Action::mapping(f, x); } ||
-    requires(const F& f, const value_type& x) { Tree::Action::mapping(f, x, std::size_t{1}); };
+concept Has_Action_mapping = requires(const F& f, const value_type& x) {
+  Tree::Action::mapping(f, x);
+} || requires(const F& f, const value_type& x) {
+  Tree::Action::mapping(f, x, std::size_t{1});
+};
 
 template <class Tree>
 class Setter {
@@ -31,15 +33,17 @@ class Setter {
   Setter(const Setter&) = default;
   Setter(Setter&&) = default;
 
-  void operator=(const value_type& value)
+  Setter operator=(const value_type& value)
     requires requires(Iterator it, const value_type& value) { it.set(value); }
   {
     it_.set(value);
+    return *this;
   }
-  void operator=(const Setter& other)
+  Setter operator=(const Setter& other)
     requires requires(Iterator it, const value_type& value) { it.set(value); }
   {
     it_.set(other.val());
+    return *this;
   }
   value_type val() const
     requires requires(Iterator it) {
@@ -74,18 +78,20 @@ class Setter {
       it_.set(Tree::Action::mapping(action, *it_, std::size_t{1}));
   }
 
-#define BPLUSTREE_SETTER_COMPOUND(OP)                                \
-  void operator OP(const value_type& value)                          \
-    requires requires(Iterator it, value_type value, value_type x) { \
-      x = *it;                                                       \
-      x OP value;                                                    \
-      it.set(x);                                                     \
-    }                                                                \
-  {                                                                  \
-    value_type x = *it_;                                             \
-    x OP value;                                                      \
-    it_.set(x);                                                      \
+#define BPLUSTREE_SETTER_COMPOUND(OP)              \
+  Setter operator OP(const value_type& value)      \
+    requires requires(Iterator it, value_type x) { \
+      x = *it;                                     \
+      x OP value;                                  \
+      it.set(x);                                   \
+    }                                              \
+  {                                                \
+    value_type x = *it_;                           \
+    x OP value;                                    \
+    it_.set(x);                                    \
+    return *this;                                  \
   }
+
   BPLUSTREE_SETTER_COMPOUND(+=)
   BPLUSTREE_SETTER_COMPOUND(-=)
   BPLUSTREE_SETTER_COMPOUND(*=)
@@ -97,5 +103,37 @@ class Setter {
   BPLUSTREE_SETTER_COMPOUND(<<=)
   BPLUSTREE_SETTER_COMPOUND(>>=)
 #undef BPLUSTREE_SETTER_COMPOUND
+
+  // Prefix updates return the proxy; postfix updates return the old value.
+#define BPLUSTREE_SETTER_INCDEC(OP)                \
+  Setter operator OP()                             \
+    requires requires(Iterator it, value_type x) { \
+      x = *it;                                     \
+      OP x;                                        \
+      it.set(x);                                   \
+    }                                              \
+  {                                                \
+    value_type x = *it_;                           \
+    OP x;                                          \
+    it_.set(x);                                    \
+    return *this;                                  \
+  }                                                \
+                                                   \
+  value_type operator OP(signed)                   \
+    requires requires(Iterator it, value_type x) { \
+      x = *it;                                     \
+      OP x;                                        \
+      it.set(x);                                   \
+    }                                              \
+  {                                                \
+    value_type old = *it_;                         \
+    value_type x = old;                            \
+    OP x;                                          \
+    it_.set(x);                                    \
+    return old;                                    \
+  }
+  BPLUSTREE_SETTER_INCDEC(++)
+  BPLUSTREE_SETTER_INCDEC(--)
+#undef BPLUSTREE_SETTER_INCDEC
 };
 }  // namespace Bplustree
