@@ -31,16 +31,22 @@ class Setter {
   Setter(const Setter&) = default;
   Setter(Setter&&) = default;
 
-  void operator=(const value_type& value)
-    requires requires(Iterator it, const value_type& value) { it.set(value); }
-  {
-    it_.set(value);
+#define BPLUSTREE_SETTER_ASSIGN(ARG_TYPE, EXPR)                       \
+  Setter& operator=(ARG_TYPE value) &                                \
+    requires requires(Iterator it, const value_type& x) { it.set(x); } \
+  {                                                                   \
+    it_.set(EXPR);                                                    \
+    return *this;                                                     \
+  }                                                                   \
+  Setter operator=(ARG_TYPE value) &&                                 \
+    requires requires(Iterator it, const value_type& x) { it.set(x); } \
+  {                                                                   \
+    it_.set(EXPR);                                                    \
+    return std::move(*this);                                          \
   }
-  void operator=(const Setter& other)
-    requires requires(Iterator it, const value_type& value) { it.set(value); }
-  {
-    it_.set(other.val());
-  }
+  BPLUSTREE_SETTER_ASSIGN(const value_type&, value)
+  BPLUSTREE_SETTER_ASSIGN(const Setter&, value.val())
+#undef BPLUSTREE_SETTER_ASSIGN
   value_type val() const
     requires requires(Iterator it) {
       { *it } -> std::convertible_to<value_type>;
@@ -75,8 +81,8 @@ class Setter {
   }
 
 #define BPLUSTREE_SETTER_COMPOUND(OP)                                \
-  void operator OP(const value_type& value)                          \
-    requires requires(Iterator it, value_type value, value_type x) { \
+  Setter& operator OP(const value_type& value) &                     \
+    requires requires(Iterator it, value_type x) {                   \
       x = *it;                                                       \
       x OP value;                                                    \
       it.set(x);                                                     \
@@ -85,6 +91,19 @@ class Setter {
     value_type x = *it_;                                             \
     x OP value;                                                      \
     it_.set(x);                                                      \
+    return *this;                                                    \
+  }                                                                  \
+  Setter operator OP(const value_type& value) &&                     \
+    requires requires(Iterator it, value_type x) {                   \
+      x = *it;                                                       \
+      x OP value;                                                    \
+      it.set(x);                                                     \
+    }                                                                \
+  {                                                                  \
+    value_type x = *it_;                                             \
+    x OP value;                                                      \
+    it_.set(x);                                                      \
+    return std::move(*this);                                         \
   }
   BPLUSTREE_SETTER_COMPOUND(+=)
   BPLUSTREE_SETTER_COMPOUND(-=)
@@ -97,5 +116,48 @@ class Setter {
   BPLUSTREE_SETTER_COMPOUND(<<=)
   BPLUSTREE_SETTER_COMPOUND(>>=)
 #undef BPLUSTREE_SETTER_COMPOUND
+
+  // Prefix updates return the proxy; postfix updates return the old value.
+#define BPLUSTREE_SETTER_INCDEC(OP)                                  \
+  Setter& operator OP() &                                            \
+    requires requires(Iterator it, value_type x) {                   \
+      x = *it;                                                       \
+      OP x;                                                          \
+      it.set(x);                                                     \
+    }                                                                \
+  {                                                                  \
+    value_type x = *it_;                                             \
+    OP x;                                                            \
+    it_.set(x);                                                      \
+    return *this;                                                    \
+  }                                                                  \
+  Setter operator OP() &&                                            \
+    requires requires(Iterator it, value_type x) {                   \
+      x = *it;                                                       \
+      OP x;                                                          \
+      it.set(x);                                                     \
+    }                                                                \
+  {                                                                  \
+    value_type x = *it_;                                             \
+    OP x;                                                            \
+    it_.set(x);                                                      \
+    return std::move(*this);                                         \
+  }                                                                  \
+  value_type operator OP(signed)                                     \
+    requires requires(Iterator it, value_type x) {                   \
+      x = *it;                                                       \
+      OP x;                                                          \
+      it.set(x);                                                     \
+    }                                                                \
+  {                                                                  \
+    value_type old = *it_;                                           \
+    value_type x = old;                                              \
+    OP x;                                                            \
+    it_.set(x);                                                      \
+    return old;                                                      \
+  }
+  BPLUSTREE_SETTER_INCDEC(++)
+  BPLUSTREE_SETTER_INCDEC(--)
+#undef BPLUSTREE_SETTER_INCDEC
 };
 }  // namespace Bplustree
