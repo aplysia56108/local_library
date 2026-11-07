@@ -79,7 +79,7 @@ class Setter {
   }
 
 #define BPLUSTREE_SETTER_COMPOUND(OP)              \
-  Setter operator OP(const value_type& value) &    \
+  Setter operator OP(const value_type& value)      \
     requires requires(Iterator it, value_type x) { \
       x = *it;                                     \
       x OP value;                                  \
@@ -106,7 +106,7 @@ class Setter {
 
   // Prefix updates return the proxy; postfix updates return the old value.
 #define BPLUSTREE_SETTER_INCDEC(OP)                \
-  Setter operator OP() &                           \
+  Setter operator OP()                             \
     requires requires(Iterator it, value_type x) { \
       x = *it;                                     \
       OP x;                                        \
