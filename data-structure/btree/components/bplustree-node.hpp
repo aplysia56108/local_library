@@ -206,9 +206,11 @@ struct Internal : Traits::Node {
     assert(count <= NodeCap && left_count <= count);
     assert(left_count < NodeCap && count - left_count < NodeCap);
     const std::size_t right_count = count - left_count;
-    id_type right_id = Pools::make_internal(level);
-    // emplace による vector 再確保で this が無効になるため、ID で再取得する。
-    auto& left = Pools::internals()[this->self_id];
+    // emplace は vector を再確保し得る。this の情報を確保前に退避する。
+    const id_type left_id = this->self_id;
+    const std::size_t current_level = level;
+    id_type right_id = Pools::make_internal(current_level);
+    auto& left = Pools::internals()[left_id];
     auto& right = Pools::internals()[right_id];
     for (std::size_t i = 0; i < right_count; ++i) {
       right.children[i] = left.children[left_count + i];
