@@ -31,22 +31,34 @@ jobs:
         run: |
           mkdir -p out/tests
           g++ --version | tee out/tests/compiler.txt
-          printf '| Test | Result |\n| --- | --- |\n' \
+          printf '| Test | Result | Compile | Run |\n| --- | --- | ---: | ---: |\n' \
             >> "$GITHUB_STEP_SUMMARY"
+
+          format_seconds() {
+            local ns="$1"
+            printf '%d.%03d s' "$((ns / 1000000000))" \
+              "$(((ns % 1000000000) / 1000000))"
+          }
 
           total=0
           failed=0
+          total_compile_ns=0
+          total_run_ns=0
 
           while IFS= read -r -d '' source; do
             total=$((total + 1))
             id="${source//\//_}"
             exe="out/tests/${id}.exe"
             result=PASS
+            run_time="—"
 
+            compile_start=$(date +%s%N)
             if g++ -std=c++23 -O2 -g -Wall -Wextra \
                 -I. -Idebug -I.deps/ac-library \
                 "$source" -o "$exe" \
                 > "out/tests/${id}.build.log" 2>&1; then
+              compile_end=$(date +%s%N)
+              run_start=$(date +%s%N)
               if timeout 60s "$exe" < /dev/null \
                   > "out/tests/${id}.stdout.log" \
                   2> "out/tests/${id}.stderr.log"; then
@@ -55,16 +67,26 @@ jobs:
                 code=$?
                 result="RUN FAIL (exit ${code})"
               fi
+              run_end=$(date +%s%N)
+              run_ns=$((run_end - run_start))
+              total_run_ns=$((total_run_ns + run_ns))
+              run_time=$(format_seconds "$run_ns")
             else
+              compile_end=$(date +%s%N)
               result="BUILD FAIL"
             fi
+
+            compile_ns=$((compile_end - compile_start))
+            total_compile_ns=$((total_compile_ns + compile_ns))
+            compile_time=$(format_seconds "$compile_ns")
 
             if [[ "$result" != PASS ]]; then
               failed=$((failed + 1))
             fi
 
             printf '%s %s\n' "$result" "$source"
-            printf '| `%s` | %s |\n' "$source" "$result" \
+            printf '| `%s` | %s | %s | %s |\n' \
+              "$source" "$result" "$compile_time" "$run_time" \
               >> "$GITHUB_STEP_SUMMARY"
           done < <(
             find . \
@@ -76,8 +98,13 @@ jobs:
               | sort -z
           )
 
-          echo "$((total - failed))/${total} passed" \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+          printf '| **Total** | **%s/%s passed** | **%s** | **%s** |\n' \
+            "$((total - failed))" "$total" \
+            "$(format_seconds "$total_compile_ns")" \
+            "$(format_seconds "$total_run_ns")" \
+            >> "$GITHUB_STEP_SUMMARY"
+
+          echo "$((total - failed))/${total} passed"
 
           [[ "$total" -gt 0 && "$failed" -eq 0 ]]
 
