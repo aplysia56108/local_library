@@ -14,6 +14,8 @@
 #include "data-structure/btree/components/bplustree-iterator.hpp"
 #include "data-structure/btree/components/bplustree-setter.hpp"
 
+#include "data-structure/object-pool/object_pool.hpp"
+
 namespace Bplustree {
 
 // Traitsが含む情報
@@ -32,6 +34,8 @@ class Base {
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
   using reverse_iterator = std::reverse_iterator<iterator>;
   using setter_type = Setter<Base>;
+  using leaf_pool_type = ObjectPool<typename Traits::Leaf>;
+  using internal_pool_type = ObjectPool<typename Traits::Internal>;
 
  protected:
   using T = value_type;
@@ -40,6 +44,8 @@ class Base {
   using Internal = typename Traits::Internal;
   static constexpr size_type NodeCap = Traits::kNodeCapacity;
   static_assert(NodeCap >= 3);
+  static leaf_pool_type leaf_pool_;
+  static internal_pool_type internal_pool_;
 
   // 根の所有権は root_ が持つ。両端の番兵 Leaf も木の中で所有する。
   // bbegin_ / end_ は番兵への非所有ポインタで、実要素数は root_->size - 2。
@@ -290,7 +296,7 @@ class Base {
   }
 
   static iterator mutable_iterator(const const_iterator& it) {
-    return iterator{it.leaf_};
+    return iterator{it.leaf_id_};
   }
 
  public:
@@ -397,9 +403,9 @@ class Base {
     return insert(locate<true>(index), value);
   }
   iterator insert(iterator pos, const T& value) {
-    materialize_path(pos.leaf_->parent);
-    Internal* parent = pos.leaf_->parent;
-    std::size_t position = pos.leaf_->position;
+    materialize_path(pos.leaf_id_->parent);
+    Internal* parent = pos.leaf_id_->parent;
+    std::size_t position = pos.leaf_id_->position;
     std::unique_ptr<Node> child = std::make_unique<Leaf>(value);
     Leaf* res = static_cast<Leaf*>(child.get());
     insert(parent, position, std::move(child), root_);
@@ -422,9 +428,9 @@ class Base {
 
   iterator erase(iterator pos) {
     iterator res = pos + 1;
-    materialize_path(pos.leaf_->parent);
-    Internal* parent = pos.leaf_->parent;
-    std::size_t position = pos.leaf_->position;
+    materialize_path(pos.leaf_id_->parent);
+    Internal* parent = pos.leaf_id_->parent;
+    std::size_t position = pos.leaf_id_->position;
     bool erase_flg = true;
     while (parent != nullptr) {
       if (erase_flg) {
@@ -445,8 +451,8 @@ class Base {
   }
   iterator erase(iterator first, iterator last) {
     if (first == last) return last;
-    auto right = devide(root_, last.leaf_);
-    auto removed = devide(root_, first.leaf_);
+    auto right = devide(root_, last.leaf_id_);
+    auto removed = devide(root_, first.leaf_id_);
     root_ = unite(std::move(root_), std::move(right));
     return last;
   }
@@ -493,7 +499,7 @@ class Base {
       swap(*this, right);
       return right;
     }
-    right.root_ = devide(root_, pos.leaf_);
+    right.root_ = devide(root_, pos.leaf_id_);
     auto bbegin = std::make_unique<Leaf>(init_value());
     auto end = std::make_unique<Leaf>(init_value());
     right.end_ = end_;
@@ -540,8 +546,8 @@ class Base {
     reverse(nth(first), nth(last));
   }
   void reverse(iterator first, iterator last) {
-    auto right = devide(root_, last.leaf_);
-    auto middle = devide(root_, first.leaf_);
+    auto right = devide(root_, last.leaf_id_);
+    auto middle = devide(root_, first.leaf_id_);
     middle->push_reverse();
     root_ = unite(std::move(root_), std::move(middle));
     root_ = unite(std::move(root_), std::move(right));
