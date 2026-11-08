@@ -171,12 +171,12 @@ struct Internal : Traits::Node {
     for (pos_type i = 0; i < NodeCap; ++i) {
       if (children[i] == null_id) break;
       if (level == 0) {
-        auto& child = get_leaf(i);
+        auto& child = Pools::leaves()[children[i]];
         child.parent = self_id;
         child.position = i;
         ++size;
       } else {
-        auto& child = get_child(i);
+        auto& child = Pools::internals()[children[i]];
         child.parent = self_id;
         child.position = i;
         size += child.size;
