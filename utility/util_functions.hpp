@@ -756,14 +756,15 @@ inline std::vector<std::string> itoa(
 // ==========================================
 // 5. 反転・絶対値・数学補助
 // ==========================================
-#if defined(__GNUG__) && __GNUC__ < 15
 /**
  * @brief 128bit整数用のabs
  */
-constexpr __int128_t abs(__int128_t x) {
+template <class T>
+  requires std::same_as<T, __int128_t>
+constexpr T abs(T x) {
   return x < 0 ? -x : x;
 }
-#endif
+
 /**
  * @brief 2の累乗判定 (i > 0 かつ i が 2^k の形か)
  */
