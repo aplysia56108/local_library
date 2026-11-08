@@ -40,12 +40,10 @@ struct NodePools {
   template <class... Args>
   static id_type make_leaf(Args&&... args) {
     auto id = leaves().emplace(std::forward<Args>(args)...);
-    leaves()[id].self_id = id;
     return id;
   }
   static id_type make_internal(pos_type level = 0) {
     auto id = internals().emplace(level);
-    internals()[id].self_id = id;
     return id;
   }
   /** @brief 指定部分木の全スロットを再利用可能にする。O(部分木サイズ)。 */
@@ -62,9 +60,9 @@ struct NodePools {
   }
 };
 
-template <class value_type, pos_type Capacity = 32>
+template <class value_type, std::size_t Capacity = 32>
 struct Traits {
-  static_assert(Capacity >= 3);
+  static_assert(3 <= Capacity && Capacity <= 255);
   using T = value_type;
   static constexpr pos_type kNodeCapacity = Capacity;
   static constexpr pos_type kNodeHalf = Capacity / 2;
@@ -166,25 +164,25 @@ struct Internal : Traits::Node {
         ++size;
       } else {
         auto& child = get_child(i);
-        child.parent = this->self_id;
+        child.parent = self_id;
         child.position = i;
         size += child.size;
       }
       ++count;
     }
   }
-  void after_sync(id_type node_id) {}
-  void refresh(id_type node_id) {
-    sync(node_id);
-    static_cast<I*>(this)->after_sync(node_id);
+  void after_sync() {}
+  void refresh(id_type self_id) {
+    sync(self_id);
+    static_cast<I*>(this)->after_sync(self_id);
   }
-  void apply_reverse() {
+  void apply_reverse(id_type self_id) {
     if (!is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
     is_reversed = false;
     if (level)
       for (pos_type i = 0; i < count; ++i) get_child(i).push_reverse();
-    refresh();
+    refresh(self_id);
   }
   void push_reverse() {
     is_reversed = !is_reversed;
@@ -192,8 +190,8 @@ struct Internal : Traits::Node {
   }
   void push_reverse_impl() {}
   void apply_lazy() {}
-  void materialize() {
-    apply_reverse();
+  void materialize(id_type self_id) {
+    apply_reverse(self_id);
     static_cast<I*>(this)->apply_lazy();
   }
 
@@ -239,8 +237,8 @@ struct Internal : Traits::Node {
   }
 
   template <bool WithLazy = false>
-  id_type locate(std::size_t index) {
-    apply_reverse();
+  id_type locate(std::size_t index, id_type self_id) {
+    apply_reverse(self_id);
     if constexpr (WithLazy) static_cast<I*>(this)->apply_lazy();
     if (level == 0) {
       assert(index < count);
@@ -248,7 +246,8 @@ struct Internal : Traits::Node {
     }
     for (pos_type i = 0; i < count; ++i) {
       auto& child = get_child(i);
-      if (index < child.size) return child.template locate<WithLazy>(index);
+      if (index < child.size)
+        return child.template locate<WithLazy>(index, children[i]);
       index -= child.size;
     }
     assert(false);
@@ -262,9 +261,10 @@ struct Internal : Traits::Node {
       auto& left = get_child(index - 1);
       id_type left_id = children[index - 1];
       auto& right = get_child(index);
+      id_type right_id = children[index];
 
-      left.materialize();
-      right.materialize();
+      left.materialize(left_id);
+      right.materialize(right_id);
       const auto left_count = left.count;
       for (pos_type i = 0; i < right.count; ++i) {
         left.children[left_count + i] = right.children[i];
@@ -275,11 +275,12 @@ struct Internal : Traits::Node {
     } else if (index + 1 < count &&
                child_count(index + 1) + child_count(index) < NodeCap) {
       auto& left = get_child(index);
+      id_type left_id = children[index];
       auto& right = get_child(index + 1);
       id_type right_id = children[index + 1];
 
-      left.materialize();
-      right.materialize();
+      left.materialize(left_id);
+      right.materialize(right_id);
       const auto left_count = left.count;
       for (pos_type i = right.count; i > 0; --i)
         right.children[left_count + i - 1] = right.children[i - 1];
