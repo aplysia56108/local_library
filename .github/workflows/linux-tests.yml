@@ -12,7 +12,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-24.04
-    container: gcc:14
+    container: gcc:15.2
     timeout-minutes: 20
 
     steps:
@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p out/tests
-          g++ --version | tee out/tests/compiler.txt
+          g++ --version > out/tests/compiler.txt
           printf '| Test | Result | Compile | Run |\n| --- | --- | ---: | ---: |\n' \
             >> "$GITHUB_STEP_SUMMARY"
 
@@ -47,7 +47,8 @@ jobs:
 
           while IFS= read -r -d '' source; do
             total=$((total + 1))
-            id="${source//\//_}"
+            id="${source#./}"
+            id="${id//\//_}"
             exe="out/tests/${id}.exe"
             result=PASS
             run_time="—"
@@ -82,6 +83,11 @@ jobs:
 
             if [[ "$result" != PASS ]]; then
               failed=$((failed + 1))
+              if [[ "$result" == "BUILD FAIL" ]]; then
+                cat "out/tests/${id}.build.log" >&2
+              elif [[ -f "out/tests/${id}.stderr.log" ]]; then
+                cat "out/tests/${id}.stderr.log" >&2
+              fi
             fi
 
             printf '%s %s\n' "$result" "$source"
