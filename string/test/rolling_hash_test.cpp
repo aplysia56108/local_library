@@ -120,6 +120,14 @@ void solve() {
   seg1(0) = 100;
   seg2(0) = 'z';
 
+  assert(seg1(0).val().val() == 100);
+  assert(seg2(0).val().val() == 'z');
+
+  seg1(1) = make_rolling_hash_value<long long>(42);
+  seg2(1) = make_rolling_hash_value<char>('q');
+  assert(seg1(1).val().val() == 42);
+  assert(seg2(1).val().val() == 'q');
+
   debug(seg1);
   debug(seg2);
 
