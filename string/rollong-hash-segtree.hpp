@@ -13,14 +13,16 @@ class RollingHashSegtree : public Bplustree_Segtree<RollingHashMonoid<T>> {
   using M = RollingHashMonoid<T>;
   using Base = Bplustree_Segtree<M>;
   using Hash = typename M::value_type;
-  using SetterBase = typename Base::Setter;
+  using SetterBase = Bplustree::Setter<Base>;
 
-  class RHSetter : SetterBase {
+  class RHSetter : public SetterBase {
    public:
-    RHSetter(Base* tree, std::size_t index) : SetterBase(tree, index) {}
+    explicit RHSetter(typename Base::iterator it) : SetterBase(it) {}
     using SetterBase::operator=;
-    void operator=(const T& value) && {
-      this->tree_->set(this->index_, make_rolling_hash_value<T>(value));
+
+    RHSetter operator=(const T& value) {
+      SetterBase::operator=(make_rolling_hash_value<T>(value));
+      return *this;
     }
   };
 
@@ -75,7 +77,7 @@ class RollingHashSegtree : public Bplustree_Segtree<RollingHashMonoid<T>> {
 
  public:
   RHSetter operator()(std::size_t i) {
-    return {this, i};
+    return RHSetter{this->nth(i)};
   }
 };
 

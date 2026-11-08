@@ -120,18 +120,30 @@ void solve() {
   seg1(0) = 100;
   seg2(0) = 'z';
 
-  debug(seg1);
-  debug(seg2);
+  assert(seg1(0).val().val() == 100);
+  assert(seg2(0).val().val() == 'z');
+
+  seg1(1) = make_rolling_hash_value<long long>(42);
+  seg2(1) = make_rolling_hash_value<char>('q');
+  assert(seg1(1).val().val() == 42);
+  assert(seg2(1).val().val() == 'q');
+
+  const vector<long long> expected1 = {100, 42, 12, 13, 14};
+  rep(i, 5) assert(seg1(i).val().val() == expected1[i]);
+  assert(seg2.val() == "zqcde");
 
   RollingHashSegtree<long long> seg3(all(seg2));
   RollingHashSegtree<char> seg4(all(seg3));
 
-  debug(seg3);
-  debug(seg4);
+  rep(i, 5) assert(seg3(i).val().val() == "zqcde"[i]);
+  assert(seg4.val() == "zqcde");
 
   RollingHashSegtree<long long> seg5({98, 99, 100});
   RollingHashSegtree seg6("abc");
 
-  debug(seg5);
-  debug(seg6);
+  const vector<long long> expected5 = {98, 99, 100};
+  rep(i, 3) assert(seg5(i).val().val() == expected5[i]);
+  assert(seg6.val() == "abc");
+
+  cerr << "rolling hash tests all passed!" << endl;
 }
