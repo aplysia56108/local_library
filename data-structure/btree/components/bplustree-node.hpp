@@ -37,6 +37,13 @@ struct NodePools {
     static ObjectPool<I> pool;
     return pool;
   }
+
+  /** @brief 外部操作の前に必要なスロット数を確保する。既存の参照は無効化され得る。 */
+  static void reserve_additional(std::size_t leaf_extra,
+                                 std::size_t internal_extra) {
+    leaves().reserve_additional(leaf_extra);
+    internals().reserve_additional(internal_extra);
+  }
   template <class... Args>
   static id_type make_leaf(Args&&... args) {
     auto id = leaves().emplace(std::forward<Args>(args)...);
@@ -73,8 +80,8 @@ struct Traits {
 
 /**
  * @brief 共通の親 ID と親内位置を保持する。
- * @details ID は各型の Pool 内で有効。自身の Pool ID は self_id に保持する。
- * ノードは ObjectPool の再確保で移動するため、Node* を保持しない。
+ * @details ID は各型の Pool 内で有効。自身の ID は Pool::index() で逆引きする。
+ * Pool の拡張は参照を無効化するため、確保を伴う外部操作前に reserve する。
  */
 template <class Traits>
 struct Node {
@@ -151,8 +158,14 @@ struct Internal : Traits::Node {
     return level == 0 ? 1 : get_child(index).count;
   }
 
+  /** @brief この Internal の Pool ID を取得する。Pool 再確保前の参照だけが有効。 */
+  id_type id() const {
+    return Pools::internals().index(*static_cast<const I*>(this));
+  }
+
   /** @brief count / size / parent / position を子 ID から再構築する。 */
-  void sync(id_type self_id) {
+  void sync() {
+    const id_type self_id = id();
     size = 0;
     count = 0;
     for (pos_type i = 0; i < NodeCap; ++i) {
@@ -172,17 +185,17 @@ struct Internal : Traits::Node {
     }
   }
   void after_sync() {}
-  void refresh(id_type self_id) {
-    sync(self_id);
-    static_cast<I*>(this)->after_sync(self_id);
+  void refresh() {
+    sync();
+    static_cast<I*>(this)->after_sync();
   }
-  void apply_reverse(id_type self_id) {
+  void apply_reverse() {
     if (!is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
     is_reversed = false;
     if (level)
       for (pos_type i = 0; i < count; ++i) get_child(i).push_reverse();
-    refresh(self_id);
+    refresh();
   }
   void push_reverse() {
     is_reversed = !is_reversed;
@@ -190,29 +203,29 @@ struct Internal : Traits::Node {
   }
   void push_reverse_impl() {}
   void apply_lazy() {}
-  void materialize(id_type self_id) {
-    apply_reverse(self_id);
+  void materialize() {
+    apply_reverse();
     static_cast<I*>(this)->apply_lazy();
   }
 
   /** @return 満杯になり直ちに split が必要なら true。 */
-  bool insert(id_type child, pos_type index, id_type self_id) {
+  bool insert(id_type child, pos_type index) {
     assert(child != null_id && index <= count && count < NodeCap);
     for (pos_type i = count; i > index; --i) children[i] = children[i - 1];
     children[index] = child;
     ++count;
     if (count == NodeCap) return true;
-    refresh(self_id);
+    refresh();
     return false;
   }
 
   /** @return Pool に確保された右兄弟の Internal ID。 */
-  id_type split(id_type self_id, pos_type left_count = HalfNodeCap) {
+  id_type split(pos_type left_count = HalfNodeCap) {
     assert(count <= NodeCap && left_count <= count);
     assert(left_count < NodeCap && count - left_count < NodeCap);
     const pos_type right_count = count - left_count;
-    // emplace は vector を再確保し得る。this の情報を確保前に退避する。
-    const id_type left_id = self_id;
+    // emplace は vector を再確保し得る。ID と level を確保前に退避する。
+    const id_type left_id = id();
     const pos_type current_level = level;
     id_type right_id = Pools::make_internal(current_level);
     auto& left = Pools::internals()[left_id];
@@ -221,24 +234,24 @@ struct Internal : Traits::Node {
       right.children[i] = left.children[left_count + i];
       left.children[left_count + i] = null_id;
     }
-    left.refresh(left_id);
-    right.refresh(right_id);
+    left.refresh();
+    right.refresh();
     return right_id;
   }
 
   /** @return この Internal が空になった場合 true。 */
-  bool erase(pos_type index, id_type self_id) {
+  bool erase(pos_type index) {
     assert(count < NodeCap && index < count);
     Pools::recycle(children[index], level == 0);
     for (pos_type i = index + 1; i < count; ++i) children[i - 1] = children[i];
     children[count - 1] = null_id;
-    refresh(self_id);
+    refresh();
     return count == 0;
   }
 
   template <bool WithLazy = false>
-  id_type locate(std::size_t index, id_type self_id) {
-    apply_reverse(self_id);
+  id_type locate(std::size_t index) {
+    apply_reverse();
     if constexpr (WithLazy) static_cast<I*>(this)->apply_lazy();
     if (level == 0) {
       assert(index < count);
@@ -247,7 +260,7 @@ struct Internal : Traits::Node {
     for (pos_type i = 0; i < count; ++i) {
       auto& child = get_child(i);
       if (index < child.size)
-        return child.template locate<WithLazy>(index, children[i]);
+        return child.template locate<WithLazy>(index);
       index -= child.size;
     }
     assert(false);
@@ -255,29 +268,25 @@ struct Internal : Traits::Node {
   }
 
   /** @brief index の Internal 子を隣の兄弟へ移動し、元の子を回収する。 */
-  void integrate_child(pos_type index, id_type self_id) {
+  void integrate_child(pos_type index) {
     assert(level > 0 && index < count);
     if (index && child_count(index - 1) + child_count(index) < NodeCap) {
       auto& left = get_child(index - 1);
-      id_type left_id = children[index - 1];
       auto& right = get_child(index);
-      id_type right_id = children[index];
 
-      left.materialize(left_id);
-      right.materialize(right_id);
+      left.materialize();
+      right.materialize();
       const auto left_count = left.count;
       for (pos_type i = 0; i < right.count; ++i) {
         left.children[left_count + i] = right.children[i];
         right.children[i] = null_id;
       }
       right.count = 0;
-      left.refresh(left_id);
+      left.refresh();
     } else if (index + 1 < count &&
                child_count(index + 1) + child_count(index) < NodeCap) {
       auto& left = get_child(index);
-      id_type left_id = children[index];
       auto& right = get_child(index + 1);
-      id_type right_id = children[index + 1];
 
       left.materialize(left_id);
       right.materialize(right_id);
@@ -289,11 +298,11 @@ struct Internal : Traits::Node {
         left.children[i] = null_id;
       }
       left.count = 0;
-      right.refresh(right_id);
+      right.refresh();
     } else {
       return;
     }
-    erase(index, self_id);
+    erase(index);
   }
 
   /** @brief 統合成功時は自身の ID が無効になる。 */
@@ -301,7 +310,7 @@ struct Internal : Traits::Node {
     if (this->parent == null_id) return;
     const auto parent_id = this->parent;
     const auto position = this->position;
-    Pools::internals()[parent_id].integrate_child(position, parent_id);
+    Pools::internals()[parent_id].integrate_child(position);
   }
 };
 
