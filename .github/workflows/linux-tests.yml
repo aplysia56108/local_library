@@ -12,7 +12,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-24.04
-    container: gcc:14
+    container: gcc:15.2
     timeout-minutes: 20
 
     steps:
@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p out/tests
-          g++ --version | tee out/tests/compiler.txt
+          g++ --version > out/tests/compiler.txt
           printf '| Test | Result | Compile | Run |\n| --- | --- | ---: | ---: |\n' \
             >> "$GITHUB_STEP_SUMMARY"
 
