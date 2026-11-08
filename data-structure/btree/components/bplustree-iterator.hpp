@@ -43,8 +43,8 @@ class Iterator {
   using id_type = typename leaf_pool_type::id_type;
   static constexpr id_type null_id = leaf_pool_type::null_id;
 
-  leaf_pool_type& l_pool_ = Tree::leaf_pool_;
-  internal_pool_type& i_pool_ = Tree::internal_pool_;
+  inline static leaf_pool_type& l_pool_ = Tree::leaf_pool_;
+  inline static internal_pool_type& i_pool_ = Tree::internal_pool_;
 
   id_type leaf_id_ = null_id;
 
@@ -86,9 +86,10 @@ class Iterator {
     if constexpr (!VisitAll) apply_reverse_path();
     std::ptrdiff_t to_index =
         static_cast<std::ptrdiff_t>(leaf.position) + offset;
-    auto& node = i_pool_[leaf.parent];
+    id_type node_id = leaf.parent;
 
     while (true) {
+      auto& node = i_pool_[node_id];
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node.size)) {
         leaf_id_ = node.template locate<VisitAll>(to_index);
         return;
@@ -100,7 +101,7 @@ class Iterator {
       for (std::size_t i = 0; i < node->position; ++i) {
         to_index += i_pool_[node.parent].child_size(i);
       }
-      node = i_pool_[node.parent];
+      node_id = node.parent;
     }
   }
 
@@ -191,20 +192,22 @@ class Iterator {
     lhs.apply_reverse_path();
     rhs.apply_reverse_path();
 
-    auto& l_node = i_pool_[l_pool_[lhs.leaf_id_].parent];
+    auto& l_node_id = l_pool_[lhs.leaf_id_].parent;
     std::ptrdiff_t l_index = l_pool_[lhs.leaf_id_].position;
-    auto& r_node = i_pool_[l_pool_[rhs.leaf_id_].parent];
+    auto& r_node_id = l_pool_[rhs.leaf_id_].parent;
     std::ptrdiff_t r_index = l_pool_[rhs.leaf_id_].position;
 
-    while (l_node != r_node) {
+    while (l_node_id != r_node_id) {
+      auto& l_node = i_pool_[l_node_id];
+      auto& r_node = i_pool_[r_node_id];
       assert(l_node.parent != null_id && r_node.parent != null_id);
       for (std::size_t i = 0; i < l_node.position; ++i)
-        l_index += l_pool_[l_node.parent].child_size(i);
+        l_index += i_pool_[l_node.parent].child_size(i);
       for (std::size_t i = 0; i < r_node.position; ++i)
-        r_index += l_pool_[r_node.parent].child_size(i);
+        r_index += i_pool_[r_node.parent].child_size(i);
 
-      l_node = l_pool_[l_node.parent];
-      r_node = l_pool_[r_node.parent];
+      l_node_id = l_node.parent;
+      r_node_id = r_node.parent;
     }
     return l_index - r_index;
   }

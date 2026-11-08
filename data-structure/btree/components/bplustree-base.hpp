@@ -37,6 +37,14 @@ class Base {
   using leaf_pool_type = ObjectPool<typename Traits::Leaf>;
   using internal_pool_type = ObjectPool<typename Traits::Internal>;
 
+  friend typename Traits::Node;
+  friend typename Traits::Leaf;
+  friend typename Traits::Internal;
+  friend Iterator<Traits, Base, true, true>;
+  friend Iterator<Traits, Base, true, false>;
+  friend Iterator<Traits, Base, false, true>;
+  friend Iterator<Traits, Base, false, false>;
+
  protected:
   using T = value_type;
   using Node = typename Traits::Node;
@@ -44,8 +52,8 @@ class Base {
   using Internal = typename Traits::Internal;
   static constexpr size_type NodeCap = Traits::kNodeCapacity;
   static_assert(NodeCap >= 3);
-  static leaf_pool_type leaf_pool_;
-  static internal_pool_type internal_pool_;
+  inline static leaf_pool_type leaf_pool_;
+  inline static internal_pool_type internal_pool_;
 
   // 根の所有権は root_ が持つ。両端の番兵 Leaf も木の中で所有する。
   // bbegin_ / end_ は番兵への非所有ポインタで、実要素数は root_->size - 2。

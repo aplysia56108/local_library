@@ -16,6 +16,7 @@ class ObjectPool {
   std::vector<T> pool_;
   std::vector<id_type> free_ids_;
 
+ public:
   ObjectPool() {};
 
   template <class... Args>
