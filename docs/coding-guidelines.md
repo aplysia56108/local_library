@@ -96,7 +96,7 @@ struct Example {
 
 ### CI と Verify の実行範囲
 
-- 現在の [Linux tests ワークフロー](../.github/workflows/linux-tests.yml) は `workflow_dispatch` による手動実行で、`*/test/*.cpp` と `*/debug_test/*.cpp` を探索し、GCC（C++23）でコンパイル・実行する。ジェネレータは除外する。
+- 現在の [Linux tests ワークフロー](../.github/workflows/linux-tests.yml) は `workflow_dispatch` による手動実行で、`*/test/*.cpp` を探索し、GCC（C++23）でコンパイル・実行する。ジェネレータは除外する。
 - CI のテストが成功しても、`verify/` の問題群が自動的にすべて検証されたことにはならない。変更内容に応じて関連 Verify を別途実行する。
 - 性能が重要な変更は、問題に即したベンチマークで比較し、単体テストに重い計測処理を組み込まない。
 
