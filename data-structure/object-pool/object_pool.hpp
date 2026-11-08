@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -18,6 +19,27 @@ class ObjectPool {
 
  public:
   ObjectPool() {};
+
+  /** @brief 少なくとも n スロット分の容量を事前に確保する。参照は無効化され得る。 */
+  void reserve(std::size_t n) {
+    assert(n < static_cast<std::size_t>(null_id));
+    pool_.reserve(n);
+  }
+
+  /** @brief 既存スロットを再利用できない最悪の場合にも extra 件追加できるよう予約する。 */
+  void reserve_additional(std::size_t extra) {
+    assert(extra <= static_cast<std::size_t>(null_id) - 1 - pool_.size());
+    reserve(pool_.size() + extra);
+  }
+
+  /** @brief 有効な参照から ID を取得する。O(1)。reserve/emplace による移動後の古い参照は不可。 */
+  id_type index(const T& value) const {
+    const T* ptr = std::addressof(value);
+    // 呼び出し側は、この Pool に現在格納されているオブジェクトを渡す。
+    const auto offset = ptr - pool_.data();
+    assert(offset >= 0 && static_cast<std::size_t>(offset) < pool_.size());
+    return static_cast<id_type>(offset);
+  }
 
   template <class... Args>
   id_type emplace(Args&&... args) {
