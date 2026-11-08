@@ -20,8 +20,9 @@ struct LazyTraits::Leaf : Bplustree::Leaf<LazyTraits> {
 struct LazyTraits::Internal : Bplustree::Internal<LazyTraits> {
   using Bplustree::Internal<LazyTraits>::Internal;
   long long pending = 0;
-  bool apply_lazy_impl() {
-    if (pending == 0) return false;
+  void apply_lazy() {
+    if (pending == 0) return;
+
     if (this->level == 0) {
       for (std::size_t i = 0; i < this->count; ++i) {
         auto* leaf = static_cast<Leaf*>(this->children[i].get());
@@ -31,16 +32,21 @@ struct LazyTraits::Internal : Bplustree::Internal<LazyTraits> {
       for (std::size_t i = 0; i < this->count; ++i)
         this->get_child(i)->pending += pending;
     }
+
     pending = 0;
-    return false;
   }
 };
 class LazySequence : public Bplustree::Base<LazyTraits> {
   using Parent = Bplustree::Base<LazyTraits>;
+
  public:
   using Parent::Parent;
-  void add_all(long long x) { this->root_->pending += x; }
-  long long pending() const { return this->root_->pending; }
+  void add_all(long long x) {
+    this->root_->pending += x;
+  }
+  long long pending() const {
+    return this->root_->pending;
+  }
   long long inspect_without_lazy(std::size_t i) {
     return this->template locate<false>(i)->get();
   }

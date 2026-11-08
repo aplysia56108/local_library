@@ -31,6 +31,8 @@ struct Traits {
   using T = value_type;
   static constexpr std::size_t kNodeCapacity = Capacity;
   static constexpr std::size_t kNodeHalf = Capacity / 2;
+  static constexpr bool IsReversible = true;
+  static constexpr bool IsMergable = true;
   using Node = Bplustree::Node<Traits>;
   using Leaf = Bplustree::Leaf<Traits>;
   using Internal = Bplustree::Internal<Traits>;
