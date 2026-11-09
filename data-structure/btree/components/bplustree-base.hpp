@@ -243,8 +243,12 @@ class Base {
     id_type right = null_id;
     while (parent_id != null_id) {
       const id_type next = internal_pool_[parent_id].split(position);
-      if (right != null_id && internal_pool_[right].count)
-        internal_pool_[next].insert(right, 0);
+      if (right != null_id) {
+        if (internal_pool_[right].count)
+          internal_pool_[next].insert(right, 0);
+        else
+          Pools::recycle(right, false);
+      }
       right = next;
       position = internal_pool_[parent_id].position + 1;
       parent_id = internal_pool_[parent_id].parent;
