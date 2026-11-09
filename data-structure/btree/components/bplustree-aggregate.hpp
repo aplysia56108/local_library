@@ -90,22 +90,22 @@ struct AggregateTraits<M, A, R, C>::Internal
     if (this->level == 0) {
       for (std::size_t i = 0; i < this->count; ++i)
         forward =
-            M::op(forward, static_cast<Leaf*>(this->children[i].get())->get());
+            M::op(forward, this->get_leaf(i).get());
       if constexpr (R) {
         backward = forward;
       } else {
         for (std::size_t i = this->count; i > 0; --i)
           backward = M::op(
-              backward, static_cast<Leaf*>(this->children[i - 1].get())->get());
+              backward, this->get_leaf(i - 1).get());
       }
     } else {
       for (std::size_t i = 0; i < this->count; ++i)
-        forward = M::op(forward, this->get_child(i)->forward);
+        forward = M::op(forward, this->get_child(i).forward);
       if constexpr (R) {
         backward = forward;
       } else {
         for (std::size_t i = this->count; i > 0; --i)
-          backward = M::op(backward, this->get_child(i - 1)->backward);
+          backward = M::op(backward, this->get_child(i - 1).backward);
       }
     }
 
@@ -148,10 +148,10 @@ struct AggregateTraits<M, A, R, C>::Internal
       pending.reset();
       if (this->level == 0) {
         for (std::size_t i = 0; i < this->count; ++i)
-          static_cast<Leaf*>(this->children[i].get())->push_lazy(f);
+          this->get_leaf(i).push_lazy(f);
       } else {
         for (std::size_t i = 0; i < this->count; ++i)
-          this->get_child(i)->push_lazy(f);
+          this->get_child(i).push_lazy(f);
       }
     }
   }
@@ -170,6 +170,11 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using Internal = typename Traits::Internal;
   using T = typename Traits::T;
   using F = typename Traits::F;
+  using id_type = typename Parent::id_type;
+  using Pools = NodePools<Traits>;
+
+  static Leaf& this_leaf(id_type id) { return Pools::leaves()[id]; }
+  static Internal& this_internal(id_type id) { return Pools::internals()[id]; }
 
   template <bool Reversed = false>
   static T prod_recursive(Internal* node, std::size_t first, std::size_t last) {
@@ -186,11 +191,11 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
       if constexpr (Reversed) {
         for (std::size_t i = last; i > first; --i)
           result = M::op(
-              result, static_cast<Leaf*>(node->children[i - 1].get())->get());
+              result, this_leaf(node->children[i - 1]).get());
       } else {
         for (std::size_t i = first; i < last; ++i)
           result =
-              M::op(result, static_cast<Leaf*>(node->children[i].get())->get());
+              M::op(result, this_leaf(node->children[i]).get());
       }
       return result;
     }
@@ -198,7 +203,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if constexpr (Reversed) {
       std::size_t offset = node->size;
       for (std::size_t i = node->count; i > 0; --i) {
-        auto* child = node->get_child(i - 1);
+        auto* child = std::addressof(this_internal(node->children[i - 1]));
         const std::size_t length = child->size;
         offset -= length;
         if (first < offset + length && offset < last)
@@ -210,7 +215,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     } else {
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node->count; ++i) {
-        auto* child = node->get_child(i);
+        auto* child = std::addressof(this_internal(node->children[i]));
         const std::size_t length = child->size;
         if (first < offset + length && offset < last)
           result = M::op(
@@ -236,12 +241,12 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     node->materialize();
     if (node->level == 0) {
       for (std::size_t i = first; i < last; ++i)
-        static_cast<Leaf*>(node->children[i].get())->push_lazy(f);
+        this_leaf(node->children[i]).push_lazy(f);
 
     } else {
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node->count; ++i) {
-        auto* child = node->get_child(i);
+        auto* child = std::addressof(this_internal(node->children[i]));
         const std::size_t length = child->size;
         if (first < offset + length && offset < last)
           apply_recursive(child, first > offset ? first - offset : 0,
@@ -276,7 +281,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         const std::size_t i = Leftward ? node->count - 1 - j : j;
         const std::size_t pos = offset + i;
         if (pos < first || pos >= last) continue;
-        const T& x = static_cast<Leaf*>(node->children[i].get())->get();
+        const T& x = this_leaf(node->children[i]).get();
         T next = Leftward ? M::op(x, value) : M::op(value, x);
         if (!predicate(next)) return false;
         value = std::move(next);
@@ -287,7 +292,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if constexpr (Leftward) {
       std::size_t pos = end;
       for (std::size_t i = node->count; i > 0; --i) {
-        auto* child = node->get_child(i - 1);
+        auto* child = std::addressof(this_internal(node->children[i - 1]));
         pos -= child->size;
         if (!search<true>(child, pos, first, last, value, predicate, result))
           return false;
@@ -295,7 +300,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     } else {
       std::size_t pos = offset;
       for (std::size_t i = 0; i < node->count; ++i) {
-        auto* child = node->get_child(i);
+        auto* child = std::addressof(this_internal(node->children[i]));
         if (!search<false>(child, pos, first, last, value, predicate, result))
           return false;
         pos += child->size;
@@ -318,24 +323,24 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   /** @brief 全要素の積。O(1)。 */
   T all_prod() const {
-    return this->root_->forward;
+    return this_internal(this->root_).forward;
   }
 
   /** @brief 半開区間 [first,last) の順方向の積。 */
   T prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return prod_recursive(this->root_.get(), first + 1, last + 1);
+    return prod_recursive(std::addressof(this_internal(this->root_)), first + 1, last + 1);
   }
 
   /** @brief 全要素の逆方向の積。O(1)。 */
   T all_reverse_prod() const {
-    return this->root_->backward;
+    return this_internal(this->root_).backward;
   }
 
   /** @brief 半開区間 [first,last) の逆方向の積。 */
   T reverse_prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return prod_recursive<true>(this->root_.get(), first + 1, last + 1);
+    return prod_recursive<true>(std::addressof(this_internal(this->root_)), first + 1, last + 1);
   }
 
   void prod_right(size_type index, const T& value) {
@@ -356,7 +361,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     requires(Traits::lazy)
   {
     assert(first <= last && last <= size());
-    apply_recursive(this->root_.get(), first + 1, last + 1, f);
+    apply_recursive(std::addressof(this_internal(this->root_)), first + 1, last + 1, f);
   }
   void all_apply(const F& f)
     requires(Traits::lazy)
@@ -375,7 +380,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
     T value = M::e();
     size_type result = left + 1;
-    search<false>(this->root_.get(), 0, left + 1, size() + 1, value, predicate,
+    search<false>(std::addressof(this_internal(this->root_)), 0, left + 1, size() + 1, value, predicate,
                   result);
     return result - 1;
   }
@@ -391,7 +396,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
     T value = M::e();
     size_type result = right + 1;
-    search<true>(this->root_.get(), 0, 1, right + 1, value, predicate, result);
+    search<true>(std::addressof(this_internal(this->root_)), 0, 1, right + 1, value, predicate, result);
     return result - 1;
   }
 
