@@ -8,7 +8,7 @@ template <std::size_t Capacity>
 void node_structure_test() {
   using Traits = Bplustree::Traits<long long, Capacity>;
   using Pools = Bplustree::NodePools<Traits>;
-  Pools::reserve_additional(Capacity + 2, 4);
+  Pools::reserve_buffer(Capacity + 2, 4);
   const auto root_id = Pools::make_internal(0);
   for (std::size_t i = 0; i < Capacity - 1; ++i) {
     const auto leaf_id = Pools::make_leaf(i + 1);
@@ -43,7 +43,7 @@ void node_structure_test() {
 void node_subtree_test() {
   using Traits = Bplustree::Traits<long long, 5>;
   using Pools = Bplustree::NodePools<Traits>;
-  Pools::reserve_additional(5, 4);
+  Pools::reserve_buffer(5, 4);
   const auto root_id = Pools::make_internal(1);
   const auto child_id = Pools::make_internal(0);
   const auto a = Pools::make_leaf(10);
