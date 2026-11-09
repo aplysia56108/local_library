@@ -238,7 +238,6 @@ struct Internal : Traits::Node {
     }
     left.refresh();
     right.refresh();
-    Pools::reserve_buffer();
     return right_id;
   }
 
