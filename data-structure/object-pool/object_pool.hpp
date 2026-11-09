@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <limits>
@@ -29,12 +30,12 @@ class ObjectPool {
     pool_.reserve(n);
   }
 
-  /** @brief 既存スロットを再利用できない最悪の場合にも extra
-   * 件追加できるよう予約する。 */
+  /** @brief 再利用可能スロットと未使用容量の合計が buffer 以上になるよう確保する。 */
   void reserve_buffer(std::size_t buffer = 8) {
-    if (pool_.capacity() - size() > buffer) return;
+    const std::size_t required = size() + buffer;
+    if (pool_.capacity() >= required) return;
 
-    reserve(pool_.reserve(pool_.capacity() << 1));
+    reserve(std::max(required, pool_.capacity() * 2));
   }
 
   /** @brief 有効な参照から ID を取得する。O(1)。reserve/emplace
