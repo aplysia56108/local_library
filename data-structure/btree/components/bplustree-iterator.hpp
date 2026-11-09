@@ -12,9 +12,7 @@
 
 /**
  * @brief B+ tree 上の要素を指すイテレータ。
- * @details 通常要素は `(leaf_, index_)` で表す。最左 Leaf の
- * `index_ == -1` は `bbegin()`、最右 Leaf の
- * `index_ == leaf_->count` は `end()` を表す。
+ * @details Leaf の Pool ID で要素と番兵を表す。
  *
  * C++20 の `std::random_access_iterator` コンセプトを満たす。
  * ただし木構造上、任意距離の移動やイテレータ差分は厳密には O(1) ではなく
@@ -94,11 +92,8 @@ class Iterator {
         leaf_id_ = node.template locate<VisitAll>(to_index);
         return;
       }
-      if (node.parent == internal_pool_type::null_id) {
-        leaf_id_ = node.template locate<VisitAll>(to_index);
-        return;
-      }
-      for (std::size_t i = 0; i < node->position; ++i) {
+      assert(node.parent != null_id);
+      for (std::size_t i = 0; i < node.position; ++i) {
         to_index += i_pool_[node.parent].child_size(i);
       }
       node_id = node.parent;
@@ -192,9 +187,9 @@ class Iterator {
     lhs.apply_reverse_path();
     rhs.apply_reverse_path();
 
-    auto& l_node_id = l_pool_[lhs.leaf_id_].parent;
+    id_type l_node_id = l_pool_[lhs.leaf_id_].parent;
     std::ptrdiff_t l_index = l_pool_[lhs.leaf_id_].position;
-    auto& r_node_id = l_pool_[rhs.leaf_id_].parent;
+    id_type r_node_id = l_pool_[rhs.leaf_id_].parent;
     std::ptrdiff_t r_index = l_pool_[rhs.leaf_id_].position;
 
     while (l_node_id != r_node_id) {
