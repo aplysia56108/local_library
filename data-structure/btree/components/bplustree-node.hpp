@@ -38,11 +38,12 @@ struct NodePools {
     return pool;
   }
 
-  /** @brief 外部操作の前に必要なスロット数を確保する。既存の参照は無効化され得る。 */
-  static void reserve_additional(std::size_t leaf_extra,
-                                 std::size_t internal_extra) {
-    leaves().reserve_additional(leaf_extra);
-    internals().reserve_additional(internal_extra);
+  /** @brief
+   * 外部操作の前に必要なスロット数を確保する。既存の参照は無効化され得る。 */
+  static void reserve_buffer(std::size_t leaf_buffer = 8,
+                             std::size_t internal_buffer = 8) {
+    leaves().reserve_buffer(leaf_buffer);
+    internals().reserve_buffer(internal_buffer);
   }
   template <class... Args>
   static id_type make_leaf(Args&&... args) {
@@ -158,7 +159,8 @@ struct Internal : Traits::Node {
     return level == 0 ? 1 : get_child(index).count;
   }
 
-  /** @brief この Internal の Pool ID を取得する。Pool 再確保前の参照だけが有効。 */
+  /** @brief この Internal の Pool ID を取得する。Pool
+   * 再確保前の参照だけが有効。 */
   id_type id() const {
     return Pools::internals().index(*static_cast<const I*>(this));
   }
@@ -236,6 +238,7 @@ struct Internal : Traits::Node {
     }
     left.refresh();
     right.refresh();
+    Pools::reserve_buffer();
     return right_id;
   }
 
@@ -259,8 +262,7 @@ struct Internal : Traits::Node {
     }
     for (pos_type i = 0; i < count; ++i) {
       auto& child = get_child(i);
-      if (index < child.size)
-        return child.template locate<WithLazy>(index);
+      if (index < child.size) return child.template locate<WithLazy>(index);
       index -= child.size;
     }
     assert(false);
@@ -288,8 +290,8 @@ struct Internal : Traits::Node {
       auto& left = get_child(index);
       auto& right = get_child(index + 1);
 
-      left.materialize(left_id);
-      right.materialize(right_id);
+      left.materialize();
+      right.materialize();
       const auto left_count = left.count;
       for (pos_type i = right.count; i > 0; --i)
         right.children[left_count + i - 1] = right.children[i - 1];

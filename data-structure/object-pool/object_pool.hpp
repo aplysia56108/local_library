@@ -18,21 +18,27 @@ class ObjectPool {
   std::vector<id_type> free_ids_;
 
  public:
-  ObjectPool() {};
+  ObjectPool(std::size_t buffer = 8) {
+    pool_.reserve(buffer);
+  };
 
-  /** @brief 少なくとも n スロット分の容量を事前に確保する。参照は無効化され得る。 */
+  /** @brief 少なくとも n
+   * スロット分の容量を事前に確保する。参照は無効化され得る。 */
   void reserve(std::size_t n) {
     assert(n < static_cast<std::size_t>(null_id));
     pool_.reserve(n);
   }
 
-  /** @brief 既存スロットを再利用できない最悪の場合にも extra 件追加できるよう予約する。 */
-  void reserve_additional(std::size_t extra) {
-    assert(extra <= static_cast<std::size_t>(null_id) - 1 - pool_.size());
-    reserve(pool_.size() + extra);
+  /** @brief 既存スロットを再利用できない最悪の場合にも extra
+   * 件追加できるよう予約する。 */
+  void reserve_buffer(std::size_t buffer = 8) {
+    if (pool_.capacity() - size() > buffer) return;
+
+    reserve(pool_.reserve(pool_.capacity() << 1));
   }
 
-  /** @brief 有効な参照から ID を取得する。O(1)。reserve/emplace による移動後の古い参照は不可。 */
+  /** @brief 有効な参照から ID を取得する。O(1)。reserve/emplace
+   * による移動後の古い参照は不可。 */
   id_type index(const T& value) const {
     const T* ptr = std::addressof(value);
     // 呼び出し側は、この Pool に現在格納されているオブジェクトを渡す。
