@@ -34,8 +34,11 @@ class Base {
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
   using reverse_iterator = std::reverse_iterator<iterator>;
   using setter_type = Setter<Base>;
+  using Pools = NodePools<Traits>;
+  using id_type = typename Pools::id_type;
   using leaf_pool_type = ObjectPool<typename Traits::Leaf>;
   using internal_pool_type = ObjectPool<typename Traits::Internal>;
+  static constexpr id_type null_id = Pools::null_id;
 
   friend typename Traits::Node;
   friend typename Traits::Leaf;
@@ -52,12 +55,12 @@ class Base {
   using Internal = typename Traits::Internal;
   static constexpr size_type NodeCap = Traits::kNodeCapacity;
   static_assert(NodeCap >= 3);
-  inline static leaf_pool_type leaf_pool_;
-  inline static internal_pool_type internal_pool_;
+  inline static leaf_pool_type& leaf_pool_ = Pools::leaves();
+  inline static internal_pool_type& internal_pool_ = Pools::internals();
 
-  // 根の所有権は root_ が持つ。両端の番兵 Leaf も木の中で所有する。
-  // bbegin_ / end_ は番兵への非所有ポインタで、実要素数は root_->size - 2。
-  std::unique_ptr<Internal> root_;
+  // root_ が指す ID 木はこの Base が所有する。各 ID は同じ Traits の Pool で共有する。
+  // 番兵も Leaf Pool 上にあり、Iterator は所有権を持たない。
+  id_type root_ = null_id;
   iterator bbegin_, end_;
 
   static T init_value() {
@@ -69,238 +72,237 @@ class Base {
 
   /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
   void init() {
-    auto bbegin = std::make_unique<Leaf>(init_value());
-    auto end = std::make_unique<Leaf>(init_value());
-    bbegin_ = iterator{bbegin.get()};
-    end_ = iterator{end.get()};
-    root_ = make_new_root(std::move(bbegin), std::move(end));
+    Pools::reserve_buffer(2, 1);
+    const id_type bbegin = Pools::make_leaf(init_value());
+    const id_type end = Pools::make_leaf(init_value());
+    const id_type new_root = make_new_root(bbegin, end);
+    Pools::recycle(root_, false);
+    root_ = new_root;
+    bbegin_ = iterator{bbegin};
+    end_ = iterator{end};
   }
-  /**
-   * @brief 子が1つだけの根を縮める。
-   * @details 各 Internal の level は変更せず、子の Internal を新たな根にする。
-   * 引数の root は所有権を保持したまま置き換わる。
-   */
-  static void cut_root(std::unique_ptr<Internal>& root) {
-    while (root->count == 1 && root->level) {
-      root->materialize();
-      auto child = std::move(root->children[0]);
-      root.reset(static_cast<Internal*>(child.release()));
-      root->parent = nullptr;
+
+  /** @brief 子が1つだけの根を縮め、古い Internal を回収する。 */
+  static void cut_root(id_type& root) {
+    while (internal_pool_[root].count == 1 && internal_pool_[root].level) {
+      internal_pool_[root].materialize();
+      const id_type child = internal_pool_[root].children[0];
+      internal_pool_[root].children[0] = null_id;
+      internal_pool_[root].count = 0;
+      internal_pool_.erase(root);
+      root = child;
+      internal_pool_[root].parent = null_id;
     }
   }
 
   void build(std::vector<T>& values) {
     if (values.empty()) return init();
     constexpr size_type MaxCount = NodeCap - 1;
-    std::vector<std::unique_ptr<Node>> level;
+    size_type n = values.size() + 2;
+    size_type internal_required = 0;
+    while (n > 1) {
+      n = (n + MaxCount - 1) / MaxCount;
+      internal_required += n;
+    }
+    Pools::reserve_buffer(values.size() + 2, internal_required);
+    std::vector<id_type> level;
     level.reserve(values.size() + 2);
-    {
-      auto bbegin = std::make_unique<Leaf>(init_value());
-      bbegin_ = iterator{bbegin.get()};
-      level.push_back(std::move(bbegin));
-    }
-    for (size_type i = 0; i < values.size(); ++i) {
-      auto leaf = std::make_unique<Leaf>(std::move(values[i]));
-      level.push_back(std::move(leaf));
-    }
-    {
-      auto end = std::make_unique<Leaf>(init_value());
-      end_ = iterator{end.get()};
-      level.push_back(std::move(end));
-    }
-    std::size_t current_level = 0;
+    const id_type bbegin = Pools::make_leaf(init_value());
+    level.push_back(bbegin);
+    for (const auto& value : values) level.push_back(Pools::make_leaf(value));
+    const id_type end = Pools::make_leaf(init_value());
+    level.push_back(end);
+
+    pos_type current_level = 0;
     while (level.size() > 1) {
-      std::vector<std::unique_ptr<Internal>> next;
+      std::vector<id_type> next;
+      next.reserve((level.size() + MaxCount - 1) / MaxCount);
       for (size_type i = 0; i < level.size();) {
-        auto parent = std::make_unique<Internal>(current_level);
-        while (parent->count < MaxCount && i < level.size())
-          parent->children[parent->count++] = std::move(level[i++]);
-        parent->refresh();
-        next.push_back(std::move(parent));
+        const id_type parent_id = Pools::make_internal(current_level);
+        auto& parent = internal_pool_[parent_id];
+        while (parent.count < MaxCount && i < level.size())
+          parent.children[parent.count++] = level[i++];
+        parent.refresh();
+        next.push_back(parent_id);
       }
-      level.clear();
-      level.reserve(next.size());
-      for (auto& child : next) level.push_back(std::move(child));
+      level = std::move(next);
       ++current_level;
     }
-    root_.reset(static_cast<Internal*>(level[0].release()));
-    root_->parent = nullptr;
+    const id_type new_root = level[0];
+    internal_pool_[new_root].parent = null_id;
+    Pools::recycle(root_, false);
+    root_ = new_root;
+    bbegin_ = iterator{bbegin};
+    end_ = iterator{end};
   }
 
-  static std::unique_ptr<Internal> make_new_root(std::unique_ptr<Node> left,
-                                                 std::unique_ptr<Node> right,
-                                                 const std::size_t level = 0) {
-    auto parent = std::make_unique<Internal>(level);
-    parent->insert(std::move(left), 0);
-    parent->insert(std::move(right), 1);
-    parent->refresh();
-    return parent;
+  static id_type make_new_root(id_type left, id_type right,
+                               pos_type level = 0) {
+    const id_type parent_id = Pools::make_internal(level);
+    auto& parent = internal_pool_[parent_id];
+    parent.insert(left, 0);
+    parent.insert(right, 1);
+    parent.refresh();
+    parent.parent = null_id;
+    return parent_id;
   }
 
-  static void materialize_path(Internal* node) {
-    if (node->parent) materialize_path(node->parent);
-    node->materialize();
+  static void materialize_path(id_type node_id) {
+    if (internal_pool_[node_id].parent != null_id)
+      materialize_path(internal_pool_[node_id].parent);
+    internal_pool_[node_id].materialize();
   }
 
-  static void refresh_recursive(Internal* node) {
-    node->refresh();
-    if (node->parent) refresh_recursive(node->parent);
+  static void refresh_recursive(id_type node_id) {
+    internal_pool_[node_id].refresh();
+    if (internal_pool_[node_id].parent != null_id)
+      refresh_recursive(internal_pool_[node_id].parent);
   }
 
-  static std::unique_ptr<Internal> insert_recursive(
-      Internal* parent, std::size_t index,
-      std::unique_ptr<Node> child = nullptr) {
-    if (!parent) return nullptr;
-
-    if (child) {
-      if (parent->insert(std::move(child), index)) {
-        if (parent->parent)
-          return insert_recursive(parent->parent, parent->position + 1,
-                                  parent->split());
-        return parent->split();
+  static id_type insert_recursive(id_type parent_id, pos_type index,
+                                  id_type child = null_id) {
+    if (parent_id == null_id) return null_id;
+    if (child != null_id) {
+      if (internal_pool_[parent_id].insert(child, index)) {
+        const id_type upper = internal_pool_[parent_id].parent;
+        const pos_type upper_pos = internal_pool_[parent_id].position;
+        const id_type right_id = internal_pool_[parent_id].split();
+        if (upper != null_id)
+          return insert_recursive(upper, upper_pos + 1, right_id);
+        return right_id;
       }
     }
-    refresh_recursive(parent);
-    return nullptr;
-  };
+    refresh_recursive(parent_id);
+    return null_id;
+  }
 
   template <bool Left>
-  static std::vector<Internal*> end_nodes(std::unique_ptr<Internal>& root) {
-    std::vector<Internal*> nodes;
-    nodes.reserve(root->level + 1);
-    Internal* current = root.get();
-    current->apply_reverse();
-    nodes.push_back(current);
-    while (current->level) {
-      if constexpr (Left) {
-        current = current->get_child(0);
-      } else {
-        current = current->get_child(current->count - 1);
-      }
-      current->apply_reverse();
+  static std::vector<id_type> end_nodes(id_type root) {
+    std::vector<id_type> nodes;
+    nodes.reserve(internal_pool_[root].level + 1);
+    id_type current = root;
+    while (true) {
+      internal_pool_[current].apply_reverse();
       nodes.push_back(current);
+      if (internal_pool_[current].level == 0) break;
+      current = Left ? internal_pool_[current].children[0]
+                     : internal_pool_[current].children[
+                           internal_pool_[current].count - 1];
     }
     return nodes;
   }
 
-  static void cut_zero_node(std::unique_ptr<Internal>& root) {
-    Internal* current = root.get();
-    while (true) {
-      current->apply_reverse();
-      if (current->size == 0 && current->parent) {
-        erase(current->parent, current->position, root);
-        break;
+  static void cut_zero_node(id_type& root) {
+    for (bool left : {true, false}) {
+      id_type current = root;
+      while (true) {
+        internal_pool_[current].apply_reverse();
+        const auto& node = internal_pool_[current];
+        if (node.size == 0 && node.parent != null_id) {
+          erase(node.parent, node.position, root);
+          break;
+        }
+        if (node.level == 0) break;
+        current = left ? node.children[0] : node.children[node.count - 1];
       }
-      if (current->level == 0) break;
-      current = current->get_child(0);
-    }
-    current = root.get();
-    while (true) {
-      current->apply_reverse();
-      if (current->size == 0 && current->parent) {
-        erase(current->parent, current->position, root);
-        break;
-      }
-      if (current->level == 0) break;
-      current = current->get_child(current->count - 1);
     }
   }
 
-  static void insert(Internal* parent, std::size_t index,
-                     std::unique_ptr<Node> child,
-                     std::unique_ptr<Internal>& root) {
-    auto right = insert_recursive(parent, index, std::move(child));
-    if (right) {
-      auto level = right->level + 1;
-      root = make_new_root(std::move(root), std::move(right), level);
+  static void insert(id_type parent_id, pos_type index, id_type child,
+                     id_type& root) {
+    const id_type right_id = insert_recursive(parent_id, index, child);
+    if (right_id != null_id) {
+      const pos_type level = internal_pool_[right_id].level + 1;
+      root = make_new_root(root, right_id, level);
     }
   }
 
-  static void erase_recursive(Internal* parent, std::size_t index) {
-    if (parent->erase(index))
-      return erase_recursive(parent->parent, parent->position);
-    if (parent->parent) refresh_recursive(parent->parent);
+  static void erase_recursive(id_type parent_id, pos_type index) {
+    const id_type upper = internal_pool_[parent_id].parent;
+    const pos_type upper_pos = internal_pool_[parent_id].position;
+    if (internal_pool_[parent_id].erase(index)) {
+      if (upper != null_id) erase_recursive(upper, upper_pos);
+      return;
+    }
+    if (upper != null_id) refresh_recursive(upper);
   }
 
-  static void erase(Internal* parent, std::size_t index,
-                    std::unique_ptr<Internal>& root) {
-    erase_recursive(parent, index);
+  static void erase(id_type parent_id, pos_type index, id_type& root) {
+    erase_recursive(parent_id, index);
     cut_root(root);
   }
 
   /**
-   * @brief 指定 Leaf の直前で木を左右に分割し、右側の根を返す。
-   * @details 分割境界を下位から上位へたどり、各段で右側の部分木を移す。
-   * 処理中は空の Internal を一時的に許し、最後に根と境界を整理する。
-   * 呼び出し側は、境界までの reverse / lazy
-   * が適切に伝搬されていることを保証する。
-   * @return 右側の木の根。root には左側を残す。
+   * @brief 指定 Leaf の直前で木を左右に分割し、右側の根 ID を返す。
+   * @details 中間の空 Internal は、端の経路を ID でたどって除去・統合する。
    */
-  static std::unique_ptr<Internal> devide(std::unique_ptr<Internal>& root,
-                                          Leaf* leaf) {
-    materialize_path(leaf->parent);
-    Internal* parent = leaf->parent;
-    std::size_t position = leaf->position;
-    std::unique_ptr<Internal> right;
-    while (parent) {
-      auto next = parent->split(position);
-      if (right && right->count) next->insert(std::move(right), 0);
-      right = std::move(next);
-      position = parent->position + 1;
-      parent = parent->parent;
+  static id_type devide(id_type& root, id_type leaf_id) {
+    materialize_path(leaf_pool_[leaf_id].parent);
+    id_type parent_id = leaf_pool_[leaf_id].parent;
+    pos_type position = leaf_pool_[leaf_id].position;
+    id_type right = null_id;
+    while (parent_id != null_id) {
+      const id_type next = internal_pool_[parent_id].split(position);
+      if (right != null_id && internal_pool_[right].count)
+        internal_pool_[next].insert(right, 0);
+      right = next;
+      position = internal_pool_[parent_id].position + 1;
+      parent_id = internal_pool_[parent_id].parent;
     }
     cut_root(root);
     cut_zero_node(root);
-    for (auto node : end_nodes<false>(root)) node->integrate();
+    for (id_type id : end_nodes<false>(root)) internal_pool_[id].integrate();
     cut_root(right);
     cut_zero_node(right);
-    for (auto node : end_nodes<true>(right)) node->integrate();
+    for (id_type id : end_nodes<true>(right)) internal_pool_[id].integrate();
     return right;
   }
 
-  static std::unique_ptr<Internal> unite(std::unique_ptr<Internal> left,
-                                         std::unique_ptr<Internal> right) {
-    if (right->size == 0) return left;
-    if (left->size == 0) return right;
+  static id_type unite(id_type left, id_type right) {
+    if (internal_pool_[right].size == 0) {
+      Pools::recycle(right, false);
+      return left;
+    }
+    if (internal_pool_[left].size == 0) {
+      Pools::recycle(left, false);
+      return right;
+    }
     auto integrate_nodes = end_nodes<false>(left);
-    for (auto node : end_nodes<true>(right)) integrate_nodes.push_back(node);
-    std::size_t left_size = left->size;
-    if (left->level == right->level) {
-      const std::size_t new_level = left->level + 1;
-      auto root = make_new_root(std::move(left), std::move(right), new_level);
-      for (auto node : integrate_nodes) node->integrate();
+    for (id_type id : end_nodes<true>(right)) integrate_nodes.push_back(id);
+    if (internal_pool_[left].level == internal_pool_[right].level) {
+      const pos_type level = internal_pool_[left].level + 1;
+      id_type root = make_new_root(left, right, level);
+      for (id_type id : integrate_nodes) internal_pool_[id].integrate();
       cut_root(root);
       return root;
     }
-    if (left->level < right->level) {
-      Internal* target = right.get();
-      while (left->level + 1 < target->level) {
-        target->materialize();
-        target = target->get_child(0);
+    if (internal_pool_[left].level < internal_pool_[right].level) {
+      id_type target = right;
+      while (internal_pool_[left].level + 1 < internal_pool_[target].level) {
+        internal_pool_[target].materialize();
+        target = internal_pool_[target].children[0];
       }
-      // Expand pending reversal before attaching a new leftmost child.
-      target->materialize();
-      insert(target, 0, std::move(left), right);
-      for (auto node : integrate_nodes) node->integrate();
+      internal_pool_[target].materialize();
+      insert(target, 0, left, right);
+      for (id_type id : integrate_nodes) internal_pool_[id].integrate();
       return right;
     }
-    Internal* target = left.get();
-    while (right->level + 1 < target->level) {
-      target->materialize();
-      target = target->get_child(target->count - 1);
+    id_type target = left;
+    while (internal_pool_[right].level + 1 < internal_pool_[target].level) {
+      internal_pool_[target].materialize();
+      target = internal_pool_[target].children[internal_pool_[target].count - 1];
     }
-    // Expand pending reversal before attaching a new rightmost child.
-    target->materialize();
-    insert(target, target->count, std::move(right), left);
-    for (auto node : integrate_nodes) node->integrate();
+    internal_pool_[target].materialize();
+    insert(target, internal_pool_[target].count, right, left);
+    for (id_type id : integrate_nodes) internal_pool_[id].integrate();
     return left;
-  };
+  }
 
   template <bool WithLazy = false>
-  Leaf* locate(size_type index) const {
+  id_type locate(size_type index) const {
     ++index;
-    assert(index < root_->size);
-    return root_->template locate<WithLazy>(index);
+    assert(index < internal_pool_[root_].size);
+    return internal_pool_[root_].template locate<WithLazy>(index);
   }
 
   static iterator mutable_iterator(const const_iterator& it) {
@@ -308,9 +310,8 @@ class Base {
   }
 
  public:
-  Base() {
-    init();
-  }
+  Base() { init(); }
+  ~Base() { Pools::recycle(root_, false); }
   template <std::input_iterator InputIt>
   Base(InputIt first, InputIt last) {
     assign(first, last);
@@ -352,7 +353,7 @@ class Base {
     build(values);
   }
   size_type size() const noexcept {
-    return root_->size - 2;
+    return internal_pool_[root_].size - 2;
   }
   bool empty() const noexcept {
     return size() == 0;
@@ -411,14 +412,13 @@ class Base {
     return insert(locate<true>(index), value);
   }
   iterator insert(iterator pos, const T& value) {
-    materialize_path(pos.leaf_id_->parent);
-    Internal* parent = pos.leaf_id_->parent;
-    std::size_t position = pos.leaf_id_->position;
-    std::unique_ptr<Node> child = std::make_unique<Leaf>(value);
-    Leaf* res = static_cast<Leaf*>(child.get());
-    insert(parent, position, std::move(child), root_);
-
-    return res;
+    Pools::reserve_buffer(1, internal_pool_[root_].level + 3);
+    materialize_path(leaf_pool_[pos.leaf_id_].parent);
+    const id_type parent = leaf_pool_[pos.leaf_id_].parent;
+    const pos_type position = leaf_pool_[pos.leaf_id_].position;
+    const id_type child = Pools::make_leaf(value);
+    insert(parent, position, child, root_);
+    return iterator{child};
   }
 
   void push_back(const T& value) {
@@ -436,18 +436,18 @@ class Base {
 
   iterator erase(iterator pos) {
     iterator res = pos + 1;
-    materialize_path(pos.leaf_id_->parent);
-    Internal* parent = pos.leaf_id_->parent;
-    std::size_t position = pos.leaf_id_->position;
+    materialize_path(leaf_pool_[pos.leaf_id_].parent);
+    id_type parent = leaf_pool_[pos.leaf_id_].parent;
+    pos_type position = leaf_pool_[pos.leaf_id_].position;
     bool erase_flg = true;
-    while (parent != nullptr) {
+    while (parent != null_id) {
       if (erase_flg) {
-        erase_flg = parent->erase(position);
-        position = parent->position;
+        erase_flg = internal_pool_[parent].erase(position);
+        position = internal_pool_[parent].position;
       } else {
-        parent->refresh();
+        internal_pool_[parent].refresh();
       }
-      parent = parent->parent;
+      parent = internal_pool_[parent].parent;
     }
     cut_root(root_);
     return res;
@@ -459,9 +459,11 @@ class Base {
   }
   iterator erase(iterator first, iterator last) {
     if (first == last) return last;
-    auto right = devide(root_, last.leaf_id_);
-    auto removed = devide(root_, first.leaf_id_);
-    root_ = unite(std::move(root_), std::move(right));
+    Pools::reserve_buffer(0, 2 * (internal_pool_[root_].level + 3));
+    const id_type right = devide(root_, last.leaf_id_);
+    const id_type removed = devide(root_, first.leaf_id_);
+    root_ = unite(root_, right);
+    Pools::recycle(removed, false);
     return last;
   }
   void pop_back() {
@@ -507,23 +509,24 @@ class Base {
       swap(*this, right);
       return right;
     }
+    Pools::reserve_buffer(2, 2 * (internal_pool_[root_].level + 3));
+    const id_type old_right_root = right.root_;
     right.root_ = devide(root_, pos.leaf_id_);
-    auto bbegin = std::make_unique<Leaf>(init_value());
-    auto end = std::make_unique<Leaf>(init_value());
+    Pools::recycle(old_right_root, false);
+    const id_type bbegin = Pools::make_leaf(init_value());
+    const id_type end = Pools::make_leaf(init_value());
     right.end_ = end_;
-    right.bbegin_ = iterator{bbegin.get()};
-    end_ = iterator{end.get()};
-    auto end_parent = root_->locate(root_->size - 1)->parent;
-    insert(end_parent, end_parent->count, std::move(end), root_);
-    auto bbegin_parent = right.root_->locate(0)->parent;
-    insert(bbegin_parent, 0, std::move(bbegin), right.root_);
+    right.bbegin_ = iterator{bbegin};
+    end_ = iterator{end};
+    const id_type end_leaf = internal_pool_[root_].locate(internal_pool_[root_].size - 1);
+    const id_type end_parent = leaf_pool_[end_leaf].parent;
+    insert(end_parent, internal_pool_[end_parent].count, end, root_);
+    const id_type bbegin_leaf = internal_pool_[right.root_].locate(0);
+    const id_type bbegin_parent = leaf_pool_[bbegin_leaf].parent;
+    insert(bbegin_parent, 0, bbegin, right.root_);
     return right;
   }
-  /**
-   * @brief right の全要素を自身の末尾に結合する。
-   * @details 中間の番兵を除去し、要素 Leaf の所有権を移す。
-   * 結合後の right は空の木に戻す。自身との結合は不可。
-   */
+
   void merge(Base& right) {
     assert(this != &right);
     if (right.empty()) return;
@@ -531,19 +534,20 @@ class Base {
       swap(*this, right);
       return;
     }
-
-    auto end_pos = root_->locate(root_->size - 1);
-    erase(end_pos->parent, end_pos->position, root_);
-    auto bbegin_pos = right.root_->locate(0);
-    erase(bbegin_pos->parent, bbegin_pos->position, root_);
-
-    root_ = unite(std::move(root_), std::move(right.root_));
-    this->end_ = right.end_;
+    Pools::reserve_buffer(0, 2 * (internal_pool_[root_].level +
+                                  internal_pool_[right.root_].level + 3));
+    const id_type end_leaf = internal_pool_[root_].locate(internal_pool_[root_].size - 1);
+    erase(leaf_pool_[end_leaf].parent, leaf_pool_[end_leaf].position, root_);
+    const id_type bbegin_leaf = internal_pool_[right.root_].locate(0);
+    erase(leaf_pool_[bbegin_leaf].parent, leaf_pool_[bbegin_leaf].position, right.root_);
+    root_ = unite(root_, right.root_);
+    end_ = right.end_;
+    right.root_ = null_id;
     right.init();
   }
 
   void reverse() {
-    root_->push_reverse();
+    internal_pool_[root_].push_reverse();
     using std::swap;
     swap(bbegin_, end_);
   }
@@ -554,19 +558,17 @@ class Base {
     reverse(nth(first), nth(last));
   }
   void reverse(iterator first, iterator last) {
+    if (first == last) return;
+    Pools::reserve_buffer(0, 2 * (internal_pool_[root_].level + 3));
     auto right = devide(root_, last.leaf_id_);
     auto middle = devide(root_, first.leaf_id_);
-    middle->push_reverse();
-    root_ = unite(std::move(root_), std::move(middle));
-    root_ = unite(std::move(root_), std::move(right));
+    internal_pool_[middle].push_reverse();
+    root_ = unite(root_, middle);
+    root_ = unite(root_, right);
   }
   void debug_node_stats() const {
-    std::cerr << "nodes: " << Node::live_nodes << " / " << Node::peak_nodes
-              << '\n';
-    std::cerr << "leaf: " << Leaf::leaf_count << " / " << Leaf::peak_leaf_count
-              << '\n';
-    std::cerr << "internal: " << Internal::internal_count << " / "
-              << Internal::peak_internal_count << '\n';
+    std::cerr << "leaf slots in use: " << leaf_pool_.size() << '\n';
+    std::cerr << "internal slots in use: " << internal_pool_.size() << '\n';
   }
 };
 }  // namespace Bplustree
