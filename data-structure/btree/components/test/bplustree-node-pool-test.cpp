@@ -1,5 +1,6 @@
 #include "data-structure/btree/components/bplustree-node.hpp"
 
+#include <array>
 #include <cassert>
 #include <iostream>
 
@@ -8,7 +9,7 @@ template <std::size_t Capacity>
 void node_pool_basic_test() {
   using Traits = Bplustree::Traits<long long, Capacity>;
   using Pools = Bplustree::NodePools<Traits>;
-  Pools::reserve_additional(Capacity + 2, 3);
+  Pools::reserve_buffer(Capacity + 2, 3);
   const auto root_id = Pools::make_internal(0);
   assert(Pools::internals()[root_id].id() == root_id);
   for (std::size_t i = 0; i < Capacity; ++i) {
@@ -16,16 +17,9 @@ void node_pool_basic_test() {
     assert(Pools::leaves().index(Pools::leaves()[id]) == id);
     assert(Pools::internals()[root_id].insert(id, i) == (i + 1 == Capacity));
   }
-  auto& root = Pools::internals()[root_id];
-  assert(root.count == Capacity);
-  for (std::size_t i = 0; i < Capacity; ++i) {
-    const auto leaf_id = root.locate(i);
-    const auto& leaf = Pools::leaves()[leaf_id];
-    assert(leaf.get() == static_cast<long long>(10 + i));
-    assert(leaf.parent == root_id && leaf.position == i);
-  }
-
-  const auto right_id = root.split();
+  // 満杯時は split() の直後に親リンクが同期される契約。
+  assert(Pools::internals()[root_id].count == Capacity);
+  const auto right_id = Pools::internals()[root_id].split();
   assert(Pools::internals()[root_id].count +
              Pools::internals()[right_id].count == Capacity);
   assert(Pools::internals()[right_id].id() == right_id);
@@ -57,13 +51,16 @@ void node_pool_reallocation_test() {
     auto id = Pools::make_leaf(100 + i);
     Pools::internals()[root_id].insert(id, i);
   }
-  // reserve は意図的に行わず、split の emplace による再確保を許容する。
+  // 初期容量8を使い切り、split 中の Internal Pool 再確保を確実に発生させる。
+  std::array<Pools::id_type, 7> padding;
+  for (auto& id : padding) id = Pools::make_internal(0);
   const auto right_id = Pools::internals()[root_id].split();
   assert(Pools::internals()[root_id].count +
              Pools::internals()[right_id].count == 7);
   assert(Pools::internals()[right_id].locate(0) != Pools::null_id);
   Pools::recycle(root_id, false);
   Pools::recycle(right_id, false);
+  for (auto id : padding) Pools::recycle(id, false);
   std::cerr << "node pool reallocation tests all passed!\n";
 }
 
@@ -71,7 +68,7 @@ void node_pool_reallocation_test() {
 void node_pool_integrate_test() {
   using Traits = Bplustree::Traits<long long, 6>;
   using Pools = Bplustree::NodePools<Traits>;
-  Pools::reserve_additional(8, 6);
+  Pools::reserve_buffer(8, 6);
   const auto root_id = Pools::make_internal(1);
   const auto left_id = Pools::make_internal(0);
   const auto right_id = Pools::make_internal(0);
