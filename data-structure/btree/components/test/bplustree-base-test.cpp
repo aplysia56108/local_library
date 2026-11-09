@@ -148,6 +148,29 @@ void structural_operations() {
   std::cerr << "base structural operations tests all passed! (capacity=" << Capacity << ")\n";
 }
 
+// ID 木の所有権移動と破棄で、Pool スロットが回収されることを確認する。
+template <std::size_t Capacity>
+void pool_reclamation_tests() {
+  using Traits = Bplustree::Traits<long long, Capacity>;
+  using Pools = Bplustree::NodePools<Traits>;
+  const auto before_leaves = Pools::leaves().size();
+  const auto before_internals = Pools::internals().size();
+  {
+    Tree<Capacity> a{1, 2, 3, 4, 5, 6, 7, 8};
+    auto right = a.split(4);
+    a.merge(right);
+    a.erase(2, 6);
+    a.insert(1, 42);
+    a.reverse();
+    a.clear();
+    a.assign(3, 10);
+  }
+  assert(Pools::leaves().size() == before_leaves);
+  assert(Pools::internals().size() == before_internals);
+  std::cerr << "base pool reclamation tests all passed! (capacity="
+            << Capacity << ")\n";
+}
+
 int main() {
   construction<4>();
   construction<8>();
@@ -155,6 +178,8 @@ int main() {
   access_and_edit<8>();
   structural_operations<4>();
   structural_operations<8>();
+  pool_reclamation_tests<4>();
+  pool_reclamation_tests<8>();
 
   std::cerr << "All B+tree base test cases passed!\n";
 }
