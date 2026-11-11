@@ -115,7 +115,7 @@ class Iterator {
   using pointer = const T*;
 
   Iterator() = default;
-  Iterator(id_type leaf_id) : leaf_id_(leaf_id) {}
+  explicit Iterator(id_type leaf_id) : leaf_id_(leaf_id) {}
 
   template <bool OtherConst, bool OtherVisitALL>
     requires(IsConst && !OtherConst)

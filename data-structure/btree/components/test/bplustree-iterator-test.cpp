@@ -57,10 +57,20 @@ void random_access() {
 // set(value): refresh ancestors; iterator retains Leaf identity on insertion.
 void mutation() {
   Tree tree{1, 2, 3, 4};
+  std::cerr << "A: size=" << tree.size() << '\n';
+
   auto it = tree.nth(2);
+  std::cerr << "B: size=" << tree.size() << '\n';
+
   it.set(30);
+  std::cerr << "C: size=" << tree.size() << '\n';
+
   assert(tree[2] == 30);
+  std::cerr << "D: size=" << tree.size() << '\n';
+
   tree.insert(0, 0);
+  std::cerr << "E: size=" << tree.size() << '\n';
+
   assert(*it == 30 && it == tree.nth(3));
 
   std::cerr << "iterator mutation tests all passed!\n";
@@ -68,8 +78,9 @@ void mutation() {
 
 int main() {
   assert(It{} == It{});
-  random_access();
   mutation();
+
+  random_access();
 
   std::cerr << "All iterator test cases passed!\n";
 }

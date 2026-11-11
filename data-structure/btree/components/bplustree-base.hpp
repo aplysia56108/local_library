@@ -360,7 +360,7 @@ class Base {
     return size() == 0;
   }
   iterator nth(size_type index) const {
-    return {locate(index)};
+    return iterator{locate(index)};
   }
   iterator bbegin() const {
     return bbegin_;
@@ -410,7 +410,7 @@ class Base {
   }
 
   iterator insert(size_type index, const T& value) {
-    return insert(locate<true>(index), value);
+    return insert(iterator{locate<true>(index)}, value);
   }
   iterator insert(iterator pos, const T& value) {
     auto& leaf = get_leaf(pos.leaf_id_);
