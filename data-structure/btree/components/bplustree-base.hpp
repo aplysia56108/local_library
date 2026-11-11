@@ -79,7 +79,8 @@ class Base {
 
   /** @brief 子が1つだけの根を縮め、古い Internal を回収する。 */
   static void cut_root(id_type& root) {
-    for (auto& node = get_node(root); node.count == 1 && node.level;) {
+    while (get_node(root).count == 1 && get_node(root).level) {
+      auto& node = get_node(root);
       node.materialize();
       const id_type child = node.children[0];
       node.children[0] = null_id;
@@ -183,8 +184,9 @@ class Base {
   }
 
   static void cut_zero_node(id_type& root) {
-    id_type node_id = root;
     for (bool left : {true, false}) {
+      id_type node_id = root;
+
       auto& node = get_node(node_id);
       while (true) {
         node.apply_reverse();
@@ -275,9 +277,9 @@ class Base {
     }
     if (left.level < right.level) {
       auto target_id = right_id;
-      for (auto& target = get_node(target_id); left.level + 1 < target.level;) {
-        target.materialize();
-        target_id = target.children[0];
+      while (left.level + 1 < get_node(target_id).level) {
+        get_node(target_id).materialize();
+        target_id = get_node(target_id).children[0];
       }
       get_node(target_id).materialize();
       insert(target_id, 0, left_id, right_id);
@@ -285,9 +287,9 @@ class Base {
       return right_id;
     }
     auto& target_id = left_id;
-    for (auto& target = get_node(target_id); right.level + 1 < target.level;) {
-      target.materialize();
-      target_id = target.children[0];
+    while (right.level + 1 < get_node(target_id).level) {
+      get_node(target_id).materialize();
+      target_id = get_node(target_id).children[0];
     }
     get_node(target_id).materialize();
     insert(target_id, get_node(target_id).count, right_id, left_id);
