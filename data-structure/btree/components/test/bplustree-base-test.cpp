@@ -21,9 +21,10 @@ void check(const T& tree, std::initializer_list<long long> expected,
   assert(tree.empty() == (expected.size() == 0));
 
   const std::vector<long long> actual(tree.begin(), tree.end());
-  if (!std::equal(actual.begin(), actual.end(), expected.begin(), expected.end())) {
-    std::cerr << "Mismatch at " << where.file_name() << ":"
-              << where.line() << " (" << where.function_name() << ")\n";
+  if (!std::equal(actual.begin(), actual.end(), expected.begin(),
+                  expected.end())) {
+    std::cerr << "Mismatch at " << where.file_name() << ":" << where.line()
+              << " (" << where.function_name() << ")\n";
     std::cerr << "  expected:";
     for (auto x : expected) std::cerr << ' ' << x;
     std::cerr << "\n  actual:  ";
@@ -32,7 +33,8 @@ void check(const T& tree, std::initializer_list<long long> expected,
     assert(false && "B+tree contents differ from expected");
   }
 
-  assert(tree.end() - tree.begin() == static_cast<std::ptrdiff_t>(expected.size()));
+  assert(tree.end() - tree.begin() ==
+         static_cast<std::ptrdiff_t>(expected.size()));
   assert(tree.bbegin() + 1 == tree.begin());
   assert(tree.nth(expected.size()) == tree.end());
 }
@@ -64,16 +66,23 @@ void construction() {
   swap(a, b);
   check(a, {7, 7, 7});
   check(b, {});
+  std::cerr << "before resize(5)\n";
   a.resize(5, 6);
+  std::cerr << "after resize(5)\n";
   check(a, {7, 7, 7, 6, 6});
+
+  std::cerr << "before resize(2)\n";
   a.resize(2);
+  std::cerr << "after resize(2)\n";
+
   check(a, {7, 7});
   a.rebuild();
   check(a, {7, 7});
   a.clear();
   check(a, {});
 
-  std::cerr << "base construction tests all passed! (capacity=" << Capacity << ")\n";
+  std::cerr << "base construction tests all passed! (capacity=" << Capacity
+            << ")\n";
 }
 
 // Accessors, element updates, position/iterator overloads, search.
@@ -112,7 +121,8 @@ void access_and_edit() {
   assert(after_all_erase == a.end());
   check(a, {});
 
-  std::cerr << "base access and edit tests all passed! (capacity=" << Capacity << ")\n";
+  std::cerr << "base access and edit tests all passed! (capacity=" << Capacity
+            << ")\n";
 }
 
 // split(index/iterator), merge, reverse(all/range) and boundary positions.
@@ -145,7 +155,8 @@ void structural_operations() {
   check(first, {1, 2, 3, 4, 5, 6});
   check(a, {});
 
-  std::cerr << "base structural operations tests all passed! (capacity=" << Capacity << ")\n";
+  std::cerr << "base structural operations tests all passed! (capacity="
+            << Capacity << ")\n";
 }
 
 // ID 木の所有権移動と破棄で、Pool スロットが回収されることを確認する。
@@ -167,13 +178,19 @@ void pool_reclamation_tests() {
   }
   assert(Pools::leaves().size() == before_leaves);
   assert(Pools::internals().size() == before_internals);
-  std::cerr << "base pool reclamation tests all passed! (capacity="
-            << Capacity << ")\n";
+  std::cerr << "base pool reclamation tests all passed! (capacity=" << Capacity
+            << ")\n";
 }
 
 int main() {
+  std::cerr << "start construction<4>\n";
   construction<4>();
+  std::cerr << "end construction<4>\n";
+
+  std::cerr << "start construction<8>\n";
   construction<8>();
+  std::cerr << "end construction<8>\n";
+
   access_and_edit<4>();
   access_and_edit<8>();
   structural_operations<4>();
