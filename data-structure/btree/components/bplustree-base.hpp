@@ -187,8 +187,8 @@ class Base {
     for (bool left : {true, false}) {
       id_type node_id = root;
 
-      auto& node = get_node(node_id);
       while (true) {
+        auto& node = get_node(node_id);
         node.apply_reverse();
         if (node.size == 0 && node.parent != null_id) {
           erase(node.parent, node.position, root);
