@@ -48,7 +48,7 @@ class Iterator {
   static Internal& get_node(const id_type& id) {
     return Pools::internals()[id];
   }
-  Leaf& this_leaf() {
+  Leaf& this_leaf() const {
     return get_leaf(leaf_id_);
   }
 
