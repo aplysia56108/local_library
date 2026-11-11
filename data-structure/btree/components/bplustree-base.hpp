@@ -274,30 +274,30 @@ class Base {
       return root;
     }
     if (left.level < right.level) {
-      auto target = get_node(right_id);
-      while (left.level + 1 < target.level) {
+      auto target_id = right_id;
+      for (auto& target = get_node(target_id); left.level + 1 < target.level;) {
         target.materialize();
-        target = target.get_child(0);
+        target_id = target.children[0];
       }
-      target.materialize();
-      insert(Pools::id(target), 0, left_id, right_id);
+      get_node(target_id).materialize();
+      insert(target_id, 0, left_id, right_id);
       for (id_type id : integrate_nodes) get_node(id).integrate();
       return right_id;
     }
-    auto& target = get_node(right_id);
-    while (right.level + 1 < target.level) {
+    auto& target_id = left_id;
+    for (auto& target = get_node(target_id); right.level + 1 < target.level;) {
       target.materialize();
-      target = target.get_child(target.count - 1);
+      target_id = target.children[0];
     }
-    target.materialize();
-    insert(Pools::id(target), target.count, right_id, left_id);
+    get_node(target_id).materialize();
+    insert(target_id, get_node(target_id).count, right_id, left_id);
     for (id_type id : integrate_nodes) get_node(id).integrate();
     return left_id;
   }
 
   template <bool WithLazy = false>
   id_type locate(size_type index) const {
-    assert(index < size());
+    assert(index <= size());
     ++index;
     return get_node(root_).template locate<WithLazy>(index);
   }

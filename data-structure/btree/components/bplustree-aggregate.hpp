@@ -285,7 +285,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
       std::size_t pos = end;
       for (std::size_t i = node.count; i > 0; --i) {
         auto& child = node.get_child(i - 1);
-        pos -= child->size;
+        pos -= child.size;
         if (!search<true>(child, pos, first, last, value, predicate, result))
           return false;
       }
@@ -295,7 +295,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         auto& child = node.get_child(i);
         if (!search<false>(child, pos, first, last, value, predicate, result))
           return false;
-        pos += child->size;
+        pos += child.size;
       }
     }
     return true;

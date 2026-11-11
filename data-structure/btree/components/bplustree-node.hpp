@@ -123,7 +123,7 @@ struct Internal : Traits::Node {
     const id_type self_id = id();
     size = 0;
     count = 0;
-    for (pos_type i = 0; i < NodeCap; ++i) {
+    for (std::size_t i = 0; i < NodeCap; ++i) {
       if (children[i] == null_id) break;
       if (level == 0) {
         auto& child = Pools::leaves()[children[i]];
