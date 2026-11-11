@@ -183,8 +183,9 @@ class Base {
   }
 
   static void cut_zero_node(id_type& root) {
+    id_type node_id = root;
     for (bool left : {true, false}) {
-      auto& node = get_node(root);
+      auto& node = get_node(node_id);
       while (true) {
         node.apply_reverse();
         if (node.size == 0 && node.parent != null_id) {
@@ -192,7 +193,7 @@ class Base {
           break;
         }
         if (node.level == 0) break;
-        node = left ? node.get_child(0) : node.get_child(node.count - 1);
+        node_id = node.children[left ? 0 : node.count - 1];
       }
     }
   }
@@ -273,7 +274,7 @@ class Base {
       return root;
     }
     if (left.level < right.level) {
-      auto& target = get_node(right_id);
+      auto target = get_node(right_id);
       while (left.level + 1 < target.level) {
         target.materialize();
         target = target.get_child(0);
