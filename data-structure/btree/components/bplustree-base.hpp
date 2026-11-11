@@ -402,7 +402,7 @@ class Base {
     return get(size() - 1);
   }
   setter_type operator()(size_type index) {
-    return {locate(index)};
+    return {iterator{locate(index)}};
   }
 
   void set(size_type index, const T& value) {
