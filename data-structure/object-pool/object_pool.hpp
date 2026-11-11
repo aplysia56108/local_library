@@ -19,9 +19,7 @@ class ObjectPool {
   std::vector<id_type> free_ids_;
 
  public:
-  ObjectPool(std::size_t buffer = 8) {
-    pool_.reserve(buffer);
-  };
+  ObjectPool() {};
 
   /** @brief 少なくとも n
    * スロット分の容量を事前に確保する。参照は無効化され得る。 */
@@ -30,7 +28,8 @@ class ObjectPool {
     pool_.reserve(n);
   }
 
-  /** @brief 再利用可能スロットと未使用容量の合計が buffer 以上になるよう確保する。 */
+  /** @brief 再利用可能スロットと未使用容量の合計が buffer
+   * 以上になるよう確保する。 */
   void reserve_buffer(std::size_t buffer = 8) {
     const std::size_t required = size() + buffer;
     if (pool_.capacity() >= required) return;
