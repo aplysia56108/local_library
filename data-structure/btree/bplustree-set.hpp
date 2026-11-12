@@ -77,11 +77,11 @@ class Bplustree_Set
 
   template <bool Reversed = false>
   bool inner_comp(const id_type& id, const Key& b) const {
-    if (id == this->bbegin_) return true ^ Reversed;
-    if (id == this->end_) return false ^ Reversed;
+    if (id == Parent::get_id(this->bbegin_)) return true ^ Reversed;
+    if (id == Parent::get_id(this->end_)) return false ^ Reversed;
 
-    if constexpr (Reversed) return compare_(b, Pools::get_leaf(id).get());
-    return compare_(Pools::get_leaf(id).get(), b);
+    if constexpr (Reversed) return compare_(b, Parent::get_leaf(id).get());
+    return compare_(Parent::get_leaf(id).get(), b);
   }
 
   template <bool Equal>
@@ -249,7 +249,7 @@ class Bplustree_Set
 
   iterator find(const Key& key) const {
     auto pos = lower_bound(key);
-    return pos != end() && equivalent(pos.leaf_id_, key) ? pos : end();
+    return pos != end() && equivalent(Parent::get_id(pos), key) ? pos : end();
   }
   bool contains(const Key& key) const {
     return find(key) != end();
@@ -261,7 +261,7 @@ class Bplustree_Set
   std::pair<iterator, bool> insert(const Key& key) {
     auto it = this->mutable_iterator(lower_bound(key));
     if constexpr (Type == SetType::Set) {
-      if (equivalent(it.leaf_id_, key)) return {iterator{it}, false};
+      if (equivalent(Parent::get_id(it), key)) return {iterator{it}, false};
     }
     return {iterator{Parent::insert(it, key)}, true};
   }
@@ -271,7 +271,7 @@ class Bplustree_Set
   }
   size_type erase(const Key& key, bool single_erase = false) {
     const base_iterator first = this->mutable_iterator(lower_bound(key));
-    if (!equivalent(first.leaf_id_, key)) return 0;
+    if (!equivalent(Parent::get_id(first), key)) return 0;
     if constexpr (Type == SetType::Set) {
       Parent::erase(first);
       return 1;

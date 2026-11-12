@@ -66,6 +66,10 @@ class Base {
       return T{};
   };
 
+  static id_type& get_id(const iterator& it) {
+    return it.leaf_id_;
+  }
+
   /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
   void init() {
     const id_type bbegin = Pools::make_leaf(init_value());
