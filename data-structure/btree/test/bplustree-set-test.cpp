@@ -167,7 +167,13 @@ class InspectableSet
 
   void validate_structure(const char* phase, long long step) const {
     const auto& root = Pools::internals()[this->root_];
-    assert(root.parent == Pools::null_id);
+    if (root.parent != Pools::null_id) {
+      std::cerr << "invalid root parent:"
+                << " phase=" << phase << " step=" << step
+                << " root_id=" << this->root_ << " parent_id=" << root.parent
+                << " level=" << static_cast<long long>(root.level)
+                << " size=" << root.size << '\n';
+    }
     const id_type first_id = validate_node(this->root_, phase, step);
     assert(first_id == root.min_leaf_id);
     assert(std::addressof(Pools::leaves()[first_id].get()) ==

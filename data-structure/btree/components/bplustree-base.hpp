@@ -291,10 +291,11 @@ class Base {
       for (id_type id : integrate_nodes) get_node(id).integrate();
       return right_id;
     }
-    auto& target_id = left_id;
+    auto target_id = left_id;
     while (right.level + 1 < get_node(target_id).level) {
-      get_node(target_id).materialize();
-      target_id = get_node(target_id).children[0];
+      auto& target = get_node(target_id);
+      target.materialize();
+      target_id = target.children[target.count - 1];
     }
     get_node(target_id).materialize();
     insert(target_id, get_node(target_id).count, right_id, left_id);
