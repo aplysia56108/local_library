@@ -105,9 +105,9 @@ class Bplustree_Set
 
     while (l + 1 < r) {
       const std::size_t m = (l + r) / 2;
-      const Key& x =
-          node.level ? node.get_child(m).min_key() : node.get_leaf(m).get();
-      if (comp<Equal>(x, key))
+      const id_type id =
+          node.level ? node.get_child(m).min_leaf_id : node.children[m];
+      if (comp<Equal>(id, key))
         l = m;
       else
         r = m;
