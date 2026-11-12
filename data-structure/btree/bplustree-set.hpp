@@ -43,10 +43,9 @@ struct SetTraits<Key, Capacity>::Internal
   }
 
   void after_sync() {
-    min_leaf_id = this->count == 0
-                      ? Pools::null_id
-                      : this->level ? this->get_child(0).min_leaf_id
-                                    : this->children[0];
+    min_leaf_id = this->count == 0 ? Pools::null_id
+                  : this->level    ? this->get_child(0).min_leaf_id
+                                   : this->children[0];
   }
 };
 
@@ -73,34 +72,30 @@ class Bplustree_Set
 
   static_assert(std::strict_weak_order<Compare&, const Key&, const Key&>);
   [[no_unique_address]] Compare compare_;
+  using Pools = typename Parent::Pools;
+  using id_type = typename Pools::id_type;
 
-  bool inner_comp(const Key& a, const Key& b) const {
-    const Key* left = std::addressof(*this->bbegin_);
-    const Key* right = std::addressof(*this->end_);
-    const Key* pa = std::addressof(a);
-    const Key* pb = std::addressof(b);
+  template <bool Reversed = false>
+  bool inner_comp(const id_type& id, const Key& b) const {
+    if (id == this->bbegin_) return true ^ Reversed;
+    if (id == this->end_) return false ^ Reversed;
 
-    if (pa == left) return pb != left;
-    if (pb == left) return false;
-    if (pb == right) return pa != right;
-    if (pa == right) return false;
-    return compare_(a, b);
+    if constexpr (Reversed) return compare_(b, Pools::get_leaf(id).get());
+    return compare_(Pools::get_leaf(id).get(), b);
   }
 
   template <bool Equal>
-  bool comp(const Key& a, const Key& b) const {
-    if constexpr (Equal) return !inner_comp(b, a);
-    return inner_comp(a, b);
+  bool comp(const id_type& id, const Key& b) const {
+    if constexpr (Equal) return !inner_comp<true>(id, b);
+    return inner_comp(id, b);
   }
 
-  bool equivalent(const Key& a, const Key& b) const {
-    return !inner_comp(a, b) && !inner_comp(b, a);
+  bool equivalent(const id_type& id, const Key& b) const {
+    return !inner_comp(id, b) && !inner_comp<true>(id, b);
   }
 
   using Leaf = typename Parent::Leaf;
   using Internal = typename Parent::Internal;
-  using Pools = Bplustree::NodePools<Bplustree::SetTraits<Key, NodeCapacity>>;
-  using id_type = typename Pools::id_type;
 
   template <bool Equal>
   id_type max_l(id_type node_id, const Key& key) const {
@@ -110,9 +105,8 @@ class Bplustree_Set
 
     while (l + 1 < r) {
       const std::size_t m = (l + r) / 2;
-      const Key& x = node.level
-                         ? node.get_child(m).min_key()
-                         : node.get_leaf(m).get();
+      const Key& x =
+          node.level ? node.get_child(m).min_key() : node.get_leaf(m).get();
       if (comp<Equal>(x, key))
         l = m;
       else
@@ -224,7 +218,7 @@ class Bplustree_Set
     if constexpr (Type == SetType::Set) {
       values.erase(std::unique(values.begin(), values.end(),
                                [&](const Key& a, const Key& b) {
-                                 return equivalent(a, b);
+                                 return !compare_(a, b) && !compare_(b, a);
                                }),
                    values.end());
     }
@@ -255,7 +249,7 @@ class Bplustree_Set
 
   iterator find(const Key& key) const {
     auto pos = lower_bound(key);
-    return pos != end() && equivalent(*pos, key) ? pos : end();
+    return pos != end() && equivalent(pos.leaf_id_, key) ? pos : end();
   }
   bool contains(const Key& key) const {
     return find(key) != end();
@@ -267,7 +261,7 @@ class Bplustree_Set
   std::pair<iterator, bool> insert(const Key& key) {
     auto it = this->mutable_iterator(lower_bound(key));
     if constexpr (Type == SetType::Set) {
-      if (equivalent(*it, key)) return {iterator{it}, false};
+      if (equivalent(it.leaf_id_, key)) return {iterator{it}, false};
     }
     return {iterator{Parent::insert(it, key)}, true};
   }
@@ -277,7 +271,7 @@ class Bplustree_Set
   }
   size_type erase(const Key& key, bool single_erase = false) {
     const base_iterator first = this->mutable_iterator(lower_bound(key));
-    if (!equivalent(*first, key)) return 0;
+    if (!equivalent(first.leaf_id_, key)) return 0;
     if constexpr (Type == SetType::Set) {
       Parent::erase(first);
       return 1;

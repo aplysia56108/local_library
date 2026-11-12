@@ -14,7 +14,8 @@
 template <class Tree>
 void check(const Tree& tree, const std::vector<long long>& expected) {
   assert(tree.size() == expected.size());
-  assert(std::equal(tree.begin(), tree.end(), expected.begin(), expected.end()));
+  assert(
+      std::equal(tree.begin(), tree.end(), expected.begin(), expected.end()));
   assert(tree.end() - tree.begin() ==
          static_cast<std::ptrdiff_t>(expected.size()));
 }
@@ -93,11 +94,10 @@ void multiset_tests() {
   assert(*descending.upper_bound(3) == 1);
 
   auto multi = make_bmultiset<Capacity>(values.begin(), values.end(),
-                                       std::less<long long>{});
+                                        std::less<long long>{});
   assert(multi.count(4) == 3);
   std::cerr << "multiset tests all passed! (capacity=" << Capacity << ")\n";
 }
-
 
 /**
  * @brief Set の区間削除による分割・結合後の min_key を検証する。
@@ -121,12 +121,12 @@ class InspectableSet
     const auto& node = Pools::internals()[node_id];
     if (node.count == 0 || node.count >= Capacity) {
       std::cerr << "invalid Internal: phase=" << phase << ", step=" << step
-                << ", depth=" << depth << ", level="
-                << static_cast<long long>(node.level)
+                << ", depth=" << depth
+                << ", level=" << static_cast<long long>(node.level)
                 << ", count=" << static_cast<long long>(node.count)
                 << ", size=" << node.size << ", parent=" << node.parent
                 << ", position=" << static_cast<long long>(node.position)
-                << '\\n';
+                << '\n';
       assert(node.count > 0 && node.count < Capacity);
     }
     id_type first = Pools::null_id;
@@ -179,9 +179,9 @@ class InspectableSet
 template <SetType Type, std::size_t Capacity>
 void set_range_erase_tests() {
   InspectableSet<Type, Capacity> tree;
-  using Reference = std::conditional_t<Type == SetType::Set,
-                                       std::set<long long>,
-                                       std::multiset<long long>>;
+  using Reference =
+      std::conditional_t<Type == SetType::Set, std::set<long long>,
+                         std::multiset<long long>>;
   Reference reference;
 
   for (long long i = 0; i < 120; ++i) {
@@ -209,8 +209,9 @@ void set_range_erase_tests() {
   // 先頭・末尾・内部の区間を削除する。各ステップで木の深さや密度が変わる。
   for (long long step = 0; step < 200; ++step) {
     const std::size_t n = reference.size();
-    const std::size_t first =
-        step % 3 == 0 ? 0 : step % 3 == 1 ? n - 1 : (step * 37) % n;
+    const std::size_t first = step % 3 == 0   ? 0
+                              : step % 3 == 1 ? n - 1
+                                              : (step * 37) % n;
     const std::size_t width =
         1 + (step * 13) % std::min<std::size_t>(20, n - first);
     const std::size_t last = first + width;
