@@ -112,44 +112,51 @@ class InspectableSet
   using Internal = typename Traits::Internal;
   using Leaf = typename Traits::Leaf;
 
-  static const long long* validate_node(const Internal* node,
-                                        const char* phase, long long step,
-                                        std::size_t depth = 0) {
-    assert(node != nullptr);
-    if (node->count == 0 || node->count >= Capacity) {
+  using Pools = Bplustree::NodePools<Traits>;
+  using id_type = typename Pools::id_type;
+
+  // Return the leftmost Leaf ID, validating parent links and min_leaf_id.
+  static id_type validate_node(id_type node_id, const char* phase,
+                               long long step, std::size_t depth = 0) {
+    const auto& node = Pools::internals()[node_id];
+    if (node.count == 0 || node.count >= Capacity) {
       std::cerr << "invalid Internal: phase=" << phase << ", step=" << step
-                << ", depth=" << depth << ", level=" << node->level
-                << ", count=" << node->count << ", size=" << node->size
-                << ", parent=" << node->parent
-                << ", position=" << node->position << '\n';
-      assert(node->count > 0 && node->count < Capacity);
+                << ", depth=" << depth << ", level="
+                << static_cast<long long>(node.level)
+                << ", count=" << static_cast<long long>(node.count)
+                << ", size=" << node.size << ", parent=" << node.parent
+                << ", position=" << static_cast<long long>(node.position)
+                << '\\n';
+      assert(node.count > 0 && node.count < Capacity);
     }
-    const long long* first = nullptr;
+    id_type first = Pools::null_id;
     std::size_t size = 0;
 
-    for (std::size_t i = 0; i < node->count; ++i) {
-      const auto* child = node->children[i].get();
-      assert(child != nullptr);
-      assert(child->parent == node);
-      assert(child->position == i);
-
-      const long long* min_key;
-      if (node->level) {
-        const auto* inner = node->get_child(i);
-        assert(inner->level + 1 == node->level);
-        min_key = validate_node(inner, phase, step, depth + 1);
-        size += inner->size;
+    for (std::size_t i = 0; i < node.count; ++i) {
+      const id_type child_id = node.children[i];
+      assert(child_id != Pools::null_id);
+      id_type min_leaf;
+      if (node.level) {
+        const auto& child = Pools::internals()[child_id];
+        assert(child.parent == node_id);
+        assert(child.position == i);
+        assert(child.level + 1 == node.level);
+        min_leaf = validate_node(child_id, phase, step, depth + 1);
+        size += child.size;
       } else {
-        min_key = std::addressof(static_cast<const Leaf*>(child)->get());
+        const auto& child = Pools::leaves()[child_id];
+        assert(child.parent == node_id);
+        assert(child.position == i);
+        min_leaf = child_id;
         ++size;
       }
-      if (i == 0) first = min_key;
+      if (i == 0) first = min_leaf;
     }
 
-    for (std::size_t i = node->count; i < Capacity; ++i)
-      assert(node->children[i] == nullptr);
-    assert(node->size == size);
-    assert(node->min_key == first);
+    for (std::size_t i = node.count; i < Capacity; ++i)
+      assert(node.children[i] == Pools::null_id);
+    assert(node.size == size);
+    assert(node.min_leaf_id == first);
     return first;
   }
 
@@ -159,10 +166,13 @@ class InspectableSet
   }
 
   void validate_structure(const char* phase, long long step) const {
-    assert(this->root_->parent == nullptr);
-    assert(validate_node(this->root_.get(), phase, step) ==
+    const auto& root = Pools::internals()[this->root_];
+    assert(root.parent == Pools::null_id);
+    const id_type first_id = validate_node(this->root_, phase, step);
+    assert(first_id == root.min_leaf_id);
+    assert(std::addressof(Pools::leaves()[first_id].get()) ==
            std::addressof(*this->bbegin()));
-    assert(this->root_->size == this->size() + 2);
+    assert(root.size == this->size() + 2);
   }
 };
 
