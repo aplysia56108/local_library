@@ -66,7 +66,8 @@ class Base {
       return T{};
   };
 
-  static id_type& get_id(const iterator& it) {
+  template <bool IsConst, bool VisitAll>
+  static id_type get_id(const Iterator<Traits, Base, IsConst, VisitAll>& it) {
     return it.leaf_id_;
   }
 
