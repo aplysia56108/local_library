@@ -74,7 +74,7 @@ class Iterator {
 
   static void refresh_path(id_type node_id) {
     auto& node = get_node(node_id);
-    node.refresh();
+    node.after_sync();
     if (node.parent != null_id) refresh_path(node.parent);
   }
 
