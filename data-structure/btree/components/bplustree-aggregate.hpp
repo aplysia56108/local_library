@@ -247,7 +247,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         if (offset >= last) break;
       }
     }
-    node.refresh();
+    node.after_sync();
   }
 
   // predicate が破れた部分木だけを再帰的に探索する。
