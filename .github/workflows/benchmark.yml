@@ -1,0 +1,90 @@
+name: Performance benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Benchmark target
+        type: choice
+        options:
+          - all
+          - btree/vector/insert
+        default: all
+
+permissions:
+  contents: write
+
+concurrency:
+  group: benchmark-records
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    container: gcc:15.2
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure Python is available
+        shell: bash
+        run: |
+          if ! command -v python3 >/dev/null; then
+            apt-get update -qq
+            apt-get install -y -qq python3
+          fi
+
+      - name: Fetch AtCoder Library
+        shell: bash
+        run: |
+          git clone https://github.com/atcoder/ac-library .deps/ac-library
+          git -C .deps/ac-library checkout --detach \
+            864245a00b00dd008d1abfdc239618fdb7d139da
+
+      - name: Load previous bests
+        shell: bash
+        run: |
+          mkdir -p out/benchmark
+          if git ls-remote --exit-code --heads origin benchmark-records >/dev/null; then
+            git fetch origin benchmark-records:refs/remotes/origin/benchmark-records
+            git show refs/remotes/origin/benchmark-records:best.json > out/benchmark/best.json
+          else
+            printf '{"schema":1,"records":{}}\n' > out/benchmark/best.json
+          fi
+
+      - name: Run and verify benchmarks
+        shell: bash
+        env:
+          BENCHMARK_TARGET: ${{ inputs.target }}
+        run: |
+          python3 benchmark/run.py --target "$BENCHMARK_TARGET" --runs 5 \
+            --baseline out/benchmark/best.json \
+            --updated out/benchmark/best-updated.json
+
+      - name: Update best records (main only)
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          if git show-ref --verify --quiet refs/remotes/origin/benchmark-records; then
+            git switch -C benchmark-records refs/remotes/origin/benchmark-records
+          else
+            git switch --orphan benchmark-records
+            git rm -rf --quiet . || true
+          fi
+          cp out/benchmark/best-updated.json best.json
+          git add best.json
+          if ! git diff --cached --quiet; then
+            git -c user.name=github-actions[bot] \
+                -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+                commit -m "benchmark: update best records"
+            git push origin HEAD:benchmark-records
+          fi
+
+      - name: Upload benchmark logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: out/benchmark/
+          retention-days: 14
