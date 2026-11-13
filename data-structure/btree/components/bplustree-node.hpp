@@ -148,7 +148,6 @@ struct Internal : Traits::Node {
     if (!is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
     is_reversed = false;
-    const id_type self_id = id();
     for (pos_type i = 0; i < count; ++i) {
       if (level) {
         auto& child = get_child(i);
