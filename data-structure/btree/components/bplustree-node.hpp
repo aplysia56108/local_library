@@ -3,18 +3,16 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <compare>
-#include <concepts>
 #include <cstddef>
-#include <cstdlib>
-#include <functional>
-#include <iterator>
-#include <memory>
-#include <type_traits>
+#include <cstdint>
+#include <limits>
 #include <utility>
-#include <vector>
+
+#include "data-structure/btree/components/bplustree-node-pools.hpp"
 
 namespace Bplustree {
+
+using pos_type = std::uint8_t;
 
 template <class Traits>
 struct Node;
@@ -23,57 +21,32 @@ struct Leaf;
 template <class Traits>
 struct Internal;
 
-// using value_type = long long;
-// constexpr std::size_t Capacity = 32;
 template <class value_type, std::size_t Capacity = 32>
 struct Traits {
-  static_assert(Capacity >= 3);
+  static_assert(3 <= Capacity && Capacity <= 255);
   using T = value_type;
-  static constexpr std::size_t kNodeCapacity = Capacity;
-  static constexpr std::size_t kNodeHalf = Capacity / 2;
-  static constexpr bool IsReversible = true;
-  static constexpr bool IsMergable = true;
+  static constexpr pos_type kNodeCapacity = Capacity;
+  static constexpr pos_type kNodeHalf = Capacity / 2;
   using Node = Bplustree::Node<Traits>;
   using Leaf = Bplustree::Leaf<Traits>;
   using Internal = Bplustree::Internal<Traits>;
 };
 
-/** @brief 子 Node の実体型を識別する。 */
-// enum class NodeKind { kLeaf, kInternal };
-
 /**
- * @brief Leaf / Internal が共有する親へのリンクとノード種別。
- * @details parent と position は親 Internal の children 配列での所属を表す。
- * 根だけは parent == nullptr とする。構造変更後は Internal::sync() で更新する。
+ * @brief 共通の親 ID と親内位置を保持する。
+ * @details ID は各型の Pool 内で有効。自身の ID は Pool::index() で逆引きする。
+ * Pool の拡張は参照を無効化するため、確保を伴う外部操作前に reserve する。
  */
 template <class Traits>
 struct Node {
-  using L = Traits::Leaf;
-  using I = Traits::Internal;
+  using id_type = typename NodePools<Traits>::id_type;
+  static constexpr id_type null_id = NodePools<Traits>::null_id;
 
-  I* parent = nullptr;
-  std::size_t position = 0;
-  // const NodeKind kind;
-
-  inline static long long live_nodes = 0;
-  inline static long long peak_nodes = 0;
-
-  explicit Node() {
-    ++live_nodes;
-    peak_nodes = std::max(peak_nodes, live_nodes);
-  }
-  virtual ~Node() {
-    --live_nodes;
-  }
+  id_type parent = null_id;
+  pos_type position = 0;
 };
 
-/**
- * @brief 1要素を保持する Leaf。要素ごとに Node を分け、Leaf*
- * を安定した識別子にする。
- * @details Internal の子ポインタを並べ替えても Leaf
- * 自身のアドレスは変わらない。 ただし、その Leaf
- * を消去した場合や木を再構築した場合は無効になる。
- */
+/** @brief 1要素1Leaf。安定した要素識別子は Leaf Pool 内の ID。 */
 template <class Traits>
 struct Leaf : Traits::Node {
   using T = typename Traits::T;
@@ -83,278 +56,223 @@ struct Leaf : Traits::Node {
   T value;
 
  public:
-  inline static long long leaf_count = 0;
-  inline static long long peak_leaf_count = 0;
-
-  Leaf(const T& value) : N(), value(value) {
-    ++leaf_count;
-    peak_leaf_count = std::max(peak_leaf_count, leaf_count);
-  }
-
-  ~Leaf() {
-    --leaf_count;
-  }
-
+  explicit Leaf(const T& v) : N(), value(v) {}
   void set(const T& v) {
     value = v;
   }
-
   const T& get() const {
     return value;
   }
-
   T& get() {
     return value;
   }
 };
 
 /**
- * @brief 子 Node の所有権と部分木の構造情報を管理する内部ノード。
- * @details level == 0 の子は Leaf、それ以外の子は Internal。
- * level は構築時に確定し、通常状態では count < NodeCap を保つ。
- * 子の所有権は children の unique_ptr が持つ。
+ * @brief children は level==0 なら Leaf ID、それ以外は Internal ID。
+ * @details 通常 count < NodeCap。挿入直後のみ count == NodeCap があり得る。
+ * 所有権は Pool の ID 木にあり、子 ID の移動は実体を移動しない。
  */
 template <class Traits>
 struct Internal : Traits::Node {
-  // 通常状態では count < NodeCap を保つ。
-  // insert が true を返した直後だけ count == NodeCap になり、
-  // 呼び出し側は他の操作を行う前に必ず split する。
-  // split は両側を count < NodeCap に戻す。空き1枠は挿入時の一時領域。
-  static constexpr std::size_t NodeCap = Traits::kNodeCapacity;
-  static constexpr std::size_t HalfNodeCap = NodeCap / 2;
-  using T = typename Traits::T;
+  using pos_type = std::uint8_t;
+
+  static constexpr pos_type NodeCap = Traits::kNodeCapacity;
+  static constexpr pos_type HalfNodeCap = NodeCap / 2;
   using N = typename Traits::Node;
   using L = typename Traits::Leaf;
   using I = typename Traits::Internal;
-  inline static long long internal_count = 0;
-  inline static long long peak_internal_count = 0;
-  std::size_t count = 0;
+  using Pools = NodePools<Traits>;
+  using id_type = typename Pools::id_type;
+
+  static constexpr id_type null_id = Pools::null_id;
+
+  pos_type count = 0;
   std::size_t size = 0;
-  const std::size_t level;
+  pos_type level = 0;
   bool is_reversed = false;
-  std::array<std::unique_ptr<N>, NodeCap> children{};
+  std::array<id_type, NodeCap> children{};
 
-  Internal(std::size_t level = 0) : N(), level(level) {
-    ++internal_count;
-    peak_internal_count = std::max(peak_internal_count, internal_count);
-  }
-  ~Internal() {
-    --internal_count;
+  explicit Internal(pos_type lvl = 0) : N(), level(lvl) {
+    children.fill(null_id);
   }
 
-  I* get_child(std::size_t index) const {
-    return static_cast<typename Traits::Internal*>(children[index].get());
+  L& get_leaf(pos_type index) const {
+    assert(level == 0 && index < count);
+    return Pools::leaves()[children[index]];
+  }
+  I& get_child(pos_type index) const {
+    assert(level > 0 && index < count);
+    return Pools::internals()[children[index]];
+  }
+  std::size_t child_size(pos_type index) const {
+    return level == 0 ? 1 : get_child(index).size;
+  }
+  pos_type child_count(pos_type index) const {
+    return level == 0 ? 1 : get_child(index).count;
   }
 
-  std::size_t child_size(std::size_t index) const {
-    if (level == 0) return 1;
-    return get_child(index)->size;
+  /** @brief この Internal の Pool ID を取得する。Pool
+   * 再確保前の参照だけが有効。 */
+  id_type id() const {
+    return Pools::internals().index(*static_cast<const I*>(this));
   }
 
-  std::size_t child_count(std::size_t index) const {
-    if (level == 0) return 1;
-    return get_child(index)->count;
-  }
-
-  /**
-   * @brief 子配列から size / count と各子の parent / position を再計算する。
-   * @details children[0, count) は null のない連続領域とする。
-   * 挿入直後の count == NodeCap の一時状態にも対応する。
-   */
+  /** @brief count / size / parent / position を子 ID から再構築する。 */
   void sync() {
-    // insert / split の内部処理でも使うため、満杯の一時状態も同期する。
+    const id_type self_id = id();
     size = 0;
     count = 0;
     for (std::size_t i = 0; i < NodeCap; ++i) {
-      if (children[i] == nullptr) break;
-      children[i]->parent = static_cast<I*>(this);
-      children[i]->position = i;
-      if (level == 0)
+      if (children[i] == null_id) break;
+      if (level == 0) {
+        auto& child = Pools::leaves()[children[i]];
+        child.parent = self_id;
+        child.position = i;
         ++size;
-      else
-        size += child_size(i);
+      } else {
+        auto& child = Pools::internals()[children[i]];
+        child.parent = self_id;
+        child.position = i;
+        size += child.size;
+      }
       ++count;
     }
   }
-
-  void after_sync() {
-    return;
-  }
-
-  /**
-   * @brief 構造情報を同期し、派生 Internal の追加情報も更新する。
-   * @details after_sync() は Traits::Internal へ静的にディスパッチする。
-   */
+  void after_sync() {}
   void refresh() {
     sync();
-    static_cast<typename Traits::Internal*>(this)->after_sync();
+    static_cast<I*>(this)->after_sync();
   }
-
-  // reverseなど、位置を変更するような遅延伝搬について、実際に位置を変更する。
-  // その後子Node全てにpushする。
   void apply_reverse() {
-    if (!this->is_reversed) return;
+    if (!is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
-    this->is_reversed = false;
-    if (level)
-      for (std::size_t i = 0; i < count; ++i) get_child(i)->push_reverse();
-    refresh();
+    is_reversed = false;
+    for (pos_type i = 0; i < count; ++i) {
+      if (level) {
+        auto& child = get_child(i);
+        child.position = i;
+        child.push_reverse();
+      } else {
+        auto& child = get_leaf(i);
+        child.position = i;
+      }
+    }
   }
-
-  // reverseなど、位置を変更するような遅延伝搬のフラグをつける。実際の位置は変更しない。
   void push_reverse() {
-    this->is_reversed = !this->is_reversed;
-    static_cast<typename Traits::Internal*>(this)->push_reverse_impl();
+    is_reversed = !is_reversed;
+    static_cast<I*>(this)->push_reverse_impl();
   }
-
-  void push_reverse_impl() {
-    return;
-  };
-
-  // 位置を変更しない遅延伝搬について、実際に適用する。
-  // その後何らかの処理のあと、子Node全てにpushする想定。
-  void apply_lazy() {
-    return;
-  }
-
-  /**
-   * @brief この Node に残った reverse / lazy を子へ伝搬する。
-   * @details 子配列の順序や所有権を変更する前に呼び出す。
-   * 派生クラスの集約値は論理状態と整合していることを前提とする。
-   */
+  void push_reverse_impl() {}
+  void apply_lazy() {}
   void materialize() {
     apply_reverse();
     static_cast<I*>(this)->apply_lazy();
   }
 
-  /**
-   * @brief child を child_index に挿入する。
-   * @details 呼び出し側は必要な遅延情報を事前に伝搬しておく。
-   * @return 満杯になり、直ちに split() する必要がある場合 true。
-   * @warning true を返した直後は count == NodeCap の一時状態となる。
-   */
-  bool insert(std::unique_ptr<N> child, std::size_t child_index) {
-    assert(child != nullptr);
-    assert(child_index <= this->count);
-    assert(this->count < NodeCap);
-
-    for (std::size_t i = count; i > child_index; --i) {
-      children[i] = std::move(children[i - 1]);
-    }
-    children[child_index] = std::move(child);
+  /** @return 満杯になり直ちに split が必要なら true。 */
+  bool insert(id_type child, pos_type index) {
+    assert(child != null_id && index <= count && count < NodeCap);
+    for (pos_type i = count; i > index; --i) children[i] = children[i - 1];
+    children[index] = child;
     ++count;
     if (count == NodeCap) return true;
     refresh();
     return false;
   }
 
-  /**
-   * @brief 先頭 left_count 個の子を自身に残し、残りを同じ level
-   * の右兄弟へ移す。
-   * @details 子の移動前に呼び出し側が必要な遅延情報を伝搬する。
-   * 分割処理中は片側の count が 0 になることも許容する。
-   * 完成した木に空 Internal を残さないことは上位の処理が保証する。
-   * @return 分割後の右 Internal。左側はこの Node を再利用する。
-   */
-  std::unique_ptr<I> split(std::size_t left_count = HalfNodeCap) {
-    assert(count <= NodeCap);
-    assert(left_count <= count);
+  /** @return Pool に確保された右兄弟の Internal ID。 */
+  id_type split(pos_type left_count = HalfNodeCap) {
+    assert(count <= NodeCap && left_count <= count);
     assert(left_count < NodeCap && count - left_count < NodeCap);
-    const std::size_t right_count = count - left_count;
-    auto right = std::make_unique<I>(level);
-
-    for (std::size_t i = 0; i < right_count; ++i) {
-      right->children[i] = std::move(children[left_count + i]);
+    const pos_type right_count = count - left_count;
+    // emplace は vector を再確保し得る。ID と level を確保前に退避する。
+    const id_type left_id = id();
+    const pos_type current_level = level;
+    id_type right_id = Pools::make_internal(current_level);
+    auto& left = Pools::internals()[left_id];
+    auto& right = Pools::internals()[right_id];
+    for (pos_type i = 0; i < right_count; ++i) {
+      right.children[i] = left.children[left_count + i];
+      left.children[left_count + i] = null_id;
     }
-    refresh();
-    right->refresh();
-
-    return right;
+    left.refresh();
+    right.refresh();
+    return right_id;
   }
 
-  bool erase(std::size_t child_index) {
-    assert(this->count < NodeCap);
-    assert(child_index < count);
-    for (std::size_t i = child_index + 1; i < count; ++i)
-      children[i - 1] = std::move(children[i]);
-
-    children[count - 1].reset();
+  /** @return この Internal が空になった場合 true。 */
+  bool erase(pos_type index) {
+    assert(count < NodeCap && index < count);
+    Pools::recycle(children[index], level == 0);
+    for (pos_type i = index + 1; i < count; ++i) children[i - 1] = children[i];
+    children[count - 1] = null_id;
     refresh();
-    return this->count == 0;
+    return count == 0;
   }
 
-  /**
-   * @brief 部分木内の index 番目の要素の位置を返す。
-   * @param index この Internal を根とする部分木内での順位。[-1, size]。
-   * -1 は最左Leafの先頭直前、size は最右Leafの末尾を表す。
-   * @return 要素を格納する Leaf と Leaf 内の位置。
-   *
-   * ### 計算量
-   * O(NodeCapacity log_{NodeCapacity} N)
-   */
   template <bool WithLazy = false>
-  L* locate(std::size_t index) {
+  id_type locate(std::size_t index) {
     apply_reverse();
     if constexpr (WithLazy) static_cast<I*>(this)->apply_lazy();
-
-    if (level == 0) return static_cast<L*>(children[index].get());
-
-    for (std::size_t i = 0; i < count; ++i) {
-      if (index < child_size(i)) {
-        return get_child(i)->template locate<WithLazy>(index);
-      }
-      index -= child_size(i);
+    if (level == 0) {
+      assert(index < count);
+      return children[index];
+    }
+    for (pos_type i = 0; i < count; ++i) {
+      auto& child = get_child(i);
+      if (index < child.size) return child.template locate<WithLazy>(index);
+      index -= child.size;
     }
     assert(false);
-    return nullptr;
+    return null_id;
   }
 
-  /**
-   * @brief index 番目の Internal 子を、容量に余裕のある隣接兄弟へ吸収する。
-   * @details level > 0、index <
-   * count、親の配置変更に関する遅延は伝搬済みとする。
-   * 統合可能なら指定した子だけを破棄し、兄弟の生存を保証する。
-   * 指定した子の子孫は兄弟へ移動するため、子孫 Node 自体は破棄しない。
-   * 統合できない場合は何もしない。統合後は子の position が変わりうる。
-   */
-  void integrate_child(std::size_t index) {
+  /** @brief index の Internal 子を隣の兄弟へ移動し、元の子を回収する。 */
+  void integrate_child(pos_type index) {
+    assert(level > 0 && index < count);
     if (index && child_count(index - 1) + child_count(index) < NodeCap) {
-      auto left = get_child(index - 1);
-      auto right = get_child(index);
-      left->materialize();
-      right->materialize();
-      for (std::size_t i = 0; i < right->count; ++i)
-        left->children[left->count + i] = std::move(right->children[i]);
-      left->refresh();
+      auto& left = get_child(index - 1);
+      auto& right = get_child(index);
+
+      left.materialize();
+      right.materialize();
+      const auto left_count = left.count;
+      for (pos_type i = 0; i < right.count; ++i) {
+        left.children[left_count + i] = right.children[i];
+        right.children[i] = null_id;
+      }
+      right.count = 0;
+      left.refresh();
     } else if (index + 1 < count &&
                child_count(index + 1) + child_count(index) < NodeCap) {
-      auto left = get_child(index);
-      auto right = get_child(index + 1);
-      left->materialize();
-      right->materialize();
-      for (std::size_t i = right->count; i > 0; --i)
-        right->children[left->count + i - 1] =
-            std::move(right->children[i - 1]);
-      for (std::size_t i = 0; i < left->count; ++i)
-        right->children[i] = std::move(left->children[i]);
-      right->refresh();
-    } else
-      return;
+      auto& left = get_child(index);
+      auto& right = get_child(index + 1);
 
+      left.materialize();
+      right.materialize();
+      const auto left_count = left.count;
+      for (pos_type i = right.count; i > 0; --i)
+        right.children[left_count + i - 1] = right.children[i - 1];
+      for (pos_type i = 0; i < left_count; ++i) {
+        right.children[i] = left.children[i];
+        left.children[i] = null_id;
+      }
+      left.count = 0;
+      right.refresh();
+    } else {
+      return;
+    }
     erase(index);
   }
-  /**
-   * @brief 容量が許す場合、自身を左右いずれかの兄弟 Internal に統合する。
-   * @details 統合に成功した場合、この Node 自身は破棄されうる。
-   * この呼び出しによって、ほかの Node は破棄しない。
-   * 親・兄弟・子孫へのポインタは維持されるが、position は更新されうる。
-   * 呼び出し後は this にアクセスしないこと。
-   * 根に対しては何もしない。
-   */
+
+  /** @brief 統合成功時は自身の ID が無効になる。 */
   void integrate() {
-    if (this->parent == nullptr) return;
-    this->parent->integrate_child(this->position);
-  };
+    if (this->parent == null_id) return;
+    const auto parent_id = this->parent;
+    const auto position = this->position;
+    Pools::internals()[parent_id].integrate_child(position);
+  }
 };
 
 }  // namespace Bplustree

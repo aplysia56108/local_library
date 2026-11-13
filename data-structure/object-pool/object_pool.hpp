@@ -1,8 +1,10 @@
 #pragma once
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -18,6 +20,32 @@ class ObjectPool {
 
  public:
   ObjectPool() {};
+
+  /** @brief 少なくとも n
+   * スロット分の容量を事前に確保する。参照は無効化され得る。 */
+  void reserve(std::size_t n) {
+    assert(n < static_cast<std::size_t>(null_id));
+    pool_.reserve(n);
+  }
+
+  /** @brief 再利用可能スロットと未使用容量の合計が buffer
+   * 以上になるよう確保する。 */
+  void reserve_buffer(std::size_t buffer = 8) {
+    const std::size_t required = size() + buffer;
+    if (pool_.capacity() >= required) return;
+
+    reserve(std::max(required, pool_.capacity() * 2));
+  }
+
+  /** @brief 有効な参照から ID を取得する。O(1)。reserve/emplace
+   * による移動後の古い参照は不可。 */
+  id_type index(const T& value) const {
+    const T* ptr = std::addressof(value);
+    // 呼び出し側は、この Pool に現在格納されているオブジェクトを渡す。
+    const auto offset = ptr - pool_.data();
+    assert(offset >= 0 && static_cast<std::size_t>(offset) < pool_.size());
+    return static_cast<id_type>(offset);
+  }
 
   template <class... Args>
   id_type emplace(Args&&... args) {

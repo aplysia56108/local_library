@@ -14,7 +14,8 @@
 template <class Tree>
 void check(const Tree& tree, const std::vector<long long>& expected) {
   assert(tree.size() == expected.size());
-  assert(std::equal(tree.begin(), tree.end(), expected.begin(), expected.end()));
+  assert(
+      std::equal(tree.begin(), tree.end(), expected.begin(), expected.end()));
   assert(tree.end() - tree.begin() ==
          static_cast<std::ptrdiff_t>(expected.size()));
 }
@@ -93,11 +94,10 @@ void multiset_tests() {
   assert(*descending.upper_bound(3) == 1);
 
   auto multi = make_bmultiset<Capacity>(values.begin(), values.end(),
-                                       std::less<long long>{});
+                                        std::less<long long>{});
   assert(multi.count(4) == 3);
   std::cerr << "multiset tests all passed! (capacity=" << Capacity << ")\n";
 }
-
 
 /**
  * @brief Set の区間削除による分割・結合後の min_key を検証する。
@@ -112,44 +112,51 @@ class InspectableSet
   using Internal = typename Traits::Internal;
   using Leaf = typename Traits::Leaf;
 
-  static const long long* validate_node(const Internal* node,
-                                        const char* phase, long long step,
-                                        std::size_t depth = 0) {
-    assert(node != nullptr);
-    if (node->count == 0 || node->count >= Capacity) {
+  using Pools = Bplustree::NodePools<Traits>;
+  using id_type = typename Pools::id_type;
+
+  // Return the leftmost Leaf ID, validating parent links and min_leaf_id.
+  static id_type validate_node(id_type node_id, const char* phase,
+                               long long step, std::size_t depth = 0) {
+    const auto& node = Pools::internals()[node_id];
+    if (node.count == 0 || node.count >= Capacity) {
       std::cerr << "invalid Internal: phase=" << phase << ", step=" << step
-                << ", depth=" << depth << ", level=" << node->level
-                << ", count=" << node->count << ", size=" << node->size
-                << ", parent=" << node->parent
-                << ", position=" << node->position << '\n';
-      assert(node->count > 0 && node->count < Capacity);
+                << ", depth=" << depth
+                << ", level=" << static_cast<long long>(node.level)
+                << ", count=" << static_cast<long long>(node.count)
+                << ", size=" << node.size << ", parent=" << node.parent
+                << ", position=" << static_cast<long long>(node.position)
+                << '\n';
+      assert(node.count > 0 && node.count < Capacity);
     }
-    const long long* first = nullptr;
+    id_type first = Pools::null_id;
     std::size_t size = 0;
 
-    for (std::size_t i = 0; i < node->count; ++i) {
-      const auto* child = node->children[i].get();
-      assert(child != nullptr);
-      assert(child->parent == node);
-      assert(child->position == i);
-
-      const long long* min_key;
-      if (node->level) {
-        const auto* inner = node->get_child(i);
-        assert(inner->level + 1 == node->level);
-        min_key = validate_node(inner, phase, step, depth + 1);
-        size += inner->size;
+    for (std::size_t i = 0; i < node.count; ++i) {
+      const id_type child_id = node.children[i];
+      assert(child_id != Pools::null_id);
+      id_type min_leaf;
+      if (node.level) {
+        const auto& child = Pools::internals()[child_id];
+        assert(child.parent == node_id);
+        assert(child.position == i);
+        assert(child.level + 1 == node.level);
+        min_leaf = validate_node(child_id, phase, step, depth + 1);
+        size += child.size;
       } else {
-        min_key = std::addressof(static_cast<const Leaf*>(child)->get());
+        const auto& child = Pools::leaves()[child_id];
+        assert(child.parent == node_id);
+        assert(child.position == i);
+        min_leaf = child_id;
         ++size;
       }
-      if (i == 0) first = min_key;
+      if (i == 0) first = min_leaf;
     }
 
-    for (std::size_t i = node->count; i < Capacity; ++i)
-      assert(node->children[i] == nullptr);
-    assert(node->size == size);
-    assert(node->min_key == first);
+    for (std::size_t i = node.count; i < Capacity; ++i)
+      assert(node.children[i] == Pools::null_id);
+    assert(node.size == size);
+    assert(node.min_leaf_id == first);
     return first;
   }
 
@@ -159,19 +166,28 @@ class InspectableSet
   }
 
   void validate_structure(const char* phase, long long step) const {
-    assert(this->root_->parent == nullptr);
-    assert(validate_node(this->root_.get(), phase, step) ==
+    const auto& root = Pools::internals()[this->root_];
+    if (root.parent != Pools::null_id) {
+      std::cerr << "invalid root parent:"
+                << " phase=" << phase << " step=" << step
+                << " root_id=" << this->root_ << " parent_id=" << root.parent
+                << " level=" << static_cast<long long>(root.level)
+                << " size=" << root.size << '\n';
+    }
+    const id_type first_id = validate_node(this->root_, phase, step);
+    assert(first_id == root.min_leaf_id);
+    assert(std::addressof(Pools::leaves()[first_id].get()) ==
            std::addressof(*this->bbegin()));
-    assert(this->root_->size == this->size() + 2);
+    assert(root.size == this->size() + 2);
   }
 };
 
 template <SetType Type, std::size_t Capacity>
 void set_range_erase_tests() {
   InspectableSet<Type, Capacity> tree;
-  using Reference = std::conditional_t<Type == SetType::Set,
-                                       std::set<long long>,
-                                       std::multiset<long long>>;
+  using Reference =
+      std::conditional_t<Type == SetType::Set, std::set<long long>,
+                         std::multiset<long long>>;
   Reference reference;
 
   for (long long i = 0; i < 120; ++i) {
@@ -199,8 +215,9 @@ void set_range_erase_tests() {
   // 先頭・末尾・内部の区間を削除する。各ステップで木の深さや密度が変わる。
   for (long long step = 0; step < 200; ++step) {
     const std::size_t n = reference.size();
-    const std::size_t first =
-        step % 3 == 0 ? 0 : step % 3 == 1 ? n - 1 : (step * 37) % n;
+    const std::size_t first = step % 3 == 0   ? 0
+                              : step % 3 == 1 ? n - 1
+                                              : (step * 37) % n;
     const std::size_t width =
         1 + (step * 13) % std::min<std::size_t>(20, n - first);
     const std::size_t last = first + width;

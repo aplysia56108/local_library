@@ -12,9 +12,7 @@
 
 /**
  * @brief B+ tree 上の要素を指すイテレータ。
- * @details 通常要素は `(leaf_, index_)` で表す。最左 Leaf の
- * `index_ == -1` は `bbegin()`、最右 Leaf の
- * `index_ == leaf_->count` は `end()` を表す。
+ * @details Leaf の Pool ID で要素と番兵を表す。
  *
  * C++20 の `std::random_access_iterator` コンセプトを満たす。
  * ただし木構造上、任意距離の移動やイテレータ差分は厳密には O(1) ではなく
@@ -38,68 +36,71 @@ class Iterator {
   using Leaf = typename Traits::Leaf;
   using Internal = typename Traits::Internal;
   using T = typename Traits::T;
-  using leaf_pool_type = typename Tree::leaf_pool_type;
-  using internal_pool_type = typename Tree::internal_pool_type;
-  using id_type = typename leaf_pool_type::id_type;
-  static constexpr id_type null_id = leaf_pool_type::null_id;
-
-  inline static leaf_pool_type& l_pool_ = Tree::leaf_pool_;
-  inline static internal_pool_type& i_pool_ = Tree::internal_pool_;
+  using Pools = NodePools<Traits>;
+  using id_type = typename Pools::id_type;
+  static constexpr id_type null_id = NodePools<Traits>::null_id;
 
   id_type leaf_id_ = null_id;
 
+  static Leaf& get_leaf(const id_type& id) {
+    return Pools::leaves()[id];
+  }
+  static Internal& get_node(const id_type& id) {
+    return Pools::internals()[id];
+  }
+  Leaf& this_leaf() const {
+    return get_leaf(leaf_id_);
+  }
+
   static void apply_reverse_path(id_type node_id) {
-    auto& node = i_pool_[node_id];
+    auto& node = get_node(node_id);
     if (node.parent != null_id) apply_reverse_path(node.parent);
     node.apply_reverse();
   }
 
   void apply_reverse_path() const {
-    apply_reverse_path(l_pool_[leaf_id_].parent);
+    apply_reverse_path(this_leaf().parent);
   }
 
   static void materialize_path(id_type node_id) {
-    auto& node = i_pool_[node_id];
+    auto& node = get_node(node_id);
     if (node.parent != null_id) materialize_path(node.parent);
     node.materialize();
   }
 
   void materialize_path() const {
-    materialize_path(l_pool_[leaf_id_].parent);
+    materialize_path(this_leaf().parent);
   }
 
   static void refresh_path(id_type node_id) {
-    auto& node = i_pool_[node_id];
-    node.refresh();
+    auto& node = get_node(node_id);
+    node.after_sync();
     if (node.parent != null_id) refresh_path(node.parent);
   }
 
   void refresh_path() const {
-    refresh_path(l_pool_[leaf_id_].parent);
+    refresh_path(this_leaf().parent);
   }
 
   void advance(std::ptrdiff_t offset) {
     assert(leaf_id_ != null_id);
     // Reversal changes each Leaf's position. Materialize it before reading
     // the current position or computing the target index.
-    auto& leaf = l_pool_[leaf_id_];
+    auto& leaf = this_leaf();
     if constexpr (!VisitAll) apply_reverse_path();
     std::ptrdiff_t to_index =
         static_cast<std::ptrdiff_t>(leaf.position) + offset;
     id_type node_id = leaf.parent;
 
     while (true) {
-      auto& node = i_pool_[node_id];
+      auto& node = get_node(node_id);
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node.size)) {
         leaf_id_ = node.template locate<VisitAll>(to_index);
         return;
       }
-      if (node.parent == internal_pool_type::null_id) {
-        leaf_id_ = node.template locate<VisitAll>(to_index);
-        return;
-      }
-      for (std::size_t i = 0; i < node->position; ++i) {
-        to_index += i_pool_[node.parent].child_size(i);
+      assert(node.parent != null_id);
+      for (std::size_t i = 0; i < node.position; ++i) {
+        to_index += get_node(node.parent).child_size(i);
       }
       node_id = node.parent;
     }
@@ -114,7 +115,7 @@ class Iterator {
   using pointer = const T*;
 
   Iterator() = default;
-  Iterator(id_type leaf_id) : leaf_id_(leaf_id) {}
+  explicit Iterator(id_type leaf_id) : leaf_id_(leaf_id) {}
 
   template <bool OtherConst, bool OtherVisitALL>
     requires(IsConst && !OtherConst)
@@ -124,7 +125,7 @@ class Iterator {
   reference operator*() const {
     assert(leaf_id_ != null_id);
     if constexpr (!VisitAll) materialize_path();
-    return l_pool_[leaf_id_].get();
+    return this_leaf().get();
   }
 
   pointer operator->() const {
@@ -141,7 +142,7 @@ class Iterator {
     requires(!IsConst)
   {
     materialize_path();
-    l_pool_[leaf_id_].set(value);
+    this_leaf().set(value);
     refresh_path();
   }
 
@@ -192,19 +193,19 @@ class Iterator {
     lhs.apply_reverse_path();
     rhs.apply_reverse_path();
 
-    auto& l_node_id = l_pool_[lhs.leaf_id_].parent;
-    std::ptrdiff_t l_index = l_pool_[lhs.leaf_id_].position;
-    auto& r_node_id = l_pool_[rhs.leaf_id_].parent;
-    std::ptrdiff_t r_index = l_pool_[rhs.leaf_id_].position;
+    id_type l_node_id = get_leaf(lhs.leaf_id_).parent;
+    std::ptrdiff_t l_index = get_leaf(lhs.leaf_id_).position;
+    id_type r_node_id = get_leaf(rhs.leaf_id_).parent;
+    std::ptrdiff_t r_index = get_leaf(rhs.leaf_id_).position;
 
     while (l_node_id != r_node_id) {
-      auto& l_node = i_pool_[l_node_id];
-      auto& r_node = i_pool_[r_node_id];
+      auto& l_node = get_node(l_node_id);
+      auto& r_node = get_node(r_node_id);
       assert(l_node.parent != null_id && r_node.parent != null_id);
       for (std::size_t i = 0; i < l_node.position; ++i)
-        l_index += i_pool_[l_node.parent].child_size(i);
+        l_index += get_node(l_node.parent).child_size(i);
       for (std::size_t i = 0; i < r_node.position; ++i)
-        r_index += i_pool_[r_node.parent].child_size(i);
+        r_index += get_node(r_node.parent).child_size(i);
 
       l_node_id = l_node.parent;
       r_node_id = r_node.parent;

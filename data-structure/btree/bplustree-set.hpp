@@ -32,17 +32,20 @@ struct SetTraits<Key, Capacity>::Internal
   using Leaf = typename Traits::Leaf;
   using Parent::Parent;
 
-  const Key* min_key = nullptr;
+  using Pools = Bplustree::NodePools<Traits>;
+  using id_type = typename Pools::id_type;
+
+  // A Leaf ID is stable across vector reallocations, unlike a Key pointer.
+  id_type min_leaf_id = Pools::null_id;
+
+  const Key& min_key() const {
+    return Pools::leaves()[min_leaf_id].get();
+  }
 
   void after_sync() {
-    if (this->count == 0) {
-      min_key = nullptr;
-    } else if (this->level) {
-      min_key = this->get_child(0)->min_key;
-    } else {
-      min_key =
-          std::addressof(static_cast<Leaf*>(this->children[0].get())->get());
-    }
+    min_leaf_id = this->count == 0 ? Pools::null_id
+                  : this->level    ? this->get_child(0).min_leaf_id
+                                   : this->children[0];
   }
 };
 
@@ -69,49 +72,48 @@ class Bplustree_Set
 
   static_assert(std::strict_weak_order<Compare&, const Key&, const Key&>);
   [[no_unique_address]] Compare compare_;
+  using Pools = typename Parent::Pools;
+  using id_type = typename Pools::id_type;
 
-  bool inner_comp(const Key& a, const Key& b) const {
-    const Key* left = std::addressof(*this->bbegin_);
-    const Key* right = std::addressof(*this->end_);
-    const Key* pa = std::addressof(a);
-    const Key* pb = std::addressof(b);
+  template <bool Reversed = false>
+  bool inner_comp(const id_type& id, const Key& b) const {
+    if (id == Parent::get_id(this->bbegin_)) return true ^ Reversed;
+    if (id == Parent::get_id(this->end_)) return false ^ Reversed;
 
-    if (pa == left) return pb != left;
-    if (pb == left) return false;
-    if (pb == right) return pa != right;
-    if (pa == right) return false;
-    return compare_(a, b);
+    if constexpr (Reversed) return compare_(b, Parent::get_leaf(id).get());
+    return compare_(Parent::get_leaf(id).get(), b);
   }
 
   template <bool Equal>
-  bool comp(const Key& a, const Key& b) const {
-    if constexpr (Equal) return !inner_comp(b, a);
-    return inner_comp(a, b);
+  bool comp(const id_type& id, const Key& b) const {
+    if constexpr (Equal) return !inner_comp<true>(id, b);
+    return inner_comp(id, b);
   }
 
-  bool equivalent(const Key& a, const Key& b) const {
-    return !inner_comp(a, b) && !inner_comp(b, a);
+  bool equivalent(const id_type& id, const Key& b) const {
+    return !inner_comp(id, b) && !inner_comp<true>(id, b);
   }
 
   using Leaf = typename Parent::Leaf;
   using Internal = typename Parent::Internal;
+
   template <bool Equal>
-  Leaf* max_l(Internal* node, const Key& key) const {
+  id_type max_l(id_type node_id, const Key& key) const {
+    const auto& node = Pools::internals()[node_id];
     std::size_t l = 0;
-    std::size_t r = node->count;
+    std::size_t r = node.count;
 
     while (l + 1 < r) {
-      std::size_t m = (l + r) / 2;
-      const Key& x = node->level
-                         ? *node->get_child(m)->min_key
-                         : static_cast<Leaf*>(node->children[m].get())->get();
-      if (comp<Equal>(x, key))
+      const std::size_t m = (l + r) / 2;
+      const id_type id =
+          node.level ? node.get_child(m).min_leaf_id : node.children[m];
+      if (comp<Equal>(id, key))
         l = m;
       else
         r = m;
     }
-    if (node->level) return max_l<Equal>(node->get_child(l), key);
-    return static_cast<Leaf*>(node->children[l].get());
+    if (node.level) return max_l<Equal>(node.children[l], key);
+    return node.children[l];
   }
 
  public:
@@ -216,7 +218,7 @@ class Bplustree_Set
     if constexpr (Type == SetType::Set) {
       values.erase(std::unique(values.begin(), values.end(),
                                [&](const Key& a, const Key& b) {
-                                 return equivalent(a, b);
+                                 return !compare_(a, b) && !compare_(b, a);
                                }),
                    values.end());
     }
@@ -239,15 +241,15 @@ class Bplustree_Set
     return upper_bound(key);
   }
   iterator max_lt(const Key& key) const {
-    return {max_l<false>(this->root_.get(), key)};
+    return iterator{max_l<false>(this->root_, key)};
   }
   iterator max_le(const Key& key) const {
-    return {max_l<true>(this->root_.get(), key)};
+    return iterator{max_l<true>(this->root_, key)};
   }
 
   iterator find(const Key& key) const {
     auto pos = lower_bound(key);
-    return pos != end() && equivalent(*pos, key) ? pos : end();
+    return pos != end() && equivalent(Parent::get_id(pos), key) ? pos : end();
   }
   bool contains(const Key& key) const {
     return find(key) != end();
@@ -259,7 +261,7 @@ class Bplustree_Set
   std::pair<iterator, bool> insert(const Key& key) {
     auto it = this->mutable_iterator(lower_bound(key));
     if constexpr (Type == SetType::Set) {
-      if (equivalent(*it, key)) return {iterator{it}, false};
+      if (equivalent(Parent::get_id(it), key)) return {iterator{it}, false};
     }
     return {iterator{Parent::insert(it, key)}, true};
   }
@@ -269,7 +271,7 @@ class Bplustree_Set
   }
   size_type erase(const Key& key, bool single_erase = false) {
     const base_iterator first = this->mutable_iterator(lower_bound(key));
-    if (!equivalent(*first, key)) return 0;
+    if (!equivalent(Parent::get_id(first), key)) return 0;
     if constexpr (Type == SetType::Set) {
       Parent::erase(first);
       return 1;
