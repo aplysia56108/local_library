@@ -52,7 +52,7 @@ jobs:
           mkdir -p out/benchmark
           # Exit code 0 means the lookup succeeded, even if the branch is absent.
           # A remote/authentication error must fail the workflow rather than reset history.
-          git ls-remote --heads origin refs/heads/benchmark-records             > out/benchmark/remote-head.txt
+          git ls-remote --heads origin refs/heads/benchmark-records > out/benchmark/remote-head.txt
           if [[ -s out/benchmark/remote-head.txt ]]; then
             git fetch origin benchmark-records:refs/remotes/origin/benchmark-records
             git show refs/remotes/origin/benchmark-records:best.json > out/benchmark/best.json
