@@ -148,12 +148,14 @@ struct Internal : Traits::Node {
     if (!is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
     is_reversed = false;
-    for (pos_type i = 0; i < count; ++i) {
-      if (level) {
+    if (level) {
+      for (pos_type i = 0; i < count; ++i) {
         auto& child = get_child(i);
         child.position = i;
         child.push_reverse();
-      } else {
+      }
+    } else {
+      for (pos_type i = 0; i < count; ++i) {
         auto& child = get_leaf(i);
         child.position = i;
       }
