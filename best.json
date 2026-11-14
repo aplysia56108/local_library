@@ -1,4 +1,26 @@
 {
-  "schema": 1,
-  "records": {}
+  "records": {
+    "btree/vector/insert": {
+      "03960e08265106af": {
+        "best_ns": 25891601,
+        "commit": "08d1384a480408ddac7af4a2fdf9f1d1167802df",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "e399ead5b786ae49d5a05ce62d197cc64a01c7f19130fdad5b74242f6ee2f889",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43613212961"
+      }
+    }
+  },
+  "schema": 1
 }
