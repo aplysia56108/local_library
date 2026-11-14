@@ -1,65 +1,89 @@
-# Benchmark
+# B+tree Performance Benchmarks
 
-各ライブラリの代表的な操作を、固定された入力で計測・検証する仕組みです。通常の `test` / `verify` とは分離し、GitHub Actions の `Performance benchmarks` から **手動でのみ**実行します。
+代表的な操作を固定入力で10万回実行し、**処理時間を測定しながら出力の正しさを確認**する。通常の test / verify とは分離し、GitHub Actions の Performance benchmarks から手動でのみ実行する。
 
 ## ディレクトリ構成
 
-各ケースを `benchmark/<ライブラリ>/<対象>/<操作>/` にまとめます。例えば次のように配置します。
+`benchmark/btree/<種類>/<操作>/` ごとに4ファイルを置く。
 
 ```text
 benchmark/
 ├── readme.md
 ├── run.py
 └── btree/
-    └── vector/
-        └── insert/
-            ├── generator.cpp
-            ├── in.txt
-            ├── out.txt
-            └── benchmark.cpp
+    ├── generator_common.hpp    # 独立した参照実装・入力生成
+    ├── benchmark_common.hpp    # B+tree実行・計測
+    ├── set/
+    │   ├── insert/
+    │   ├── erase/
+    │   └── access/
+    ├── vector/
+    │   ├── insert/
+    │   ├── erase/
+    │   ├── reverse/
+    │   └── access/
+    ├── segtree/
+    │   ├── prod/
+    │   ├── insert/
+    │   ├── erase/
+    │   ├── reverse/
+    │   └── access/
+    └── lazysegtree/
+        ├── prod/
+        ├── apply/
+        ├── insert/
+        ├── erase/
+        ├── reverse/
+        └── access/
 ```
 
-- `generator.cpp`: 同じ入力を再現可能な形で `in.txt` に生成し、**ライブラリの実装に依存しない愚直な処理**で正解 `out.txt` を作る。生成に時間がかかってもよい。
-- `in.txt`: ベンチマークが標準入力から読む固定入力。Git管理する。
-- `out.txt`: 正しい標準出力（バイト単位で比較）。Git管理する。
-- `benchmark.cpp`: `in.txt` を標準入力から読み、各クエリを処理して、正しい結果を**標準出力**へ出す。計測時間は `BENCHMARK_NS=<ナノ秒>` の形式で**標準エラー出力**へ1行出す。
+各操作のディレクトリには **`generator.cpp` / `in.txt` / `out.txt` / `benchmark.cpp`** を置く。新規ケースの generator.cpp と benchmark.cpp は共通ヘッダの薄いラッパーで、入力・出力は各ケースにGit管理している。既存の `vector/insert` は旧形式のまま互換性を維持する。
 
-入力生成、正解出力の作成、コンパイル、入力の読み込み、結果の出力は計測に含めません。実際に評価したい処理の前後を `std::chrono::steady_clock` で囲みます。すべての実行で出力を `out.txt` と照合し、不一致・異常終了・タイムアウトがあれば失敗とします。
+- `generator.cpp`：固定seedから `in.txt` を生成し、独立した参照実装で `out.txt` を作る。時間がかかってもよい。B+tree本体は一切使用しない。
+- `benchmark.cpp`：標準入力からクエリを読み、対象処理だけを `std::chrono::steady_clock` で測る。実行後の全要素または各prod結果を標準出力へ、`BENCHMARK_NS=...` を標準エラーへ出力する。
+- `in.txt` と `out.txt`：すべてのCapで共通。ベンチマーク実行時は**毎回バイト単位で照合**し、不一致・異常終了・タイムアウトは失敗とする。
 
-## 最初のケース: btree/vector/insert
+## 計測条件
 
-`Bplustree_Vector<long long, 8>` に、ランダムな位置への挿入を **100,000回**行います。入力は `Q`、続いて `index value` が `Q` 行です（`index` は挿入直前の要素数以下）。出力は挿入後の全要素を1行ずつ表示したものです。
+- Capは **8、16、32、64**。`-DNODE_CAP=<Cap>` で**コンパイル時**に切り替える（ソースやフィクスチャの複製はしない）。
+- 各操作10万回。`access` は10万要素の全インデックスに `operator[]` でアクセスする（要素の全列挙と区別する）。
+- `insert` は空から10万要素へ。`erase` は20万要素から10万回削除して10万要素を残し、**計測外で全列挙**する。
+- `reverse` は半開区間の**反転**（rotateではない）。区間はほとんどが長さ32以下、1000操作ごとにより長い区間も混ぜる。
+- `prod` は10万要素に対して10万回。Segtreeでは `AffineMonoid<modint998244353>`（非可換な一次関数合成）、LazySegtreeでは `AffineSumLazySegtree<modint998244353>`（区間和＋一次関数作用）を用いる。
+- `apply` は区間Affine作用を10万回行い、計測外で全列挙する。
+- 初期構築、入力読み込み、最終出力、正解の生成、コンパイルは計測外。`prod` / `access` では戻り値を事前に確保した配列へ保存して計測後に出力する。
+- generatorの正解は `std::vector`、独立したFenwickによる順位選択、単純区間走査、prefix sumなどで計算する。`set` は重複なしのキーを使う。
 
-`generator.cpp` は固定seedのxorshift32でクエリを生成し、`std::vector::insert` を使って `out.txt` を作ります。`std::vector` によるO(Q²)の生成・正解計算は、速度測定の対象ではありません。
+Cap別のベンチマークを1ケースとし、合計 **18操作 × 4Cap = 72ケース**、各ケース5回で **360回の計測**となる。
 
-### 入力の再生成
+## 入力再生成
 
 ```bash
-cd benchmark/btree/vector/insert
-g++ -std=c++23 -O2 generator.cpp -o generator
-./generator
-# in.txt と out.txt の変更内容を確認し、必要なら両方コミットする
+# 例: 新しいcase
+cd benchmark/btree/lazysegtree/apply
+g++ -std=c++23 -O2 generator.cpp -o /tmp/benchmark-generator
+/tmp/benchmark-generator
+# in.txt / out.txt の変更をチェックしてからコミット
 ```
 
-生成した `generator` 実行ファイルはGitに追加しないでください。seed・生成規則・クエリ数を変更すると過去の値と直接比較できなくなるため、`in.txt` / `out.txt` の内容から計算したハッシュで記録を分けます。
+generatorは実行中のディレクトリに `in.txt` と `out.txt` を書き出す。フィクスチャ変更時は新しいハッシュを持つ**別の最速記録**として扱う。
 
-### ローカル実行
-
-リポジトリのrootから:
+## ローカルで計測
 
 ```bash
-python3 benchmark/run.py --target btree/vector/insert --runs 5
+# rootからすべてのCapを計測
+python3 benchmark/run.py --target btree/vector/erase --caps all --runs 5
+
+# 機能全体・指定Capだけ
+python3 benchmark/run.py --target btree/segtree --caps 16,32 --runs 5
 ```
 
-`g++ -std=c++23 -O2` を用いてコンパイルし、5回の計測でそれぞれ正解を検証した上で、実行時間の**中央値**を採用します。`--target all` で全ケースを実行します。結果・実行ファイルは `out/benchmark/` に保存します。
+`--target` は `all` / `btree/<種類>` / `btree/<種類>/<操作>` を指定可能。`--caps` は `all` または `8,16,32,64` のカンマ区切り（個別指定可）。コンパイルはC++23, GCC `-O2`。実行可能ファイルやJSONは `out/benchmark/` に保存する。
 
-## GitHub Actions と最速記録
+## GitHub Actions と記録
 
-1. `Actions` → `Performance benchmarks` → `Run workflow` を選択する（workflowはmainにマージ後に表示される）。
-2. 任意のブランチと `target`（`all` または個別ケース）を選んで実行する。
-3. Summaryに「過去最速・今回の中央値・最速比」を表示する。120%超は🟡、150%超は🔴で警告する。警告だけではジョブを失敗にしない。
-4. **main上の成功した実行だけ**、専用の `benchmark-records` ブランチの `best.json` に最速の中央値を記録する。開発ブランチは比較のみで記録を更新しない。
+Actions → Performance benchmarks → Run workflow を使って対象ブランチ・ライブラリ/操作・Capを選択する。5回の**中央値**で比較し、120%超で🟡、150%超で🔴とする（遅くなっても警告のみ、出力不一致は失敗）。
 
-最速比は `今回の中央値 / 過去最速の中央値 × 100%` です。CPUモデル・コンパイラのバージョン・コンパイルフラグ・入出力フィクスチャのハッシュが一致する記録だけを比較し、違う場合は別の記録として扱います。GitHub-hosted runnerにはノイズがあるため、**歴代最速との比較はあくまで参考値**です。
+**mainの成功実行だけ** `benchmark-records` ブランチの `best.json` を更新する。開発ブランチは読み取り・比較のみ。フィクスチャ・Cap・CPUモデル・コンパイラ・フラグが同じ結果だけを比較する。過去の `btree/vector/insert`（Cap8固定）の旧記録は残すが、新方式の `btree/vector/insert/cap8` 以降とは区別する。
 
-計測環境は `ubuntu-24.04` + `gcc:15.2` のコンテナです。ActionsのArtifactに計測ログ（14日保存）を残しますが、最速記録は専用ブランチで保持します。
+GitHub-hosted runnerではCPUモデルだけでなくホスト負荷も変化するので、**最速比は参考指標**とする。計測ログはArtifactに14日保存する。

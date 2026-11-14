@@ -29,14 +29,31 @@ def cpu_model():
 
 
 def choose_cases(target):
+    """Accept all, a directory prefix, or a specific operation directory."""
     cases = sorted(BENCHMARKS.rglob("benchmark.cpp"))
     if not cases:
         raise RuntimeError("No benchmark.cpp found")
     if target != "all":
-        cases = [source for source in cases if source.parent.relative_to(BENCHMARKS).as_posix() == target]
+        cases = [
+            source for source in cases
+            if (path := source.parent.relative_to(BENCHMARKS).as_posix()) == target
+            or path.startswith(target + "/")
+        ]
         if not cases:
             raise RuntimeError(f"Unknown benchmark target: {target}")
     return cases
+
+
+def parse_caps(value):
+    if value == "all":
+        return [8, 16, 32, 64]
+    try:
+        caps = [int(part) for part in value.split(",")]
+    except ValueError:
+        raise ValueError(f"Invalid capacities: {value}") from None
+    if not caps or any(cap not in (8, 16, 32, 64) for cap in caps):
+        raise ValueError("Capacities must be 8, 16, 32, or 64")
+    return list(dict.fromkeys(caps))
 
 
 def check_output(expected, actual, case):
@@ -50,8 +67,8 @@ def check_output(expected, actual, case):
     raise RuntimeError(f"{case}: output mismatch (expected {len(want)} lines, got {len(got)} lines)")
 
 
-def run_case(source, runs, baseline, metadata):
-    case = source.parent.relative_to(BENCHMARKS).as_posix()
+def run_case(source, cap, runs, baseline, metadata):
+    case = source.parent.relative_to(BENCHMARKS).as_posix() + f"/cap{cap}"
     fixture_in = source.parent / "in.txt"
     fixture_out = source.parent / "out.txt"
     fixture_generator = source.parent / "generator.cpp"
@@ -61,14 +78,16 @@ def run_case(source, runs, baseline, metadata):
     input_bytes = fixture_in.read_bytes()
     expected = fixture_out.read_bytes()
     fixture_sha = hashlib.sha256(input_bytes + b"\0" + expected).hexdigest()
+    flags = [*FLAGS, f"-DNODE_CAP={cap}"]
     fingerprint_data = {
         **metadata,
+        "flags": flags,
         "fixture_sha256": fixture_sha,
     }
     fingerprint = hashlib.sha256(json.dumps(fingerprint_data, sort_keys=True).encode()).hexdigest()[:16]
 
     executable = BUILD / (case.replace("/", "_") + ".exe")
-    compile_command = ["g++", *FLAGS, str(source.relative_to(ROOT)), "-o", str(executable)]
+    compile_command = ["g++", *flags, str(source.relative_to(ROOT)), "-o", str(executable)]
     subprocess.run(compile_command, cwd=ROOT, check=True, timeout=180)
 
     durations = []
@@ -153,6 +172,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", default="all")
     parser.add_argument("--runs", type=int, default=5)
+    parser.add_argument("--caps", default="all", help="all or comma-separated capacities (8,16,32,64)")
     parser.add_argument("--baseline", type=Path, default=BUILD / "best.json")
     parser.add_argument("--updated", type=Path, default=BUILD / "best-updated.json")
     args = parser.parse_args()
@@ -169,7 +189,13 @@ def main():
 
     compiler = subprocess.check_output(["g++", "--version"], text=True).splitlines()[0]
     metadata = {"cpu": cpu_model(), "compiler": compiler, "flags": FLAGS}
-    results = [run_case(source, args.runs, baseline, metadata) for source in choose_cases(args.target)]
+    caps = parse_caps(args.caps)
+    # Keep each operation's four capacity variants on the same runner.
+    results = [
+        run_case(source, cap, args.runs, baseline, metadata)
+        for source in choose_cases(args.target)
+        for cap in caps
+    ]
 
     args.updated.parent.mkdir(parents=True, exist_ok=True)
     args.updated.write_text(json.dumps(baseline, indent=2, ensure_ascii=False, sort_keys=True) + "\n")
