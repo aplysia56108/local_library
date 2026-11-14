@@ -1,9 +1,0 @@
-# Generated build output and compile logs
-out/
-in/
-
-# Python cache files
-__pycache__/
-*.py[cod]
-
-tmp.cpp
