@@ -127,8 +127,8 @@ def main():
         parser.error("--runs must be a positive odd number")
 
     base_root, dev_root = args.base_root.resolve(), args.dev_root.resolve()
-    if dev_root != benchmark.ROOT:
-        raise RuntimeError("--dev-root must match the checkout containing compare.py")
+    if base_root != benchmark.ROOT:
+        raise RuntimeError("--base-root must match the main checkout containing compare.py")
     base_sha = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=base_root, text=True
     ).strip()
@@ -155,7 +155,7 @@ def main():
     fixture_cache, results = {}, []
 
     for source in benchmark.choose_cases(args.target):
-        relative_source = source.relative_to(dev_root)
+        relative_source = source.relative_to(base_root)
         relative_dir = source.parent.relative_to(benchmark.BENCHMARKS)
         input_bytes, expected = benchmark.load_fixtures(source, fixture_cache)
         fixture_sha = hashlib.sha256(input_bytes + b"\0" + expected).hexdigest()
@@ -180,7 +180,7 @@ def main():
                 for variant in order:
                     ns, rss = measure(
                         executables[variant], input_bytes, expected,
-                        f"{variant}/{case}", benchmark.check_output, cwd=dev_root,
+                        f"{variant}/{case}", benchmark.check_output, cwd=base_root,
                     )
                     samples[variant]["ns"].append(ns)
                     samples[variant]["rss_kib"].append(rss)
