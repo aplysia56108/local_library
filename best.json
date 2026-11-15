@@ -1,5 +1,3789 @@
 {
   "records": {
+    "btree/lazysegtree/access/cap16": {
+      "8c7d46f2901d5946": {
+        "best_ns": 1374306,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/access/cap32": {
+      "62f4b06430486441": {
+        "best_ns": 1316589,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/access/cap64": {
+      "fa680051dff12fbe": {
+        "best_ns": 1438114,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/access/cap8": {
+      "5ac750eea08a1fd1": {
+        "best_ns": 1737849,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/apply/cap16": {
+      "701cd163f3223399": {
+        "best_ns": 23176803,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "cc8d58164e371f2a9622c79e88dfdb701c4137a2a71aef9833acc08b31782777",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/apply/cap32": {
+      "059076e8c7b89a94": {
+        "best_ns": 28157214,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "cc8d58164e371f2a9622c79e88dfdb701c4137a2a71aef9833acc08b31782777",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/apply/cap64": {
+      "a3403074aae490c0": {
+        "best_ns": 36764117,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "cc8d58164e371f2a9622c79e88dfdb701c4137a2a71aef9833acc08b31782777",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/apply/cap8": {
+      "1826035b00b03909": {
+        "best_ns": 21574952,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "cc8d58164e371f2a9622c79e88dfdb701c4137a2a71aef9833acc08b31782777",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/erase/cap16": {
+      "eaeec092a15826e0": {
+        "best_ns": 18845940,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "1af99ffe476a3247628ab642573ac2f407e0bfc660c39c0baa8cab5baa3d628f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/erase/cap32": {
+      "8e7304c01653b99d": {
+        "best_ns": 23711383,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "1af99ffe476a3247628ab642573ac2f407e0bfc660c39c0baa8cab5baa3d628f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/erase/cap64": {
+      "446d4da6de8cf6e9": {
+        "best_ns": 33481818,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "1af99ffe476a3247628ab642573ac2f407e0bfc660c39c0baa8cab5baa3d628f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/erase/cap8": {
+      "5e9a0cc422fcd445": {
+        "best_ns": 18797409,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "1af99ffe476a3247628ab642573ac2f407e0bfc660c39c0baa8cab5baa3d628f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/insert/cap16": {
+      "bdfdccc7bd1d318c": {
+        "best_ns": 23692047,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "8922ae6513d74f588d5bee80e99039547e53af7614670576bf9624a50552a629",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/insert/cap32": {
+      "5469fc60181d67ea": {
+        "best_ns": 26610089,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "8922ae6513d74f588d5bee80e99039547e53af7614670576bf9624a50552a629",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/insert/cap64": {
+      "1b023fabc35d26e9": {
+        "best_ns": 36179921,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "8922ae6513d74f588d5bee80e99039547e53af7614670576bf9624a50552a629",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/insert/cap8": {
+      "8a98a0f6da4c983f": {
+        "best_ns": 23734672,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "8922ae6513d74f588d5bee80e99039547e53af7614670576bf9624a50552a629",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/iterate/cap16": {
+      "8c7d46f2901d5946": {
+        "best_ns": 881783,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/iterate/cap32": {
+      "62f4b06430486441": {
+        "best_ns": 614348,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/iterate/cap64": {
+      "fa680051dff12fbe": {
+        "best_ns": 503751,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/iterate/cap8": {
+      "5ac750eea08a1fd1": {
+        "best_ns": 1110539,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/max_right/cap16": {
+      "9b59eb9b51fd18e0": {
+        "best_ns": 16365441,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/max_right/cap32": {
+      "63c6e75415ae4df8": {
+        "best_ns": 16905386,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/max_right/cap64": {
+      "5910b05edd92fff0": {
+        "best_ns": 19358033,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/max_right/cap8": {
+      "71c4ba5e95bd92c5": {
+        "best_ns": 17291702,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/min_left/cap16": {
+      "2d6cbd3ff8c6aa0e": {
+        "best_ns": 16491922,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/min_left/cap32": {
+      "2cafdc8b4535d3a1": {
+        "best_ns": 17515566,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/min_left/cap64": {
+      "bce8de0ecac1c0f7": {
+        "best_ns": 21113458,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/min_left/cap8": {
+      "14ee741dda084161": {
+        "best_ns": 17504903,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_edges/cap16": {
+      "3c488151ac4fe4cc": {
+        "best_ns": 31111883,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "516bb07388e9fbededa01f01b845dd7fdf91f6a7954af7cadfd28b67a773ca9b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_edges/cap32": {
+      "fda03aee0b915df5": {
+        "best_ns": 35823646,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "516bb07388e9fbededa01f01b845dd7fdf91f6a7954af7cadfd28b67a773ca9b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_edges/cap64": {
+      "ccc7b24d36da2d73": {
+        "best_ns": 40863363,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "516bb07388e9fbededa01f01b845dd7fdf91f6a7954af7cadfd28b67a773ca9b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_edges/cap8": {
+      "dbc99503bce42a54": {
+        "best_ns": 31805966,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "516bb07388e9fbededa01f01b845dd7fdf91f6a7954af7cadfd28b67a773ca9b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_growth/cap16": {
+      "5c28ca56d7d6bb63": {
+        "best_ns": 57079742,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e319ec872afacb59b206ff3c96a6f20ea92e3f02b48824a8e9d242a4b9f6f8ae",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_growth/cap32": {
+      "9543a44333c4d91d": {
+        "best_ns": 61224756,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e319ec872afacb59b206ff3c96a6f20ea92e3f02b48824a8e9d242a4b9f6f8ae",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_growth/cap64": {
+      "233fcde71df171ac": {
+        "best_ns": 78060019,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e319ec872afacb59b206ff3c96a6f20ea92e3f02b48824a8e9d242a4b9f6f8ae",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_growth/cap8": {
+      "04f8c1ef96756dda": {
+        "best_ns": 63280874,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e319ec872afacb59b206ff3c96a6f20ea92e3f02b48824a8e9d242a4b9f6f8ae",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_hotspot/cap16": {
+      "8c849ff9e7a6c3bd": {
+        "best_ns": 38768199,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "aaffdf1889fcb56cb863329214a1d15d3a4be9d0cd1dcfbacfd23c51edacdff5",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_hotspot/cap32": {
+      "9273a67874972f6d": {
+        "best_ns": 42577486,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "aaffdf1889fcb56cb863329214a1d15d3a4be9d0cd1dcfbacfd23c51edacdff5",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_hotspot/cap64": {
+      "4621f689fe820798": {
+        "best_ns": 52826966,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "aaffdf1889fcb56cb863329214a1d15d3a4be9d0cd1dcfbacfd23c51edacdff5",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_hotspot/cap8": {
+      "f093a42df73aa27a": {
+        "best_ns": 40396489,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "aaffdf1889fcb56cb863329214a1d15d3a4be9d0cd1dcfbacfd23c51edacdff5",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_shrink/cap16": {
+      "b9baf24edeaab167": {
+        "best_ns": 61045564,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "b76adf70f4741f69f843aa1e14fff628589de4700508d4f315d4149174384cd8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_shrink/cap32": {
+      "9f4b3b3a54179215": {
+        "best_ns": 63734024,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "b76adf70f4741f69f843aa1e14fff628589de4700508d4f315d4149174384cd8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_shrink/cap64": {
+      "f77cff74796d35ad": {
+        "best_ns": 76171988,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "b76adf70f4741f69f843aa1e14fff628589de4700508d4f315d4149174384cd8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_shrink/cap8": {
+      "c83ae65abdb3f55c": {
+        "best_ns": 66482824,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "b76adf70f4741f69f843aa1e14fff628589de4700508d4f315d4149174384cd8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_uniform/cap16": {
+      "989165cf1086ab67": {
+        "best_ns": 57421364,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "afbffa83c3564120ebd028fa4a2edbcccbc1da98aed0199ae4ae8cdd6234c71a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_uniform/cap32": {
+      "02bb3801d1a3bea1": {
+        "best_ns": 60611235,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "afbffa83c3564120ebd028fa4a2edbcccbc1da98aed0199ae4ae8cdd6234c71a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_uniform/cap64": {
+      "473d3952001f7a8e": {
+        "best_ns": 75654688,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "afbffa83c3564120ebd028fa4a2edbcccbc1da98aed0199ae4ae8cdd6234c71a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/mixed_uniform/cap8": {
+      "6c7c880b15487b54": {
+        "best_ns": 62606080,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "afbffa83c3564120ebd028fa4a2edbcccbc1da98aed0199ae4ae8cdd6234c71a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/prod/cap16": {
+      "d4a6c94ff1443ff2": {
+        "best_ns": 9208757,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c8ae43f0597bcda0e51ea1e2cff4119a32b66c8802c67e6384d5c1db03956427",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/prod/cap32": {
+      "176ac10cb9f7467c": {
+        "best_ns": 8593578,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c8ae43f0597bcda0e51ea1e2cff4119a32b66c8802c67e6384d5c1db03956427",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/prod/cap64": {
+      "98dee279b0b1384f": {
+        "best_ns": 8156106,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c8ae43f0597bcda0e51ea1e2cff4119a32b66c8802c67e6384d5c1db03956427",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/prod/cap8": {
+      "6cfbbcdcf662360c": {
+        "best_ns": 11098804,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c8ae43f0597bcda0e51ea1e2cff4119a32b66c8802c67e6384d5c1db03956427",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/range_erase/cap16": {
+      "d7ea5fe64d5d2776": {
+        "best_ns": 171847167,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "701f03509e6475067d8e4d06cdb1f01830755639ec24d3d42c4533c06ea4715f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/range_erase/cap32": {
+      "261c44dd0ce35707": {
+        "best_ns": 206239764,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "701f03509e6475067d8e4d06cdb1f01830755639ec24d3d42c4533c06ea4715f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/range_erase/cap64": {
+      "d41d9c42214439bf": {
+        "best_ns": 253346865,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "701f03509e6475067d8e4d06cdb1f01830755639ec24d3d42c4533c06ea4715f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/range_erase/cap8": {
+      "adee35eaf3766125": {
+        "best_ns": 224415705,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "701f03509e6475067d8e4d06cdb1f01830755639ec24d3d42c4533c06ea4715f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/reverse/cap16": {
+      "b4c603a8f027e758": {
+        "best_ns": 164469411,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "821d1fd26824a086bd8cef8b907634fa195a07a7e11d15d2f1375e23721f70c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/reverse/cap32": {
+      "e203b6fd279a27e0": {
+        "best_ns": 170428988,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "821d1fd26824a086bd8cef8b907634fa195a07a7e11d15d2f1375e23721f70c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/reverse/cap64": {
+      "d7aaffce61cc8586": {
+        "best_ns": 209079184,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "821d1fd26824a086bd8cef8b907634fa195a07a7e11d15d2f1375e23721f70c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/reverse/cap8": {
+      "06311a325c559959": {
+        "best_ns": 187282389,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "821d1fd26824a086bd8cef8b907634fa195a07a7e11d15d2f1375e23721f70c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/split_merge/cap16": {
+      "b03463e8c365aaf3": {
+        "best_ns": 164779318,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "3c73379cfb7ccaaaf731fd996b01c7f8e673e95b107ded10624a761a99c84a7e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/split_merge/cap32": {
+      "4b5f4bc20119489b": {
+        "best_ns": 182583227,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "3c73379cfb7ccaaaf731fd996b01c7f8e673e95b107ded10624a761a99c84a7e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/split_merge/cap64": {
+      "cde8b745cf566114": {
+        "best_ns": 239142304,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "3c73379cfb7ccaaaf731fd996b01c7f8e673e95b107ded10624a761a99c84a7e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/lazysegtree/split_merge/cap8": {
+      "9944d39541bd0ae3": {
+        "best_ns": 175284243,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "3c73379cfb7ccaaaf731fd996b01c7f8e673e95b107ded10624a761a99c84a7e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/access/cap16": {
+      "4f7131bb864ce0ed": {
+        "best_ns": 1103127,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "df3b14e901fd4ab604438827b90ca992ea07c2de62bccb1a44efaba07b80a752",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/access/cap32": {
+      "76d9b0dcf29a60dd": {
+        "best_ns": 1093703,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "df3b14e901fd4ab604438827b90ca992ea07c2de62bccb1a44efaba07b80a752",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/access/cap64": {
+      "47b42a11afb27d59": {
+        "best_ns": 1290060,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "df3b14e901fd4ab604438827b90ca992ea07c2de62bccb1a44efaba07b80a752",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/access/cap8": {
+      "8e94e7623cca3aa9": {
+        "best_ns": 1347888,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "df3b14e901fd4ab604438827b90ca992ea07c2de62bccb1a44efaba07b80a752",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/erase/cap16": {
+      "5cc55dc4be325d28": {
+        "best_ns": 43518122,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2b4e639f542d4dbca964142824438a20fdddfb7312a2ca363fc0005663a8c24e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/erase/cap32": {
+      "aab1646d40d7501b": {
+        "best_ns": 61426929,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2b4e639f542d4dbca964142824438a20fdddfb7312a2ca363fc0005663a8c24e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/erase/cap64": {
+      "50b6aea23de75743": {
+        "best_ns": 104214508,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2b4e639f542d4dbca964142824438a20fdddfb7312a2ca363fc0005663a8c24e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/erase/cap8": {
+      "ac213036f355780b": {
+        "best_ns": 32379828,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2b4e639f542d4dbca964142824438a20fdddfb7312a2ca363fc0005663a8c24e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/insert/cap16": {
+      "52de39001a624ed3": {
+        "best_ns": 45132266,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2a091bfe9920b7e46024fad541a7d08ee477b253050392275023b3b2d41a335c",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/insert/cap32": {
+      "8f8ece3eda3341e9": {
+        "best_ns": 65042871,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2a091bfe9920b7e46024fad541a7d08ee477b253050392275023b3b2d41a335c",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/insert/cap64": {
+      "6fdea24d1e936b6e": {
+        "best_ns": 108371898,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2a091bfe9920b7e46024fad541a7d08ee477b253050392275023b3b2d41a335c",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/insert/cap8": {
+      "835bac82b253eb38": {
+        "best_ns": 36498858,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2a091bfe9920b7e46024fad541a7d08ee477b253050392275023b3b2d41a335c",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/iterate/cap16": {
+      "4f7131bb864ce0ed": {
+        "best_ns": 611735,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "df3b14e901fd4ab604438827b90ca992ea07c2de62bccb1a44efaba07b80a752",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/iterate/cap32": {
+      "76d9b0dcf29a60dd": {
+        "best_ns": 456861,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "df3b14e901fd4ab604438827b90ca992ea07c2de62bccb1a44efaba07b80a752",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/iterate/cap64": {
+      "47b42a11afb27d59": {
+        "best_ns": 375928,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "df3b14e901fd4ab604438827b90ca992ea07c2de62bccb1a44efaba07b80a752",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/iterate/cap8": {
+      "8e94e7623cca3aa9": {
+        "best_ns": 616542,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "df3b14e901fd4ab604438827b90ca992ea07c2de62bccb1a44efaba07b80a752",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/max_right/cap16": {
+      "9b59eb9b51fd18e0": {
+        "best_ns": 16230003,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/max_right/cap32": {
+      "63c6e75415ae4df8": {
+        "best_ns": 17305288,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/max_right/cap64": {
+      "5910b05edd92fff0": {
+        "best_ns": 19564013,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/max_right/cap8": {
+      "71c4ba5e95bd92c5": {
+        "best_ns": 17387993,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/min_left/cap16": {
+      "2d6cbd3ff8c6aa0e": {
+        "best_ns": 16945462,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/min_left/cap32": {
+      "2cafdc8b4535d3a1": {
+        "best_ns": 17314850,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/min_left/cap64": {
+      "bce8de0ecac1c0f7": {
+        "best_ns": 20320710,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/min_left/cap8": {
+      "14ee741dda084161": {
+        "best_ns": 18018381,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_edges/cap16": {
+      "b1fceb6b4dc1c29b": {
+        "best_ns": 59528389,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c865568913ecefd48165b7403f1f5672d5c880eb799edb24e57536b3f8a7474b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_edges/cap32": {
+      "46a12c45c8ca628b": {
+        "best_ns": 92252628,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c865568913ecefd48165b7403f1f5672d5c880eb799edb24e57536b3f8a7474b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_edges/cap64": {
+      "60445e771c20ddc2": {
+        "best_ns": 109470166,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c865568913ecefd48165b7403f1f5672d5c880eb799edb24e57536b3f8a7474b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_edges/cap8": {
+      "f8ab7cafc5370e8e": {
+        "best_ns": 49035303,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c865568913ecefd48165b7403f1f5672d5c880eb799edb24e57536b3f8a7474b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_growth/cap16": {
+      "6d87025934b2ab9f": {
+        "best_ns": 93911303,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "a009c931441154d4264aee2e547325c18e91d2b0845579df3fa60ab3d9e495f8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_growth/cap32": {
+      "097aa85e1572668b": {
+        "best_ns": 124113223,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "a009c931441154d4264aee2e547325c18e91d2b0845579df3fa60ab3d9e495f8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_growth/cap64": {
+      "caff35c56b35298a": {
+        "best_ns": 195673312,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "a009c931441154d4264aee2e547325c18e91d2b0845579df3fa60ab3d9e495f8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_growth/cap8": {
+      "c20ee6a052916d6f": {
+        "best_ns": 82706576,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "a009c931441154d4264aee2e547325c18e91d2b0845579df3fa60ab3d9e495f8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_hotspot/cap16": {
+      "6d3b6628cf9210e8": {
+        "best_ns": 72316578,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "42639884430130ca9e8a0f8d9e2095edc4b42adb395ce74d3c289bd7a8c97311",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_hotspot/cap32": {
+      "68797efe2c9cde2e": {
+        "best_ns": 96264462,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "42639884430130ca9e8a0f8d9e2095edc4b42adb395ce74d3c289bd7a8c97311",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_hotspot/cap64": {
+      "a9fa3f1659c182ff": {
+        "best_ns": 145004176,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "42639884430130ca9e8a0f8d9e2095edc4b42adb395ce74d3c289bd7a8c97311",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_hotspot/cap8": {
+      "73e58e76a7c4e28e": {
+        "best_ns": 60284093,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "42639884430130ca9e8a0f8d9e2095edc4b42adb395ce74d3c289bd7a8c97311",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_shrink/cap16": {
+      "5b6826196377a331": {
+        "best_ns": 91485369,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "0051d55873dfd2976c0fcb27302f125116a73043c4aa88b13f3844ad98fa22e7",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_shrink/cap32": {
+      "0754b895be607d39": {
+        "best_ns": 117316920,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "0051d55873dfd2976c0fcb27302f125116a73043c4aa88b13f3844ad98fa22e7",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_shrink/cap64": {
+      "9c5b0afb5cce5add": {
+        "best_ns": 169523953,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "0051d55873dfd2976c0fcb27302f125116a73043c4aa88b13f3844ad98fa22e7",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_shrink/cap8": {
+      "7d2553caaba91e4d": {
+        "best_ns": 81390570,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "0051d55873dfd2976c0fcb27302f125116a73043c4aa88b13f3844ad98fa22e7",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_uniform/cap16": {
+      "6e232ab210d36dd7": {
+        "best_ns": 96320494,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "8bc289b8b15f9c26ceaa5585753f5a469294ab3c8dd38a52a7a757c719668e41",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_uniform/cap32": {
+      "b6c3b3ccf521946f": {
+        "best_ns": 124803677,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "8bc289b8b15f9c26ceaa5585753f5a469294ab3c8dd38a52a7a757c719668e41",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_uniform/cap64": {
+      "b40d6b98d3aa324e": {
+        "best_ns": 189687161,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "8bc289b8b15f9c26ceaa5585753f5a469294ab3c8dd38a52a7a757c719668e41",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/mixed_uniform/cap8": {
+      "34b25417883d1304": {
+        "best_ns": 106546941,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "8bc289b8b15f9c26ceaa5585753f5a469294ab3c8dd38a52a7a757c719668e41",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/prod/cap16": {
+      "d3a6e249413b964c": {
+        "best_ns": 12189666,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "4357a2566b06f28afeb8acdc73e9d564a5361073a582b694026dfa81345e3542",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/prod/cap32": {
+      "ff139f1cf821e5a1": {
+        "best_ns": 12148134,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "4357a2566b06f28afeb8acdc73e9d564a5361073a582b694026dfa81345e3542",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/prod/cap64": {
+      "961ce16b09aa313b": {
+        "best_ns": 11414318,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "4357a2566b06f28afeb8acdc73e9d564a5361073a582b694026dfa81345e3542",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/prod/cap8": {
+      "0098b0e10b2ae8d4": {
+        "best_ns": 13160156,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "4357a2566b06f28afeb8acdc73e9d564a5361073a582b694026dfa81345e3542",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/range_erase/cap16": {
+      "a9160d97c4cddf5a": {
+        "best_ns": 275897959,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "7838d0b070c02e056aafbf1bd65a597638b37d54f45ea22bfb9122caeb72968a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/range_erase/cap32": {
+      "81b83c5941155db8": {
+        "best_ns": 337380829,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "7838d0b070c02e056aafbf1bd65a597638b37d54f45ea22bfb9122caeb72968a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/range_erase/cap64": {
+      "4106044d8a3bc2df": {
+        "best_ns": 460230125,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "7838d0b070c02e056aafbf1bd65a597638b37d54f45ea22bfb9122caeb72968a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/range_erase/cap8": {
+      "24247a674639ed65": {
+        "best_ns": 251781543,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "7838d0b070c02e056aafbf1bd65a597638b37d54f45ea22bfb9122caeb72968a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/reverse/cap16": {
+      "d7cbdca097ee65e5": {
+        "best_ns": 271743685,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c2f2754509ec28c497e30b0a89f596e5132ff06f146e44d585838c75c6eac6ac",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/reverse/cap32": {
+      "c27dce089697eecf": {
+        "best_ns": 339015075,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c2f2754509ec28c497e30b0a89f596e5132ff06f146e44d585838c75c6eac6ac",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/reverse/cap64": {
+      "7e89c3f278cf9487": {
+        "best_ns": 509035512,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c2f2754509ec28c497e30b0a89f596e5132ff06f146e44d585838c75c6eac6ac",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/reverse/cap8": {
+      "d9d9b47fa3c5d968": {
+        "best_ns": 240141976,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c2f2754509ec28c497e30b0a89f596e5132ff06f146e44d585838c75c6eac6ac",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/split_merge/cap16": {
+      "8862952d7e377f2f": {
+        "best_ns": 298662738,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "49d31dc04b2c186538a9a2055b3b5af042120068528155b848a30f148ef3cf55",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/split_merge/cap32": {
+      "cfcaac966422cbf6": {
+        "best_ns": 400744203,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "49d31dc04b2c186538a9a2055b3b5af042120068528155b848a30f148ef3cf55",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/split_merge/cap64": {
+      "ba3a249241bc0edd": {
+        "best_ns": 623695801,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "49d31dc04b2c186538a9a2055b3b5af042120068528155b848a30f148ef3cf55",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/segtree/split_merge/cap8": {
+      "19d9d79c34e17cdf": {
+        "best_ns": 257145582,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "49d31dc04b2c186538a9a2055b3b5af042120068528155b848a30f148ef3cf55",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/access/cap16": {
+      "2b8abd6c468dac43": {
+        "best_ns": 1122236,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "bc8e660540b89da29a6d6201475a60bbf614236ef1872f37cd5c80161b5c6070",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/access/cap32": {
+      "c91fa16ff092f872": {
+        "best_ns": 1113072,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "bc8e660540b89da29a6d6201475a60bbf614236ef1872f37cd5c80161b5c6070",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/access/cap64": {
+      "967ccaa22912bd87": {
+        "best_ns": 1218702,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "bc8e660540b89da29a6d6201475a60bbf614236ef1872f37cd5c80161b5c6070",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/access/cap8": {
+      "aca54f628fb3388c": {
+        "best_ns": 1417252,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "bc8e660540b89da29a6d6201475a60bbf614236ef1872f37cd5c80161b5c6070",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/erase/cap16": {
+      "4d6d05761b9742e1": {
+        "best_ns": 29462707,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "84eb9216825ff9b5f8529722e3172d3dc34ee06343ae164bbddefdf51ac0bca9",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/erase/cap32": {
+      "572e33b23a8f769c": {
+        "best_ns": 30927310,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "84eb9216825ff9b5f8529722e3172d3dc34ee06343ae164bbddefdf51ac0bca9",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/erase/cap64": {
+      "0413bd1c8eef5431": {
+        "best_ns": 35899962,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "84eb9216825ff9b5f8529722e3172d3dc34ee06343ae164bbddefdf51ac0bca9",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/erase/cap8": {
+      "3aa63118a73b7431": {
+        "best_ns": 34507439,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "84eb9216825ff9b5f8529722e3172d3dc34ee06343ae164bbddefdf51ac0bca9",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/insert/cap16": {
+      "2aaa79fdc9e8418d": {
+        "best_ns": 20322628,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "89ae9080c8498824c29c8522803675511cd50957d66d653c0ee481a7c2b51a96",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/insert/cap32": {
+      "98c8a47a02b6b8be": {
+        "best_ns": 20608420,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "89ae9080c8498824c29c8522803675511cd50957d66d653c0ee481a7c2b51a96",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/insert/cap64": {
+      "f19b480af97d3e22": {
+        "best_ns": 25716736,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "89ae9080c8498824c29c8522803675511cd50957d66d653c0ee481a7c2b51a96",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/insert/cap8": {
+      "16c92a40661e3d34": {
+        "best_ns": 26107810,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "89ae9080c8498824c29c8522803675511cd50957d66d653c0ee481a7c2b51a96",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/iterate/cap16": {
+      "2b8abd6c468dac43": {
+        "best_ns": 636642,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "bc8e660540b89da29a6d6201475a60bbf614236ef1872f37cd5c80161b5c6070",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/iterate/cap32": {
+      "c91fa16ff092f872": {
+        "best_ns": 352723,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "bc8e660540b89da29a6d6201475a60bbf614236ef1872f37cd5c80161b5c6070",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/iterate/cap64": {
+      "967ccaa22912bd87": {
+        "best_ns": 304900,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "bc8e660540b89da29a6d6201475a60bbf614236ef1872f37cd5c80161b5c6070",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/iterate/cap8": {
+      "aca54f628fb3388c": {
+        "best_ns": 638284,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "bc8e660540b89da29a6d6201475a60bbf614236ef1872f37cd5c80161b5c6070",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/lower_bound/cap16": {
+      "dc56586b3eeb5bbc": {
+        "best_ns": 20519216,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "0e2efd949c506b202959482a72d6151f327d959c46e884c1753d54e9d6f23876",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/lower_bound/cap32": {
+      "91f5d6afffbe720c": {
+        "best_ns": 18967832,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "0e2efd949c506b202959482a72d6151f327d959c46e884c1753d54e9d6f23876",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/lower_bound/cap64": {
+      "0280b65d44dcaff9": {
+        "best_ns": 16270777,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "0e2efd949c506b202959482a72d6151f327d959c46e884c1753d54e9d6f23876",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/lower_bound/cap8": {
+      "00fe2b18ad77a25d": {
+        "best_ns": 29839150,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "0e2efd949c506b202959482a72d6151f327d959c46e884c1753d54e9d6f23876",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_edges/cap16": {
+      "65bda0491038bcff": {
+        "best_ns": 13077422,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2fb95b39b47384003e297223f1e168ac73cdc0be6612f23110ce8261ced5b9fc",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_edges/cap32": {
+      "31534cb36111ca33": {
+        "best_ns": 12312996,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2fb95b39b47384003e297223f1e168ac73cdc0be6612f23110ce8261ced5b9fc",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_edges/cap64": {
+      "33a47ef077481a95": {
+        "best_ns": 14384406,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2fb95b39b47384003e297223f1e168ac73cdc0be6612f23110ce8261ced5b9fc",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_edges/cap8": {
+      "ba3478116c3bae95": {
+        "best_ns": 18390550,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "2fb95b39b47384003e297223f1e168ac73cdc0be6612f23110ce8261ced5b9fc",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_growth/cap16": {
+      "72b9387c33820579": {
+        "best_ns": 22444486,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "15480ae8585234108c5421b4f500476b311020334ab631ab74adeca8797b8472",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_growth/cap32": {
+      "190927438ca56580": {
+        "best_ns": 21513590,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "15480ae8585234108c5421b4f500476b311020334ab631ab74adeca8797b8472",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_growth/cap64": {
+      "be9c11d88e9c91c7": {
+        "best_ns": 24506007,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "15480ae8585234108c5421b4f500476b311020334ab631ab74adeca8797b8472",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_growth/cap8": {
+      "289d19985e6174fb": {
+        "best_ns": 30132074,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "15480ae8585234108c5421b4f500476b311020334ab631ab74adeca8797b8472",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_hotspot/cap16": {
+      "ca406ad9f62804b1": {
+        "best_ns": 13749951,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "25bd73ed784bc70a32782b9eed98346eab27740e4fd5f0649bfb7bf346e92159",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_hotspot/cap32": {
+      "dca2f556675dc07d": {
+        "best_ns": 13496438,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "25bd73ed784bc70a32782b9eed98346eab27740e4fd5f0649bfb7bf346e92159",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_hotspot/cap64": {
+      "791509797198307b": {
+        "best_ns": 16223409,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "25bd73ed784bc70a32782b9eed98346eab27740e4fd5f0649bfb7bf346e92159",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_hotspot/cap8": {
+      "0669cfc6217019be": {
+        "best_ns": 20684653,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "25bd73ed784bc70a32782b9eed98346eab27740e4fd5f0649bfb7bf346e92159",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_shrink/cap16": {
+      "c27f4edc921ccca4": {
+        "best_ns": 26504888,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6d3c2c3ae3f44b043a289a49f6407df244f0dc26b8add4cb0596f740827c5293",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_shrink/cap32": {
+      "285f62cc18e4a0e8": {
+        "best_ns": 24296260,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6d3c2c3ae3f44b043a289a49f6407df244f0dc26b8add4cb0596f740827c5293",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_shrink/cap64": {
+      "ed7c2e31fd01008f": {
+        "best_ns": 25691885,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6d3c2c3ae3f44b043a289a49f6407df244f0dc26b8add4cb0596f740827c5293",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_shrink/cap8": {
+      "743b50e345e4e963": {
+        "best_ns": 29588499,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6d3c2c3ae3f44b043a289a49f6407df244f0dc26b8add4cb0596f740827c5293",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_uniform/cap16": {
+      "3ad5ae846e4378ea": {
+        "best_ns": 22508639,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "de1213622eb517d3e94a0058f71b24797e38378e13ae2fdafbe8526f65b65ebe",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_uniform/cap32": {
+      "3f3fe70c8bb9c49f": {
+        "best_ns": 22361376,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "de1213622eb517d3e94a0058f71b24797e38378e13ae2fdafbe8526f65b65ebe",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_uniform/cap64": {
+      "a40001413aa5716a": {
+        "best_ns": 23639978,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "de1213622eb517d3e94a0058f71b24797e38378e13ae2fdafbe8526f65b65ebe",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/set/mixed_uniform/cap8": {
+      "0c43ea36c01f5c46": {
+        "best_ns": 30067815,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "de1213622eb517d3e94a0058f71b24797e38378e13ae2fdafbe8526f65b65ebe",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/access/cap16": {
+      "05c8a057c6779297": {
+        "best_ns": 1167408,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6b43942c2b5859ee7ff68b11eac294fceb7de1ebcf0bfd8217beb9faf8a7f0c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/access/cap32": {
+      "22bc81be846887e5": {
+        "best_ns": 1125300,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6b43942c2b5859ee7ff68b11eac294fceb7de1ebcf0bfd8217beb9faf8a7f0c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/access/cap64": {
+      "ce1609a6fd02c6c8": {
+        "best_ns": 1256969,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6b43942c2b5859ee7ff68b11eac294fceb7de1ebcf0bfd8217beb9faf8a7f0c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/access/cap8": {
+      "fdf2bd5559b620fd": {
+        "best_ns": 1484725,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6b43942c2b5859ee7ff68b11eac294fceb7de1ebcf0bfd8217beb9faf8a7f0c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/erase/cap16": {
+      "e812da8bdb31e0b9": {
+        "best_ns": 15811823,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "80b4450a6b6eafa22e717a5d1b7856a4155ce41a46a75186efc4b0b021c8caa8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/erase/cap32": {
+      "2a66a1d89b088fb2": {
+        "best_ns": 16317277,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "80b4450a6b6eafa22e717a5d1b7856a4155ce41a46a75186efc4b0b021c8caa8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/erase/cap64": {
+      "009999e323cfbcbb": {
+        "best_ns": 20990582,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "80b4450a6b6eafa22e717a5d1b7856a4155ce41a46a75186efc4b0b021c8caa8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/erase/cap8": {
+      "2136b3e4b2bf2677": {
+        "best_ns": 15458038,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "80b4450a6b6eafa22e717a5d1b7856a4155ce41a46a75186efc4b0b021c8caa8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
     "btree/vector/insert": {
       "03960e08265106af": {
         "best_ns": 25891601,
@@ -19,6 +3803,886 @@
           ]
         },
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43613212961"
+      }
+    },
+    "btree/vector/insert/cap16": {
+      "9a0b7ade1edde7ff": {
+        "best_ns": 17735234,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e399ead5b786ae49d5a05ce62d197cc64a01c7f19130fdad5b74242f6ee2f889",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/insert/cap32": {
+      "ac7c27dae2692adb": {
+        "best_ns": 17813610,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e399ead5b786ae49d5a05ce62d197cc64a01c7f19130fdad5b74242f6ee2f889",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/insert/cap64": {
+      "c91a74b021581ca1": {
+        "best_ns": 25121694,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e399ead5b786ae49d5a05ce62d197cc64a01c7f19130fdad5b74242f6ee2f889",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/insert/cap8": {
+      "d783de197ca02794": {
+        "best_ns": 20991683,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e399ead5b786ae49d5a05ce62d197cc64a01c7f19130fdad5b74242f6ee2f889",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/iterate/cap16": {
+      "05c8a057c6779297": {
+        "best_ns": 758786,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6b43942c2b5859ee7ff68b11eac294fceb7de1ebcf0bfd8217beb9faf8a7f0c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/iterate/cap32": {
+      "22bc81be846887e5": {
+        "best_ns": 465405,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6b43942c2b5859ee7ff68b11eac294fceb7de1ebcf0bfd8217beb9faf8a7f0c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/iterate/cap64": {
+      "ce1609a6fd02c6c8": {
+        "best_ns": 414037,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6b43942c2b5859ee7ff68b11eac294fceb7de1ebcf0bfd8217beb9faf8a7f0c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/iterate/cap8": {
+      "fdf2bd5559b620fd": {
+        "best_ns": 754309,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6b43942c2b5859ee7ff68b11eac294fceb7de1ebcf0bfd8217beb9faf8a7f0c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_edges/cap16": {
+      "a5cbd4d13e842bc8": {
+        "best_ns": 36001328,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "7679d5a7b5b15f8db2e485abfcbbed0fe5fa8b0c3330aeae6e4e028d90dd4501",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_edges/cap32": {
+      "0b56ef9b002e0e72": {
+        "best_ns": 40254460,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "7679d5a7b5b15f8db2e485abfcbbed0fe5fa8b0c3330aeae6e4e028d90dd4501",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_edges/cap64": {
+      "3e54a807596faaf5": {
+        "best_ns": 42475867,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "7679d5a7b5b15f8db2e485abfcbbed0fe5fa8b0c3330aeae6e4e028d90dd4501",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_edges/cap8": {
+      "6c260c26a707c7e4": {
+        "best_ns": 37509149,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "7679d5a7b5b15f8db2e485abfcbbed0fe5fa8b0c3330aeae6e4e028d90dd4501",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_growth/cap16": {
+      "ea4e1041eeb16cf6": {
+        "best_ns": 52889435,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "58bd1baa34b652da6d55b075ff8064b74666818b4fa5ba10e8ddf61981d498fa",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_growth/cap32": {
+      "cd2aa32482ee58eb": {
+        "best_ns": 53899928,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "58bd1baa34b652da6d55b075ff8064b74666818b4fa5ba10e8ddf61981d498fa",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_growth/cap64": {
+      "b8a9d10b1caa102c": {
+        "best_ns": 63180108,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "58bd1baa34b652da6d55b075ff8064b74666818b4fa5ba10e8ddf61981d498fa",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_growth/cap8": {
+      "166c36d014078f9b": {
+        "best_ns": 61955955,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "58bd1baa34b652da6d55b075ff8064b74666818b4fa5ba10e8ddf61981d498fa",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_hotspot/cap16": {
+      "68f157176825287b": {
+        "best_ns": 45173446,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6c31e332bcbcd610e7014902f63a877b5fceb33c3651c88d5e4bbbe9341e1067",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_hotspot/cap32": {
+      "3d5441ebd590381c": {
+        "best_ns": 45574993,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6c31e332bcbcd610e7014902f63a877b5fceb33c3651c88d5e4bbbe9341e1067",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_hotspot/cap64": {
+      "8c7289748859943b": {
+        "best_ns": 53302280,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6c31e332bcbcd610e7014902f63a877b5fceb33c3651c88d5e4bbbe9341e1067",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_hotspot/cap8": {
+      "008cae5fe3cfa8e5": {
+        "best_ns": 46024382,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "6c31e332bcbcd610e7014902f63a877b5fceb33c3651c88d5e4bbbe9341e1067",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_shrink/cap16": {
+      "bde4cd7dd19c33cf": {
+        "best_ns": 59606477,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c96126fec6382dcde7f358ee028c40ada5292abbeef30324f764ef9187d88127",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_shrink/cap32": {
+      "9ffd576ccf740a94": {
+        "best_ns": 58937106,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c96126fec6382dcde7f358ee028c40ada5292abbeef30324f764ef9187d88127",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_shrink/cap64": {
+      "57959e896ec368cd": {
+        "best_ns": 66184758,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c96126fec6382dcde7f358ee028c40ada5292abbeef30324f764ef9187d88127",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_shrink/cap8": {
+      "4a2fd6d6e99d5514": {
+        "best_ns": 65454985,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "c96126fec6382dcde7f358ee028c40ada5292abbeef30324f764ef9187d88127",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_uniform/cap16": {
+      "b2578d914674a3ed": {
+        "best_ns": 62867512,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "73502980e01794935e812fee69e8e8054ba4ceae074f1f131ad2c3938b840e33",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_uniform/cap32": {
+      "411717a344fd75a5": {
+        "best_ns": 63087281,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "73502980e01794935e812fee69e8e8054ba4ceae074f1f131ad2c3938b840e33",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_uniform/cap64": {
+      "a3cfd680baa8ba45": {
+        "best_ns": 68746700,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "73502980e01794935e812fee69e8e8054ba4ceae074f1f131ad2c3938b840e33",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/mixed_uniform/cap8": {
+      "48785b091bf9a4a9": {
+        "best_ns": 69018738,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "73502980e01794935e812fee69e8e8054ba4ceae074f1f131ad2c3938b840e33",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/range_erase/cap16": {
+      "4ae14f054ddcce10": {
+        "best_ns": 169622653,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e0423930b7a3ed69a11d14a17d63b94ad57533c38add2df48101ec39bf60a6bd",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/range_erase/cap32": {
+      "c1c7076c598599d5": {
+        "best_ns": 173215126,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e0423930b7a3ed69a11d14a17d63b94ad57533c38add2df48101ec39bf60a6bd",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/range_erase/cap64": {
+      "5768eea83c0855a1": {
+        "best_ns": 189171494,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e0423930b7a3ed69a11d14a17d63b94ad57533c38add2df48101ec39bf60a6bd",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/range_erase/cap8": {
+      "269f93ceff6333a7": {
+        "best_ns": 175268205,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "e0423930b7a3ed69a11d14a17d63b94ad57533c38add2df48101ec39bf60a6bd",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/reverse/cap16": {
+      "526b018b9d3339d0": {
+        "best_ns": 135747780,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "541e5d3da2636851e1e8292866b21b8c182af90713ac677152a0bf25fe428bac",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/reverse/cap32": {
+      "2bde27e99fa4928a": {
+        "best_ns": 138000938,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "541e5d3da2636851e1e8292866b21b8c182af90713ac677152a0bf25fe428bac",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/reverse/cap64": {
+      "aec2dbacea0b89b2": {
+        "best_ns": 146015867,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "541e5d3da2636851e1e8292866b21b8c182af90713ac677152a0bf25fe428bac",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/reverse/cap8": {
+      "6051111052101949": {
+        "best_ns": 156313507,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "541e5d3da2636851e1e8292866b21b8c182af90713ac677152a0bf25fe428bac",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/split_merge/cap16": {
+      "97c4609e65146edd": {
+        "best_ns": 137144812,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f8ab8b534d301f783186e254e1fd219eb9b3605136480409e8acc6f443f1131a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/split_merge/cap32": {
+      "cb62fcc1c53ad41d": {
+        "best_ns": 142279174,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f8ab8b534d301f783186e254e1fd219eb9b3605136480409e8acc6f443f1131a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/split_merge/cap64": {
+      "4745fe218e3cca7a": {
+        "best_ns": 171838106,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f8ab8b534d301f783186e254e1fd219eb9b3605136480409e8acc6f443f1131a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      }
+    },
+    "btree/vector/split_merge/cap8": {
+      "e21ca287c301567d": {
+        "best_ns": 152538895,
+        "commit": "f018b791756717107bd1facde55c449b83408ae1",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "AMD EPYC 9V45 96-Core Processor",
+          "fixture_sha256": "f8ab8b534d301f783186e254e1fd219eb9b3605136480409e8acc6f443f1131a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
       }
     }
   },
