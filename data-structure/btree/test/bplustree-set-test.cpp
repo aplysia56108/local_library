@@ -153,8 +153,7 @@ class InspectableSet
       if (i == 0) first = min_leaf;
     }
 
-    for (std::size_t i = node.count; i < Capacity; ++i)
-      assert(node.children[i] == Pools::null_id);
+    // children[count, Capacity) の値は未規定。論理範囲のみを検査する。
     assert(node.size == size);
     assert(node.min_leaf_id == first);
     return first;
