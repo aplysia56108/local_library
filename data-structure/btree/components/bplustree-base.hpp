@@ -88,11 +88,14 @@ class Base {
       auto& node = get_node(root);
       node.materialize();
       const id_type child = node.children[0];
-      node.children[0] = null_id;
+      // 根の昇格は子の親を null にする特別な所有権移動。
+      // 回収時に子まで解放されないよう、旧根の count を先に0にする。
       node.count = 0;
+      node.size = 0;
       Pools::recycle(root);
       root = child;
       get_node(root).parent = null_id;
+      get_node(root).position = 0;
     }
   }
 
@@ -116,7 +119,7 @@ class Base {
         const id_type parent_id = Pools::make_internal(current_level);
         auto& parent = get_node(parent_id);
         while (parent.count < MaxCount && i < nodes.size())
-          parent.children[parent.count++] = nodes[i++];
+          parent.template move_child<true, false>(parent.count, nodes[i++], parent_id);
         parent.refresh();
         next.push_back(parent_id);
       }
@@ -134,8 +137,8 @@ class Base {
                                pos_type level = 0) {
     const id_type parent_id = Pools::make_internal(level);
     auto& parent = get_node(parent_id);
-    parent.insert(left, 0);
-    parent.insert(right, 1);
+    parent.template move_child<true, false>(0, left, parent_id);
+    parent.template move_child<true, false>(1, right, parent_id);
     parent.refresh();
     return parent_id;
   }
@@ -146,27 +149,55 @@ class Base {
     node.materialize();
   }
 
-  static void refresh_recursive(id_type node_id) {
+
+  /** @brief 下位の構造変更に伴う要素数の増減を祖先へ伝える。 */
+  static void add_size_delta(Internal& node, difference_type delta) {
+    if (delta >= 0) {
+      node.size += static_cast<size_type>(delta);
+    } else {
+      const size_type removed = static_cast<size_type>(-delta);
+      assert(node.size >= removed);
+      node.size -= removed;
+    }
+  }
+
+  static difference_type size_delta(size_type before, size_type after) {
+    return after >= before ? static_cast<difference_type>(after - before)
+                           : -static_cast<difference_type>(before - after);
+  }
+
+  static void refresh_recursive(id_type node_id, difference_type delta = 0) {
     auto& node = get_node(node_id);
+    add_size_delta(node, delta);
     node.refresh();
-    if (node.parent != null_id) refresh_recursive(node.parent);
+    if (node.parent != null_id) refresh_recursive(node.parent, delta);
   }
 
   static id_type insert_recursive(id_type parent_id, pos_type index,
-                                  id_type child = null_id) {
+                                  id_type child = null_id,
+                                  difference_type delta = 0) {
     if (parent_id == null_id) return null_id;
+    auto& parent = get_node(parent_id);
+    const size_type old_size = parent.size;
+    // 下位の分割により既存の左子のサイズが変化している分を先に補正する。
+    add_size_delta(parent, delta);
     if (child != null_id) {
-      auto& parent = get_node(parent_id);
       if (parent.insert(child, index)) {
         const id_type upper_id = parent.parent;
         const pos_type upper_pos = parent.position;
         const id_type right_id = parent.split();
-        if (upper_id != null_id)
-          return insert_recursive(upper_id, upper_pos + 1, right_id);
+        if (upper_id != null_id) {
+          // 左子の変化量と新しい右子の挿入量を足して祖先へ伝える。
+          return insert_recursive(upper_id, upper_pos + 1, right_id,
+                                  size_delta(old_size, get_node(parent_id).size));
+        }
         return right_id;
       }
+    } else {
+      parent.refresh();
     }
-    refresh_recursive(parent_id);
+    if (parent.parent != null_id)
+      refresh_recursive(parent.parent, size_delta(old_size, parent.size));
     return null_id;
   }
 
@@ -215,15 +246,22 @@ class Base {
     }
   }
 
-  static void erase_recursive(id_type parent_id, pos_type index) {
+
+  static void erase_recursive(id_type parent_id, pos_type index,
+                              difference_type delta = 0) {
     auto& parent = get_node(parent_id);
+    const size_type old_size = parent.size;
     const id_type upper = parent.parent;
     const pos_type upper_pos = parent.position;
-    if (parent.erase(index)) {
-      if (upper != null_id) erase_recursive(upper, upper_pos);
-      return;
+    // 空の子を回収するときも、下位で失った分のsizeを反映させる。
+    add_size_delta(parent, delta);
+    const bool empty = parent.erase(index);
+    const difference_type change = size_delta(old_size, parent.size);
+    if (empty) {
+      if (upper != null_id) erase_recursive(upper, upper_pos, change);
+    } else if (upper != null_id) {
+      refresh_recursive(upper, change);
     }
-    if (upper != null_id) refresh_recursive(upper);
   }
 
   static void erase(id_type parent_id, pos_type index, id_type& root) {
@@ -241,8 +279,14 @@ class Base {
     id_type parent_id = leaf.parent;
     pos_type position = leaf.position;
     id_type right = null_id;
+    size_type removed_from_boundary = 0;
     while (parent_id != null_id) {
-      const id_type next = get_node(parent_id).split(position);
+      // 下位で分離した右半分は、上位のsizeにはまだ含まれている。
+      // syncせずに済むよう、上位をsplitする前に差し引く。
+      auto& parent = get_node(parent_id);
+      assert(parent.size >= removed_from_boundary);
+      parent.size -= removed_from_boundary;
+      const id_type next = parent.split(position);
       if (right != null_id) {
         if (get_node(right).count)
           get_node(next).insert(right, 0);
@@ -250,6 +294,7 @@ class Base {
           Pools::recycle(right);
       }
       right = next;
+      removed_from_boundary = get_node(right).size;
       position = get_node(parent_id).position + 1;
       parent_id = get_node(parent_id).parent;
     }
