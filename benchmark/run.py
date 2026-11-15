@@ -67,16 +67,40 @@ def check_output(expected, actual, case):
     raise RuntimeError(f"{case}: output mismatch (expected {len(want)} lines, got {len(got)} lines)")
 
 
-def run_case(source, cap, runs, baseline, metadata):
+def load_fixtures(source, cache):
+    """Use committed fixtures, or generate both when omitted for large cases."""
+    case_dir = source.parent
+    if case_dir in cache:
+        return cache[case_dir]
+    fixture_in = case_dir / "in.txt"
+    fixture_out = case_dir / "out.txt"
+    generator = case_dir / "generator.cpp"
+    if not generator.is_file():
+        raise RuntimeError(f"{case_dir}: missing generator.cpp")
+    if fixture_in.is_file() != fixture_out.is_file():
+        raise RuntimeError(f"{case_dir}: in.txt and out.txt must both exist or both be absent")
+    if fixture_in.is_file():
+        data = (fixture_in.read_bytes(), fixture_out.read_bytes())
+    else:
+        relative = case_dir.relative_to(BENCHMARKS)
+        generated_dir = BUILD / "generated-fixtures" / relative
+        generated_dir.mkdir(parents=True, exist_ok=True)
+        executable = BUILD / ("generator_" + "_".join(relative.parts) + ".exe")
+        subprocess.run(
+            ["g++", "-std=c++23", "-O2", str(generator.relative_to(ROOT)), "-o", str(executable)],
+            cwd=ROOT, check=True, timeout=180,
+        )
+        subprocess.run([str(executable)], cwd=generated_dir, check=True, timeout=180)
+        data = ((generated_dir / "in.txt").read_bytes(),
+                (generated_dir / "out.txt").read_bytes())
+        print(f"{relative}: generated deterministic fixtures", flush=True)
+    cache[case_dir] = data
+    return data
+
+
+def run_case(source, cap, runs, baseline, metadata, fixture_cache):
     case = source.parent.relative_to(BENCHMARKS).as_posix() + f"/cap{cap}"
-    fixture_in = source.parent / "in.txt"
-    fixture_out = source.parent / "out.txt"
-    fixture_generator = source.parent / "generator.cpp"
-    for path in [fixture_in, fixture_out, fixture_generator]:
-        if not path.is_file():
-            raise RuntimeError(f"{case}: missing {path.name}")
-    input_bytes = fixture_in.read_bytes()
-    expected = fixture_out.read_bytes()
+    input_bytes, expected = load_fixtures(source, fixture_cache)
     fixture_sha = hashlib.sha256(input_bytes + b"\0" + expected).hexdigest()
     flags = [*FLAGS, f"-DNODE_CAP={cap}"]
     fingerprint_data = {
@@ -191,8 +215,9 @@ def main():
     metadata = {"cpu": cpu_model(), "compiler": compiler, "flags": FLAGS}
     caps = parse_caps(args.caps)
     # Keep each operation's four capacity variants on the same runner.
+    fixture_cache = {}
     results = [
-        run_case(source, cap, args.runs, baseline, metadata)
+        run_case(source, cap, args.runs, baseline, metadata, fixture_cache)
         for source in choose_cases(args.target)
         for cap in caps
     ]
