@@ -2,6 +2,10 @@
 
 #include "data-structure/btree/bplustree-vector.hpp"
 
+#ifndef NODE_CAP
+#define NODE_CAP 8
+#endif
+
 /**
  * @brief Bplustree_Vector のランダム位置への挿入を計測する。
  * @details
@@ -20,7 +24,7 @@ signed main() {
     if (!(std::cin >> index >> value)) return 1;
   }
 
-  Bplustree_Vector<long long, 8> tree;
+  Bplustree_Vector<long long, NODE_CAP> tree;
   const auto start = std::chrono::steady_clock::now();
   for (auto [index, value] : queries) tree.insert(index, value);
   const auto finish = std::chrono::steady_clock::now();

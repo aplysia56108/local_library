@@ -170,7 +170,9 @@ class Base {
     return null_id;
   }
 
+  /** @brief 境界経路を取得する。子ノードを統合する前に lazy も伝搬する。 */
   template <bool Left>
+<<<<<<< HEAD
   static std::vector<id_type> end_nodes(id_type root) {
     std::vector<id_type> nodes;
     nodes.reserve(get_node(root).level + 1);
@@ -184,10 +186,27 @@ class Base {
         current_id = current.children[0];
       else
         current_id = current.children[current.count - 1];
+=======
+  static std::vector<Internal*> end_nodes(std::unique_ptr<Internal>& root) {
+    std::vector<Internal*> nodes;
+    nodes.reserve(root->level + 1);
+    Internal* current = root.get();
+    current->materialize();
+    nodes.push_back(current);
+    while (current->level) {
+      if constexpr (Left) {
+        current = current->get_child(0);
+      } else {
+        current = current->get_child(current->count - 1);
+      }
+      current->materialize();
+      nodes.push_back(current);
+>>>>>>> origin/main
     }
     return nodes;
   }
 
+<<<<<<< HEAD
   static void cut_zero_node(id_type& root) {
     for (bool left : {true, false}) {
       id_type node_id = root;
@@ -202,6 +221,29 @@ class Base {
         if (node.level == 0) break;
         node_id = node.children[left ? 0 : node.count - 1];
       }
+=======
+  /** @brief 空の境界ノードを除去する。lazy を失わないよう経路を具現化する。 */
+  static void cut_zero_node(std::unique_ptr<Internal>& root) {
+    Internal* current = root.get();
+    while (true) {
+      current->materialize();
+      if (current->size == 0 && current->parent) {
+        erase(current->parent, current->position, root);
+        break;
+      }
+      if (current->level == 0) break;
+      current = current->get_child(0);
+    }
+    current = root.get();
+    while (true) {
+      current->materialize();
+      if (current->size == 0 && current->parent) {
+        erase(current->parent, current->position, root);
+        break;
+      }
+      if (current->level == 0) break;
+      current = current->get_child(current->count - 1);
+>>>>>>> origin/main
     }
   }
 
@@ -261,6 +303,7 @@ class Base {
     return right;
   }
 
+<<<<<<< HEAD
   static id_type unite(id_type left_id, id_type right_id) {
     auto& left = get_node(left_id);
     auto& right = get_node(right_id);
@@ -277,6 +320,18 @@ class Base {
     if (left.level == right.level) {
       id_type root = make_new_root(left_id, right_id, left.level + 1);
       for (id_type id : integrate_nodes) get_node(id).integrate();
+=======
+  static std::unique_ptr<Internal> unite(std::unique_ptr<Internal> left,
+                                         std::unique_ptr<Internal> right) {
+    if (right->size == 0) return left;
+    if (left->size == 0) return right;
+    auto integrate_nodes = end_nodes<false>(left);
+    for (auto node : end_nodes<true>(right)) integrate_nodes.push_back(node);
+    if (left->level == right->level) {
+      const std::size_t new_level = left->level + 1;
+      auto root = make_new_root(std::move(left), std::move(right), new_level);
+      for (auto node : integrate_nodes) node->integrate();
+>>>>>>> origin/main
       cut_root(root);
       return root;
     }

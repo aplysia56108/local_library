@@ -8,7 +8,73 @@ on:
         type: choice
         options:
           - all
+          - btree/set
+          - btree/vector
+          - btree/segtree
+          - btree/lazysegtree
+          - btree/set/insert
+          - btree/set/erase
+          - btree/set/access
+          - btree/set/lower_bound
+          - btree/set/iterate
           - btree/vector/insert
+          - btree/vector/erase
+          - btree/vector/reverse
+          - btree/vector/access
+          - btree/vector/split_merge
+          - btree/vector/range_erase
+          - btree/vector/iterate
+          - btree/segtree/prod
+          - btree/segtree/insert
+          - btree/segtree/erase
+          - btree/segtree/reverse
+          - btree/segtree/access
+          - btree/segtree/split_merge
+          - btree/segtree/range_erase
+          - btree/segtree/max_right
+          - btree/segtree/min_left
+          - btree/segtree/iterate
+          - btree/lazysegtree/prod
+          - btree/lazysegtree/apply
+          - btree/lazysegtree/insert
+          - btree/lazysegtree/erase
+          - btree/lazysegtree/reverse
+          - btree/lazysegtree/access
+          - btree/lazysegtree/split_merge
+          - btree/lazysegtree/range_erase
+          - btree/lazysegtree/max_right
+          - btree/lazysegtree/min_left
+          - btree/lazysegtree/iterate
+          - btree/set/mixed_uniform
+          - btree/set/mixed_edges
+          - btree/set/mixed_hotspot
+          - btree/vector/mixed_uniform
+          - btree/vector/mixed_edges
+          - btree/vector/mixed_hotspot
+          - btree/segtree/mixed_uniform
+          - btree/segtree/mixed_edges
+          - btree/segtree/mixed_hotspot
+          - btree/lazysegtree/mixed_uniform
+          - btree/lazysegtree/mixed_edges
+          - btree/lazysegtree/mixed_hotspot
+          - btree/set/mixed_growth
+          - btree/set/mixed_shrink
+          - btree/vector/mixed_growth
+          - btree/vector/mixed_shrink
+          - btree/segtree/mixed_growth
+          - btree/segtree/mixed_shrink
+          - btree/lazysegtree/mixed_growth
+          - btree/lazysegtree/mixed_shrink
+        default: all
+      caps:
+        description: Node capacities
+        type: choice
+        options:
+          - all
+          - '8'
+          - '16'
+          - '32'
+          - '64'
         default: all
 
 permissions:
@@ -22,10 +88,14 @@ jobs:
   benchmark:
     runs-on: ubuntu-24.04
     container: gcc:15.2
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure Git safe directory
+        shell: bash
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Ensure Python is available
         shell: bash
@@ -46,7 +116,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p out/benchmark
-          if git ls-remote --exit-code --heads origin benchmark-records >/dev/null; then
+          # Exit code 0 means the lookup succeeded, even if the branch is absent.
+          # A remote/authentication error must fail the workflow rather than reset history.
+          git ls-remote --heads origin refs/heads/benchmark-records > out/benchmark/remote-head.txt
+          if [[ -s out/benchmark/remote-head.txt ]]; then
             git fetch origin benchmark-records:refs/remotes/origin/benchmark-records
             git show refs/remotes/origin/benchmark-records:best.json > out/benchmark/best.json
           else
@@ -57,8 +130,9 @@ jobs:
         shell: bash
         env:
           BENCHMARK_TARGET: ${{ inputs.target }}
+          BENCHMARK_CAPS: ${{ inputs.caps }}
         run: |
-          python3 benchmark/run.py --target "$BENCHMARK_TARGET" --runs 5 \
+          python3 benchmark/run.py --target "$BENCHMARK_TARGET" --caps "$BENCHMARK_CAPS" --runs 5 \
             --baseline out/benchmark/best.json \
             --updated out/benchmark/best-updated.json
 
