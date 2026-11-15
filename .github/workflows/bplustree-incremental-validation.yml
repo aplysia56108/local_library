@@ -1,0 +1,31 @@
+name: Temporary B+tree incremental validation
+
+on:
+  push:
+    branches:
+      - refactor/bplustree-incremental-child-moves
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    container: gcc:15.2
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch AtCoder Library
+        shell: bash
+        run: |
+          git clone --depth 1 https://github.com/atcoder/ac-library .deps/ac-library
+      - name: Compile and run B+tree tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in data-structure/btree/components/test/*.cpp data-structure/btree/test/*.cpp; do
+            echo "::group::$file"
+            g++ -std=c++23 -O2 -g -Wall -Wextra -I. -Idebug -I.deps/ac-library "$file" -o /tmp/bplustree-test
+            timeout 60s /tmp/bplustree-test
+            echo "::endgroup::"
+          done
