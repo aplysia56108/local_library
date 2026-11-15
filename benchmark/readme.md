@@ -23,6 +23,7 @@ B+tree の代表的な処理を固定 seed の入力で実行し、**処理時�
 - 入力読み込み・初期構築・ジェネレータ実行・最終結果の出力・コンパイルは計測外。操作を `std::chrono::steady_clock` で測定し、標準エラーへ `BENCHMARK_NS=...` を出力する。
 - 出力内容は操作ごとのクエリ結果、または全要素の最終状態（`iterate` は走査結果）。結果は計測中に事前確保した配列へ保存し、計測後に出力する。
 - 比較の同一性には CPU、コンパイラ、フラグ、入力と正解の SHA256 を用いる。生成したフィクスチャも同じ方法で識別する。
+- 時間はベンチマーク本体の `BENCHMARK_NS`（処理部分だけ）、**Peak RSSはGNU timeの `%M`（プロセス全体の最大常駐メモリ量、KiB）**で取得する。両方とも5回測定の中央値を採用する。Peak RSSには入力・クエリ・出力配列、実行時ライブラリ、アロケータの管理領域も含まれる。
 
 ## 各ベンチマークの入力
 
@@ -106,8 +107,21 @@ g++ -std=c++23 -O2 generator.cpp -o /tmp/benchmark-generator
 
 ## GitHub Actions と記録
 
-Actions → Performance benchmarks → Run workflow から対象ブランチ・種類/操作・Capを選択する。5回の**中央値**で比較し、最速記録比120%超で🟡、150%超で🔴（遅くなっても警告のみ、結果の不一致は失敗）。
+Actions → Performance benchmarks → Run workflow から対象ブランチ・種類/操作・Capを選択する。時間とPeak RSSをそれぞれ5回の**中央値**で比較し、各ベスト比120%超で🟡、150%超で🔴（遅くなっても警告のみ、結果の不一致は失敗）。
 
-**main の成功実行だけ** `benchmark-records` ブランチの `best.json` を更新する。PRブランチでは読み取り・比較のみ。既存の `btree/vector/insert`（Cap8固定）の旧記録は残し、新方式の `btree/vector/insert/cap8` と区別する。
+**main の成功実行だけ** `benchmark-records` ブランチの `best.json` を更新する。時間の `best_ns` とメモリの `best_rss_kb` は**独立して最小値を更新**し、元コミット・実行URLも別々に保持する。既存の `best_ns` のみの記録は読み込み可能で、次回からRSSベストを追加する。PRブランチでは読み取り・比較のみ。既存の `btree/vector/insert`（Cap8固定）の旧記録は残し、新方式の `btree/vector/insert/cap8` と区別する。
 
 GitHub-hosted runnerのCPUモデルやホスト負荷は変化するため、最速比は参考指標。計測ログはArtifactに14日保存する。
+
+## 同一ランナーのA/B比較（Performance A/B comparison）
+
+メモリプールなどの大規模変更を評価する際は、Actions → **Performance A/B comparison** → Run workflow から**workflowのブランチはmainを選択**し、`development_ref` に開発ブランチ名（例：`refactor/bplustree-node-pool-ids`）または40文字のコミットSHAを入力する。 `target`（デフォルト`all`）、`caps`、`runs`（3/5/7、デフォルト5）を指定できる。対象は既存のベンチマークと同じ。
+
+- 同じGCC 15.2コンテナ・ランナーに開発版を別Worktreeでcheckoutし、main版と開発版をそれぞれコンパイルする。入力と期待出力はmainのフィクスチャを共用し、**毎回両者の出力を完全照合**する。
+- 実行順序はmain→開発版、開発版→mainを繰り返す。操作時間とPeak RSSのそれぞれの中央値、開発版/main比、構造別の幾何平均比、RSSの削減量を表示する。
+- `benchmark/btree` 以下のベンチマーク定義が2コミット間で異なる場合は比較を拒否する（別のワークロードを誤比較しないため）。
+- **推定ベスト**は、既存mainベスト ×（今回の開発版/今回のmain）として計算する。時間とPeak RSSの両方に適用。ただし実測記録ではなく、CPU間で相対性能差が維持されるという仮定に基づく**参考値**である。
+- ベスト記録の検索では、コンパイラ・フラグ・フィクスチャSHA256の一致を必須とし、CPUモデルが一致する記録を優先する。異なるCPUやmainコミットの記録を使った推定はその旨を表示する。過去のメモリベストがなければ推定メモリ値を表示しない。
+- **A/B比較は記録を更新しない**（`contents: read`）。計測値・サンプル・元ベストの詳細は`out/benchmark/compare/results.json`に保存し、Artifactで14日保持する。重いので最初は対象・Capを絞るとよい。
+
+ピークRSSはプロセスの生存期間全体での最大値であり、B+treeの内部確保容量や、操作区間だけのメモリ使用量を測っているものではない。ノードのみの容量比較が必要になった場合は、別途専用の測定を追加する。
