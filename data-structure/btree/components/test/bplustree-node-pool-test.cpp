@@ -17,7 +17,7 @@ void node_pool_basic_test() {
     assert(Pools::leaves().index(Pools::leaves()[id]) == id);
     assert(Pools::internals()[root_id].insert(id, i) == (i + 1 == Capacity));
   }
-  // 満杯時は split() の直後に親リンクが同期される契約。
+  // 満杯時も親リンクを差分更新し、split() 時に右側の親へ張り替える。
   assert(Pools::internals()[root_id].count == Capacity);
   const auto right_id = Pools::internals()[root_id].split();
   assert(Pools::internals()[root_id].count +
