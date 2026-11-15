@@ -3,6 +3,10 @@ name: Performance A/B comparison
 on:
   workflow_dispatch:
     inputs:
+      development_ref:
+        description: Development branch name or full commit SHA to compare with main
+        type: string
+        required: true
       target:
         description: Benchmark target (all, btree/set, btree/vector/insert, etc.)
         type: string
@@ -35,7 +39,7 @@ jobs:
     container: gcc:15.2
     timeout-minutes: 180
     steps:
-      - name: Checkout development branch
+      - name: Checkout main
         uses: actions/checkout@v4
 
       - name: Configure Git safe directory
@@ -56,17 +60,29 @@ jobs:
           git clone https://github.com/atcoder/ac-library .deps/ac-library
           git -C .deps/ac-library checkout --detach 864245a00b00dd008d1abfdc239618fdb7d139da
 
-      - name: Checkout main on the same runner
+      - name: Checkout development ref on the same runner
         shell: bash
+        env:
+          DEVELOPMENT_REF: ${{ inputs.development_ref }}
         run: |
-          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-          base_sha=$(git rev-parse refs/remotes/origin/main^{commit})
-          base_dir="$GITHUB_WORKSPACE/out/benchmark/ab-base-checkout"
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Run this workflow from main; select the development ref in the input." >&2
+            exit 1
+          fi
+          if [[ "$DEVELOPMENT_REF" =~ ^[0-9a-f]{40}$ ]]; then
+            git fetch --no-tags origin "$DEVELOPMENT_REF"
+            dev_sha=$(git rev-parse FETCH_HEAD^{commit})
+          else
+            git check-ref-format --branch "$DEVELOPMENT_REF"
+            git fetch --no-tags origin "+refs/heads/${DEVELOPMENT_REF}:refs/remotes/origin/compare-development"
+            dev_sha=$(git rev-parse refs/remotes/origin/compare-development^{commit})
+          fi
+          dev_dir="$GITHUB_WORKSPACE/out/benchmark/ab-dev-checkout"
           mkdir -p "$GITHUB_WORKSPACE/out/benchmark"
-          git worktree add --detach "$base_dir" "$base_sha"
-          git config --global --add safe.directory "$base_dir"
-          mkdir -p "$base_dir/.deps"
-          ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$base_dir/.deps/ac-library"
+          git worktree add --detach "$dev_dir" "$dev_sha"
+          git config --global --add safe.directory "$dev_dir"
+          mkdir -p "$dev_dir/.deps"
+          ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$dev_dir/.deps/ac-library"
 
       - name: Load historical main bests (read only)
         shell: bash
@@ -87,7 +103,7 @@ jobs:
           BENCHMARK_CAPS: ${{ inputs.caps }}
           BENCHMARK_RUNS: ${{ inputs.runs }}
         run: |
-          python3 benchmark/compare.py --base-root "$GITHUB_WORKSPACE/out/benchmark/ab-base-checkout" --dev-root "$GITHUB_WORKSPACE" --target "$BENCHMARK_TARGET" --caps "$BENCHMARK_CAPS" --runs "$BENCHMARK_RUNS" --baseline out/benchmark/best.json
+          python3 benchmark/compare.py --base-root "$GITHUB_WORKSPACE" --dev-root "$GITHUB_WORKSPACE/out/benchmark/ab-dev-checkout" --target "$BENCHMARK_TARGET" --caps "$BENCHMARK_CAPS" --runs "$BENCHMARK_RUNS" --baseline out/benchmark/best.json
 
       - name: Upload comparison results
         if: always()
