@@ -8,7 +8,38 @@ on:
         type: choice
         options:
           - all
+          - btree/set
+          - btree/vector
+          - btree/segtree
+          - btree/lazysegtree
+          - btree/set/insert
+          - btree/set/erase
+          - btree/set/access
           - btree/vector/insert
+          - btree/vector/erase
+          - btree/vector/reverse
+          - btree/vector/access
+          - btree/segtree/prod
+          - btree/segtree/insert
+          - btree/segtree/erase
+          - btree/segtree/reverse
+          - btree/segtree/access
+          - btree/lazysegtree/prod
+          - btree/lazysegtree/apply
+          - btree/lazysegtree/insert
+          - btree/lazysegtree/erase
+          - btree/lazysegtree/reverse
+          - btree/lazysegtree/access
+        default: all
+      caps:
+        description: Node capacities
+        type: choice
+        options:
+          - all
+          - '8'
+          - '16'
+          - '32'
+          - '64'
         default: all
 
 permissions:
@@ -22,7 +53,7 @@ jobs:
   benchmark:
     runs-on: ubuntu-24.04
     container: gcc:15.2
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -64,8 +95,9 @@ jobs:
         shell: bash
         env:
           BENCHMARK_TARGET: ${{ inputs.target }}
+          BENCHMARK_CAPS: ${{ inputs.caps }}
         run: |
-          python3 benchmark/run.py --target "$BENCHMARK_TARGET" --runs 5 \
+          python3 benchmark/run.py --target "$BENCHMARK_TARGET" --caps "$BENCHMARK_CAPS" --runs 5 \
             --baseline out/benchmark/best.json \
             --updated out/benchmark/best-updated.json
 
