@@ -5,7 +5,7 @@
 #include <iostream>
 #include <vector>
 
-// Traits::Internal::after_sync: derived metadata is refreshed on edits.
+// Traits::Internal::refresh_metadata: derived metadata is refreshed on edits.
 // Leaf holds a single value; only Internal holds the aggregate.
 struct SumTraits {
   using T = long long;
@@ -29,7 +29,7 @@ struct SumTraits::Internal : Bplustree::Internal<SumTraits> {
 
   long long sum = 0;
 
-  void after_sync() {
+  void refresh_metadata() {
     sum = 0;
     if (this->level == 0) {
       for (std::size_t i = 0; i < this->count; ++i)
