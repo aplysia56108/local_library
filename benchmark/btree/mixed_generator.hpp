@@ -17,13 +17,37 @@ constexpr ll Q = 100'000;
 constexpr ll MOD = 998'244'353;
 
 #if defined(BENCH_TREE_SET)
+#if BENCH_SIZE_TREND == 1
+constexpr std::string_view pattern = "IIIIIIIIIIIIEELLLLLL";
+#elif BENCH_SIZE_TREND == 0
 constexpr std::string_view pattern = "IIIIIIEEEEEELLLLLLLL";
+#else
+constexpr std::string_view pattern = "IIEEEEEEEEEEEELLLLLL";
+#endif
 #elif defined(BENCH_TREE_VECTOR)
+#if BENCH_SIZE_TREND == 1
+constexpr std::string_view pattern = "IIIIIIIIIIEEDRRRSGGG";
+#elif BENCH_SIZE_TREND == 0
 constexpr std::string_view pattern = "IIIIIIEEEEDDRRRRSGGG";
+#else
+constexpr std::string_view pattern = "IIEEEEEEEEDDRRRRSGGG";
+#endif
 #elif defined(BENCH_TREE_SEGTREE)
+#if BENCH_SIZE_TREND == 1
+constexpr std::string_view pattern = "IIIIIIIIIIEEDRRSGGQQ";
+#elif BENCH_SIZE_TREND == 0
 constexpr std::string_view pattern = "IIIIIEEEDRRRSGGGQQQQ";
+#else
+constexpr std::string_view pattern = "IIEEEEEEEEDDRRSGGQQQ";
+#endif
 #elif defined(BENCH_TREE_LAZY)
+#if BENCH_SIZE_TREND == 1
+constexpr std::string_view pattern = "IIIIIIIIEEDRRSGGQQAA";
+#elif BENCH_SIZE_TREND == 0
 constexpr std::string_view pattern = "IIIIIEEEDRRSGGQQQAAA";
+#else
+constexpr std::string_view pattern = "IIEEEEEEDDRRSGGQQAAA";
+#endif
 #else
 #error "Unknown benchmark tree"
 #endif

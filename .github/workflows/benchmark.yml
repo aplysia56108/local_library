@@ -57,6 +57,14 @@ on:
           - btree/lazysegtree/mixed_uniform
           - btree/lazysegtree/mixed_edges
           - btree/lazysegtree/mixed_hotspot
+          - btree/set/mixed_growth
+          - btree/set/mixed_shrink
+          - btree/vector/mixed_growth
+          - btree/vector/mixed_shrink
+          - btree/segtree/mixed_growth
+          - btree/segtree/mixed_shrink
+          - btree/lazysegtree/mixed_growth
+          - btree/lazysegtree/mixed_shrink
         default: all
       caps:
         description: Node capacities

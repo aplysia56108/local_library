@@ -8,17 +8,17 @@ B+tree の代表的な処理を固定 seed の入力で実行し、**処理時�
 
 | 種類 | 第1段階 | 第2段階 | 第3段階 |
 | --- | --- | --- | --- |
-| set | insert / erase / access | lower_bound / iterate | mixed_uniform / mixed_edges / mixed_hotspot |
-| vector | insert / erase / reverse / access | split_merge / range_erase / iterate | mixed_uniform / mixed_edges / mixed_hotspot |
-| segtree | prod / insert / erase / reverse / access | split_merge / range_erase / max_right / min_left / iterate | mixed_uniform / mixed_edges / mixed_hotspot |
-| lazysegtree | prod / apply / insert / erase / reverse / access | split_merge / range_erase / max_right / min_left / iterate | mixed_uniform / mixed_edges / mixed_hotspot |
+| set | insert / erase / access | lower_bound / iterate | mixed_uniform / mixed_edges / mixed_hotspot / mixed_growth / mixed_shrink |
+| vector | insert / erase / reverse / access | split_merge / range_erase / iterate | mixed_uniform / mixed_edges / mixed_hotspot / mixed_growth / mixed_shrink |
+| segtree | prod / insert / erase / reverse / access | split_merge / range_erase / max_right / min_left / iterate | mixed_uniform / mixed_edges / mixed_hotspot / mixed_growth / mixed_shrink |
+| lazysegtree | prod / apply / insert / erase / reverse / access | split_merge / range_erase / max_right / min_left / iterate | mixed_uniform / mixed_edges / mixed_hotspot / mixed_growth / mixed_shrink |
 
-**合計45ワークロード × 4Cap（8/16/32/64）=180ケース**。各5回測定では900回。第3段階の追加分は12ワークロード × 4Cap = 48ケース。重いので、開発時は `--target` と `--caps` で対象を絞ることを推奨する。
+**合計53ワークロード × 4Cap（8/16/32/64）=212ケース**。各5回測定では1060回。第3段階の追加分は20ワークロード × 4Cap = 80ケース。重いので、開発時は `--target` と `--caps` で対象を絞ることを推奨する。
 
 ## フィクスチャと計測範囲
 
 - `generator.cpp` は **B+tree に依存せず**、`std::vector` / Fenwick / `std::lower_bound` / prefix sum などを用いて `in.txt` / `out.txt` を生成する。
-- 通常は `in.txt` / `out.txt` をコミットする。第2段階の `range_erase` 3ケースと第3段階の `mixed_*` 12ケースは入力が大きいため **2ファイルをコミットせず、実行時に生成する**。`run.py` は両方なければジェネレータを1回コンパイル・実行して `out/benchmark/generated-fixtures/` に保存し、同一ジョブ内の各Capで使い回す。片方だけ存在する場合はエラー。
+- 通常は `in.txt` / `out.txt` をコミットする。第2段階の `range_erase` 3ケースと第3段階の `mixed_*` 20ケースは入力が大きいため **2ファイルをコミットせず、実行時に生成する**。`run.py` は両方なければジェネレータを1回コンパイル・実行して `out/benchmark/generated-fixtures/` に保存し、同一ジョブ内の各Capで使い回す。片方だけ存在する場合はエラー。
 - すべてのケースで、**毎回バイト単位で期待出力を照合**。不一致・異常終了・タイムアウトは失敗。
 - 入力読み込み・初期構築・ジェネレータ実行・最終結果の出力・コンパイルは計測外。操作を `std::chrono::steady_clock` で測定し、標準エラーへ `BENCHMARK_NS=...` を出力する。
 - 出力内容は操作ごとのクエリ結果、または全要素の最終状態（`iterate` は走査結果）。結果は計測中に事前確保した配列へ保存し、計測後に出力する。
@@ -43,12 +43,15 @@ B+tree の代表的な処理を固定 seed の入力で実行し、**処理時�
 
 Setでは `split / merge` と `erase(first,last)` を公開していないため、これらは対象外とする。
 
-**第3段階：混合操作と入力分布（各100,000操作、初期100,000要素）**
+**第3段階：混合操作・入力分布・要素数推移（各100,000操作、初期100,000要素）**
 
 - `mixed_uniform`：位置・キーを一様ランダムに選択。
 - `mixed_edges`：位置は先頭/末尾の64要素以内に偏らせる。Setのeraseは最小/最大キーを選び、lower_boundは両端のキー付近を検索。
 - `mixed_hotspot`：直前の位置から±64以内にアクセスし、近傍の反復操作を再現。Setでは直前のキーの近傍を検索・削除。
-- 20操作を1ブロックとし、ブロック内を固定seedでシャッフル。以下の比率を**各分布で共通**に適用する。
+- `mixed_growth`：一様ランダム分布で、挿入を増やして要素数を増加させる。
+- `mixed_shrink`：一様ランダム分布で、削除を増やして要素数を減少させる。
+- `mixed_uniform` / `mixed_edges` / `mixed_hotspot` は共通の**ほぼ維持型**操作比率。`mixed_growth` / `mixed_shrink` は空間分布を一様に固定し、サイズ推移のみを変更する。
+- 20操作を1ブロックとし、ブロック内を固定seedでシャッフル。以下の比率を**維持型の3分布**で共通に適用する。
 
 | 種類 | insert | erase | range_erase | reverse | split_merge | access | prod | apply | lower_bound |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -56,6 +59,20 @@ Setでは `split / merge` と `erase(first,last)` を公開していないため
 | vector | 30% | 20% | 10% | 20% | 5% | 15% | — | — | — |
 | segtree | 25% | 15% | 5% | 15% | 5% | 15% | 20% | — | — |
 | lazysegtree | 25% | 15% | 5% | 10% | 5% | 10% | 15% | 15% | — |
+
+
+増加型 / 減少型では以下の比率に変更する（各行の合計100%、未記載の操作は実施しない）。
+
+| 種類 | 傾向 | insert | erase | range_erase | reverse | split_merge | access | prod | apply | lower_bound |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| set | 増加 | 60% | 10% | — | — | — | — | — | — | 30% |
+| set | 減少 | 10% | 60% | — | — | — | — | — | — | 30% |
+| vector | 増加 | 50% | 10% | 5% | 15% | 5% | 15% | — | — | — |
+| vector | 減少 | 10% | 40% | 10% | 20% | 5% | 15% | — | — | — |
+| segtree | 増加 | 50% | 10% | 5% | 10% | 5% | 10% | 10% | — | — |
+| segtree | 減少 | 10% | 40% | 10% | 10% | 5% | 10% | 15% | — | — |
+| lazysegtree | 増加 | 40% | 10% | 5% | 10% | 5% | 10% | 10% | 10% | — |
+| lazysegtree | 減少 | 10% | 30% | 10% | 10% | 5% | 10% | 10% | 15% | — |
 
 - `range_erase` は長さ1〜3、通常の区間操作は長さ1〜32。操作番号が200の倍数となる区間処理では要素数の約1/4を使用。
 - Insert/eraseの割合は対象別に調整しており、Vector/Segtree/LazySegtreeのサイズはおおむね維持される（range_eraseで緩やかに減少するケースもある）。
