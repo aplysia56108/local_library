@@ -150,12 +150,13 @@ class Base {
     return nullptr;
   };
 
+  /** @brief 境界経路を取得する。子ノードを統合する前に lazy も伝搬する。 */
   template <bool Left>
   static std::vector<Internal*> end_nodes(std::unique_ptr<Internal>& root) {
     std::vector<Internal*> nodes;
     nodes.reserve(root->level + 1);
     Internal* current = root.get();
-    current->apply_reverse();
+    current->materialize();
     nodes.push_back(current);
     while (current->level) {
       if constexpr (Left) {
@@ -163,16 +164,17 @@ class Base {
       } else {
         current = current->get_child(current->count - 1);
       }
-      current->apply_reverse();
+      current->materialize();
       nodes.push_back(current);
     }
     return nodes;
   }
 
+  /** @brief 空の境界ノードを除去する。lazy を失わないよう経路を具現化する。 */
   static void cut_zero_node(std::unique_ptr<Internal>& root) {
     Internal* current = root.get();
     while (true) {
-      current->apply_reverse();
+      current->materialize();
       if (current->size == 0 && current->parent) {
         erase(current->parent, current->position, root);
         break;
@@ -182,7 +184,7 @@ class Base {
     }
     current = root.get();
     while (true) {
-      current->apply_reverse();
+      current->materialize();
       if (current->size == 0 && current->parent) {
         erase(current->parent, current->position, root);
         break;
