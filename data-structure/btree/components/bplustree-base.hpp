@@ -252,7 +252,6 @@ class Base {
     if (left->size == 0) return right;
     auto integrate_nodes = end_nodes<false>(left);
     for (auto node : end_nodes<true>(right)) integrate_nodes.push_back(node);
-    std::size_t left_size = left->size;
     if (left->level == right->level) {
       const std::size_t new_level = left->level + 1;
       auto root = make_new_root(std::move(left), std::move(right), new_level);
