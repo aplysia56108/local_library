@@ -102,7 +102,7 @@ def load_fixtures(source, cache):
 def run_case(source, cap, runs, baseline, metadata, fixture_cache):
     case = source.parent.relative_to(BENCHMARKS).as_posix() + f"/cap{cap}"
     input_bytes, expected = load_fixtures(source, fixture_cache)
-    fixture_sha = hashlib.sha256(input_bytes + b"\\0" + expected).hexdigest()
+    fixture_sha = hashlib.sha256(input_bytes + b"\0" + expected).hexdigest()
     flags = [*FLAGS, f"-DNODE_CAP={cap}"]
     fingerprint_data = {
         **metadata,
@@ -192,8 +192,8 @@ def render_summary(results, metadata):
     lines = [
         "## Performance benchmarks",
         "",
-        f"CPU: \`{metadata['cpu']}\`  ",
-        f"Compiler: \`{metadata['compiler']}\`  ",
+        f"CPU: `{metadata['cpu']}`  ",
+        f"Compiler: `{metadata['compiler']}`  ",
         "The median of successful runs is measured inside benchmark.cpp (without input/output).",
         "Peak RSS is for the entire benchmark process, including input and output buffers.",
         "",
@@ -203,7 +203,7 @@ def render_summary(results, metadata):
     ]
     for result in results:
         lines.append(
-            f"| \`{result['case']}\` | "
+            f"| `{result['case']}` | "
             f"{fmt_ms(result['previous_best_ns'])} | "
             f"{fmt_ms(result['median_ns'])} | "
             f"{fmt_ratio(result['ratio_percent'])} | "
@@ -220,7 +220,7 @@ def render_summary(results, metadata):
         "Red results are warnings, not workflow failures. Invalid outputs fail the workflow.",
         "",
     ]
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 
 def main():
