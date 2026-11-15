@@ -97,13 +97,17 @@ jobs:
         shell: bash
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Ensure Python is available
+      - name: Ensure Python and GNU time are available
         shell: bash
         run: |
-          if ! command -v python3 >/dev/null; then
+          if ! command -v python3 >/dev/null || [[ ! -x /usr/bin/time ]]; then
             apt-get update -qq
-            apt-get install -y -qq python3
+            apt-get install -y -qq python3 time
           fi
+
+      - name: Test benchmark measurement utilities
+        shell: bash
+        run: python3 -m unittest discover -s benchmark/tests -p 'test_*.py'
 
       - name: Fetch AtCoder Library
         shell: bash
