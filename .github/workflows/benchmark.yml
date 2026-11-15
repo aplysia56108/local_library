@@ -45,6 +45,18 @@ on:
           - btree/lazysegtree/max_right
           - btree/lazysegtree/min_left
           - btree/lazysegtree/iterate
+          - btree/set/mixed_uniform
+          - btree/set/mixed_edges
+          - btree/set/mixed_hotspot
+          - btree/vector/mixed_uniform
+          - btree/vector/mixed_edges
+          - btree/vector/mixed_hotspot
+          - btree/segtree/mixed_uniform
+          - btree/segtree/mixed_edges
+          - btree/segtree/mixed_hotspot
+          - btree/lazysegtree/mixed_uniform
+          - btree/lazysegtree/mixed_edges
+          - btree/lazysegtree/mixed_hotspot
         default: all
       caps:
         description: Node capacities

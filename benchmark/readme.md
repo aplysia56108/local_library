@@ -6,19 +6,19 @@ B+tree の代表的な処理を固定 seed の入力で実行し、**処理時�
 
 `benchmark/btree/<種類>/<操作>/` に操作ごとのファイルを配置する。共通ロジックは `generator_common.hpp` と `benchmark_common.hpp` にまとめ、`generator.cpp` / `benchmark.cpp` はマクロを選択する薄いラッパーとする。
 
-| 種類 | 第1段階 | 第2段階 |
-| --- | --- | --- |
-| set | insert / erase / access | lower_bound / iterate |
-| vector | insert / erase / reverse / access | split_merge / range_erase / iterate |
-| segtree | prod / insert / erase / reverse / access | split_merge / range_erase / max_right / min_left / iterate |
-| lazysegtree | prod / apply / insert / erase / reverse / access | split_merge / range_erase / max_right / min_left / iterate |
+| 種類 | 第1段階 | 第2段階 | 第3段階 |
+| --- | --- | --- | --- |
+| set | insert / erase / access | lower_bound / iterate | mixed_uniform / mixed_edges / mixed_hotspot |
+| vector | insert / erase / reverse / access | split_merge / range_erase / iterate | mixed_uniform / mixed_edges / mixed_hotspot |
+| segtree | prod / insert / erase / reverse / access | split_merge / range_erase / max_right / min_left / iterate | mixed_uniform / mixed_edges / mixed_hotspot |
+| lazysegtree | prod / apply / insert / erase / reverse / access | split_merge / range_erase / max_right / min_left / iterate | mixed_uniform / mixed_edges / mixed_hotspot |
 
-**合計33操作 × 4Cap（8/16/32/64）=132ケース**。各5回測定では660回。重いので、開発時は `--target` と `--caps` で対象を絞ることを推奨する。
+**合計45ワークロード × 4Cap（8/16/32/64）=180ケース**。各5回測定では900回。第3段階の追加分は12ワークロード × 4Cap = 48ケース。重いので、開発時は `--target` と `--caps` で対象を絞ることを推奨する。
 
 ## フィクスチャと計測範囲
 
 - `generator.cpp` は **B+tree に依存せず**、`std::vector` / Fenwick / `std::lower_bound` / prefix sum などを用いて `in.txt` / `out.txt` を生成する。
-- 通常は `in.txt` / `out.txt` をコミットする。第2段階の `range_erase` 3ケースは入力が大きいため **2ファイルをコミットせず、実行時に生成する**。`run.py` は両方なければジェネレータを1回コンパイル・実行して `out/benchmark/generated-fixtures/` に保存し、同一ジョブ内の各Capで使い回す。片方だけ存在する場合はエラー。
+- 通常は `in.txt` / `out.txt` をコミットする。第2段階の `range_erase` 3ケースと第3段階の `mixed_*` 12ケースは入力が大きいため **2ファイルをコミットせず、実行時に生成する**。`run.py` は両方なければジェネレータを1回コンパイル・実行して `out/benchmark/generated-fixtures/` に保存し、同一ジョブ内の各Capで使い回す。片方だけ存在する場合はエラー。
 - すべてのケースで、**毎回バイト単位で期待出力を照合**。不一致・異常終了・タイムアウトは失敗。
 - 入力読み込み・初期構築・ジェネレータ実行・最終結果の出力・コンパイルは計測外。操作を `std::chrono::steady_clock` で測定し、標準エラーへ `BENCHMARK_NS=...` を出力する。
 - 出力内容は操作ごとのクエリ結果、または全要素の最終状態（`iterate` は走査結果）。結果は計測中に事前確保した配列へ保存し、計測後に出力する。
@@ -43,9 +43,31 @@ B+tree の代表的な処理を固定 seed の入力で実行し、**処理時�
 
 Setでは `split / merge` と `erase(first,last)` を公開していないため、これらは対象外とする。
 
+**第3段階：混合操作と入力分布（各100,000操作、初期100,000要素）**
+
+- `mixed_uniform`：位置・キーを一様ランダムに選択。
+- `mixed_edges`：位置は先頭/末尾の64要素以内に偏らせる。Setのeraseは最小/最大キーを選び、lower_boundは両端のキー付近を検索。
+- `mixed_hotspot`：直前の位置から±64以内にアクセスし、近傍の反復操作を再現。Setでは直前のキーの近傍を検索・削除。
+- 20操作を1ブロックとし、ブロック内を固定seedでシャッフル。以下の比率を**各分布で共通**に適用する。
+
+| 種類 | insert | erase | range_erase | reverse | split_merge | access | prod | apply | lower_bound |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| set | 30% | 30% | — | — | — | — | — | — | 40% |
+| vector | 30% | 20% | 10% | 20% | 5% | 15% | — | — | — |
+| segtree | 25% | 15% | 5% | 15% | 5% | 15% | 20% | — | — |
+| lazysegtree | 25% | 15% | 5% | 10% | 5% | 10% | 15% | 15% | — |
+
+- `range_erase` は長さ1〜3、通常の区間操作は長さ1〜32。操作番号が200の倍数となる区間処理では要素数の約1/4を使用。
+- Insert/eraseの割合は対象別に調整しており、Vector/Segtree/LazySegtreeのサイズはおおむね維持される（range_eraseで緩やかに減少するケースもある）。
+- Setの新しいキーは一意に生成。正解は `std::set`、他3種類は `std::vector` と独立したモノイド・作用の逐次計算で生成。**検索結果と全要素の最終状態**をバイト単位で照合する。
+- フィクスチャは実行時生成し、4Cap間で同一の入力を共有。`generator.cpp` / `benchmark.cpp` は薄いラッパーで、共通実装は `mixed_generator.hpp` / `mixed_benchmark.hpp` に置く。
+
 ## 実行方法
 
 ```bash
+# 第3段階：LazySegtreeの局所集中ケースを2Capで試す
+python3 benchmark/run.py --target btree/lazysegtree/mixed_hotspot --caps 8,16 --runs 1
+
 # 第2段階の1操作だけ、2つのCapを計測
 python3 benchmark/run.py --target btree/vector/split_merge --caps 8,16 --runs 5
 
