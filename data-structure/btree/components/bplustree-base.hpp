@@ -178,7 +178,7 @@ class Base {
     id_type current_id = root;
     while (true) {
       auto& current = get_node(current_id);
-      current.apply_reverse();
+      current.materialize();
       nodes.push_back(current_id);
       if (current.level == 0) break;
       if constexpr (Left)
@@ -195,7 +195,7 @@ class Base {
 
       while (true) {
         auto& node = get_node(node_id);
-        node.apply_reverse();
+        node.materialize();
         if (node.size == 0 && node.parent != null_id) {
           erase(node.parent, node.position, root);
           break;
