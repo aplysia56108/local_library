@@ -42,7 +42,7 @@ struct SetTraits<Key, Capacity>::Internal
     return Pools::leaves()[min_leaf_id].get();
   }
 
-  void after_sync() {
+  void refresh_metadata() {
     min_leaf_id = this->count == 0 ? Pools::null_id
                   : this->level    ? this->get_child(0).min_leaf_id
                                    : this->children[0];
