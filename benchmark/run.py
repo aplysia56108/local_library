@@ -5,17 +5,17 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import statistics
 import subprocess
 import sys
 from pathlib import Path
 
+from metrics import measure
+
 ROOT = Path(__file__).resolve().parent.parent
 BENCHMARKS = ROOT / "benchmark"
 BUILD = ROOT / "out" / "benchmark"
 FLAGS = ["-std=c++23", "-O2", "-Wall", "-Wextra", "-I.", "-Idebug", "-I.deps/ac-library"]
-TIME_RE = re.compile(rb"^BENCHMARK_NS=([0-9]+)$", re.MULTILINE)
 
 
 def cpu_model():
@@ -98,10 +98,11 @@ def load_fixtures(source, cache):
     return data
 
 
+
 def run_case(source, cap, runs, baseline, metadata, fixture_cache):
     case = source.parent.relative_to(BENCHMARKS).as_posix() + f"/cap{cap}"
     input_bytes, expected = load_fixtures(source, fixture_cache)
-    fixture_sha = hashlib.sha256(input_bytes + b"\0" + expected).hexdigest()
+    fixture_sha = hashlib.sha256(input_bytes + b"\\0" + expected).hexdigest()
     flags = [*FLAGS, f"-DNODE_CAP={cap}"]
     fingerprint_data = {
         **metadata,
@@ -115,81 +116,111 @@ def run_case(source, cap, runs, baseline, metadata, fixture_cache):
     subprocess.run(compile_command, cwd=ROOT, check=True, timeout=180)
 
     durations = []
+    rss_peaks = []
     for iteration in range(runs):
-        run = subprocess.run(
-            [str(executable)], input=input_bytes, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, cwd=ROOT, timeout=180, check=True,
+        ns, rss_kib = measure(executable, input_bytes, expected, case, check_output, cwd=ROOT)
+        durations.append(ns)
+        rss_peaks.append(rss_kib)
+        print(
+            f"{case}: {iteration + 1}/{runs} verified, "
+            f"{ns / 1e6:.3f} ms, {rss_kib / 1024:.2f} MiB peak RSS",
+            flush=True,
         )
-        check_output(expected, run.stdout, case)
-        times = TIME_RE.findall(run.stderr)
-        if len(times) != 1 or int(times[0]) <= 0:
-            raise RuntimeError(f"{case}: expected one positive BENCHMARK_NS on stderr; got {run.stderr[:400]!r}")
-        durations.append(int(times[0]))
-        print(f"{case}: {iteration + 1}/{runs} verified, {durations[-1] / 1e6:.3f} ms", flush=True)
 
     measured = statistics.median(durations)
+    rss_measured = statistics.median(rss_peaks)
     per_case = baseline.setdefault("records", {}).setdefault(case, {})
     old = per_case.get(fingerprint)
-    best = old["best_ns"] if old else None
+    best = old.get("best_ns") if old else None
+    best_rss = old.get("best_rss_kb") if old else None
+    record = dict(old or {})
+    run_url = (
+        f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+        if os.getenv("GITHUB_REPOSITORY") and os.getenv("GITHUB_RUN_ID") else "local"
+    )
+    commit = os.getenv("GITHUB_SHA", "local")
     if best is None or measured < best:
-        per_case[fingerprint] = {
+        record.update({
             "best_ns": measured,
             "fingerprint": fingerprint_data,
-            "commit": os.getenv("GITHUB_SHA", "local"),
-            "run_url": (
-                f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-                if os.getenv("GITHUB_REPOSITORY") and os.getenv("GITHUB_RUN_ID") else "local"
-            ),
-        }
-    ratio = measured / best * 100 if best else None
+            "commit": commit,
+            "run_url": run_url,
+        })
+    if best_rss is None or rss_measured < best_rss:
+        record.update({
+            "best_rss_kb": rss_measured,
+            "fingerprint": fingerprint_data,
+            "rss_commit": commit,
+            "rss_run_url": run_url,
+        })
+    if record != (old or {}):
+        per_case[fingerprint] = record
+
     return {
         "case": case,
         "median_ns": measured,
         "samples_ns": durations,
         "previous_best_ns": best,
-        "ratio_percent": ratio,
+        "ratio_percent": measured / best * 100 if best else None,
+        "median_rss_kb": rss_measured,
+        "samples_rss_kb": rss_peaks,
+        "previous_best_rss_kb": best_rss,
+        "rss_ratio_percent": rss_measured / best_rss * 100 if best_rss else None,
         "fingerprint": fingerprint,
     }
 
 
 def render_summary(results, metadata):
+    def status(ratio):
+        if ratio is None:
+            return "🆕 New baseline"
+        if ratio > 150:
+            return "🔴 Regression"
+        if ratio > 120:
+            return "🟡 Caution"
+        return "✅ OK"
+
+    def fmt_ms(value):
+        return f"{value / 1e6:.3f} ms" if value is not None else "—"
+
+    def fmt_rss(value):
+        return f"{value / 1024:.2f} MiB" if value is not None else "—"
+
+    def fmt_ratio(value):
+        return f"{value:.1f}%" if value is not None else "—"
+
     lines = [
         "## Performance benchmarks",
         "",
-        f"CPU: `{metadata['cpu']}`  ",
-        f"Compiler: `{metadata['compiler']}`  ",
+        f"CPU: \`{metadata['cpu']}\`  ",
+        f"Compiler: \`{metadata['compiler']}\`  ",
         "The median of successful runs is measured inside benchmark.cpp (without input/output).",
+        "Peak RSS is for the entire benchmark process, including input and output buffers.",
         "",
-        "| Case | Previous best | Current median | Best ratio | Status |",
-        "| --- | ---: | ---: | ---: | --- |",
+        "| Case | Previous time best | Time median | Time/best | Time status | "
+        "Previous RSS best | Peak RSS median | RSS/best | RSS status |",
+        "| --- | ---: | ---: | ---: | --- | ---: | ---: | ---: | --- |",
     ]
     for result in results:
-        best = result["previous_best_ns"]
-        ratio = result["ratio_percent"]
-        if best is None:
-            label = "🆕 New baseline"
-            ratio_text = "—"
-        elif ratio > 150:
-            label = "🔴 Regression"
-            ratio_text = f"{ratio:.1f}%"
-        elif ratio > 120:
-            label = "🟡 Caution"
-            ratio_text = f"{ratio:.1f}%"
-        else:
-            label = "✅ OK"
-            ratio_text = f"{ratio:.1f}%"
         lines.append(
-            f"| `{result['case']}` | "
-            f"{f'{best / 1e6:.3f} ms' if best is not None else '—'} | "
-            f"{result['median_ns'] / 1e6:.3f} ms | {ratio_text} | {label} |"
+            f"| \`{result['case']}\` | "
+            f"{fmt_ms(result['previous_best_ns'])} | "
+            f"{fmt_ms(result['median_ns'])} | "
+            f"{fmt_ratio(result['ratio_percent'])} | "
+            f"{status(result['ratio_percent'])} | "
+            f"{fmt_rss(result['previous_best_rss_kb'])} | "
+            f"{fmt_rss(result['median_rss_kb'])} | "
+            f"{fmt_ratio(result['rss_ratio_percent'])} | "
+            f"{status(result['rss_ratio_percent'])} |"
         )
     lines += [
         "",
+        "Time and RSS bests are tracked independently; each run stores both sample arrays.",
         "A baseline is only comparable when CPU, compiler, flags and fixture contents match.",
         "Red results are warnings, not workflow failures. Invalid outputs fail the workflow.",
         "",
     ]
-    return "\n".join(lines)
+    return "\\n".join(lines)
 
 
 def main():
