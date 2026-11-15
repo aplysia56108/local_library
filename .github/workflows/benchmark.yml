@@ -15,21 +15,36 @@ on:
           - btree/set/insert
           - btree/set/erase
           - btree/set/access
+          - btree/set/lower_bound
+          - btree/set/iterate
           - btree/vector/insert
           - btree/vector/erase
           - btree/vector/reverse
           - btree/vector/access
+          - btree/vector/split_merge
+          - btree/vector/range_erase
+          - btree/vector/iterate
           - btree/segtree/prod
           - btree/segtree/insert
           - btree/segtree/erase
           - btree/segtree/reverse
           - btree/segtree/access
+          - btree/segtree/split_merge
+          - btree/segtree/range_erase
+          - btree/segtree/max_right
+          - btree/segtree/min_left
+          - btree/segtree/iterate
           - btree/lazysegtree/prod
           - btree/lazysegtree/apply
           - btree/lazysegtree/insert
           - btree/lazysegtree/erase
           - btree/lazysegtree/reverse
           - btree/lazysegtree/access
+          - btree/lazysegtree/split_merge
+          - btree/lazysegtree/range_erase
+          - btree/lazysegtree/max_right
+          - btree/lazysegtree/min_left
+          - btree/lazysegtree/iterate
         default: all
       caps:
         description: Node capacities
@@ -53,7 +68,7 @@ jobs:
   benchmark:
     runs-on: ubuntu-24.04
     container: gcc:15.2
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
