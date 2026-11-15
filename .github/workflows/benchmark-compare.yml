@@ -1,0 +1,98 @@
+name: Performance A/B comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Benchmark target (all, btree/set, btree/vector/insert, etc.)
+        type: string
+        default: all
+      caps:
+        description: Node capacities
+        type: choice
+        options:
+          - all
+          - '8'
+          - '16'
+          - '32'
+          - '64'
+        default: all
+      runs:
+        description: Measurements per variant (alternating order)
+        type: choice
+        options:
+          - '3'
+          - '5'
+          - '7'
+        default: '5'
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    container: gcc:15.2
+    timeout-minutes: 180
+    steps:
+      - name: Checkout development branch
+        uses: actions/checkout@v4
+
+      - name: Configure Git safe directory
+        shell: bash
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Ensure Python and GNU time are available
+        shell: bash
+        run: |
+          if ! command -v python3 >/dev/null || [[ ! -x /usr/bin/time ]]; then
+            apt-get update -qq
+            apt-get install -y -qq python3 time
+          fi
+
+      - name: Fetch AtCoder Library
+        shell: bash
+        run: |
+          git clone https://github.com/atcoder/ac-library .deps/ac-library
+          git -C .deps/ac-library checkout --detach 864245a00b00dd008d1abfdc239618fdb7d139da
+
+      - name: Checkout main on the same runner
+        shell: bash
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          base_sha=$(git rev-parse refs/remotes/origin/main^{commit})
+          base_dir="$GITHUB_WORKSPACE/out/benchmark/ab-base-checkout"
+          mkdir -p "$GITHUB_WORKSPACE/out/benchmark"
+          git worktree add --detach "$base_dir" "$base_sha"
+          git config --global --add safe.directory "$base_dir"
+          mkdir -p "$base_dir/.deps"
+          ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$base_dir/.deps/ac-library"
+
+      - name: Load historical main bests (read only)
+        shell: bash
+        run: |
+          mkdir -p out/benchmark
+          git ls-remote --heads origin refs/heads/benchmark-records > out/benchmark/remote-head.txt
+          if [[ -s out/benchmark/remote-head.txt ]]; then
+            git fetch origin benchmark-records:refs/remotes/origin/benchmark-records
+            git show refs/remotes/origin/benchmark-records:best.json > out/benchmark/best.json
+          else
+            printf '{"schema":1,"records":{}}\n' > out/benchmark/best.json
+          fi
+
+      - name: Compare runtime and peak RSS
+        shell: bash
+        env:
+          BENCHMARK_TARGET: ${{ inputs.target }}
+          BENCHMARK_CAPS: ${{ inputs.caps }}
+          BENCHMARK_RUNS: ${{ inputs.runs }}
+        run: |
+          python3 benchmark/compare.py --base-root "$GITHUB_WORKSPACE/out/benchmark/ab-base-checkout" --dev-root "$GITHUB_WORKSPACE" --target "$BENCHMARK_TARGET" --caps "$BENCHMARK_CAPS" --runs "$BENCHMARK_RUNS" --baseline out/benchmark/best.json
+
+      - name: Upload comparison results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-ab-results
+          path: out/benchmark/compare/
+          retention-days: 14
