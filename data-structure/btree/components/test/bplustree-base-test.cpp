@@ -182,6 +182,50 @@ void pool_reclamation_tests() {
             << ")\n";
 }
 
+
+/** @brief 多段の分割・統合でも、祖先へのsize差分とLeaf順序が一致する。 */
+template <std::size_t Capacity>
+void incremental_structure_regression() {
+  Tree<Capacity> tree;
+  std::vector<long long> expected;
+  for (long long i = 0; i < 64; ++i) {
+    tree.push_back(i);
+    expected.push_back(i);
+  }
+  const auto verify = [&]() {
+    assert(tree.size() == expected.size());
+    assert(std::equal(tree.begin(), tree.end(), expected.begin(),
+                      expected.end()));
+    assert(tree.end() - tree.begin() ==
+           static_cast<std::ptrdiff_t>(expected.size()));
+  };
+  verify();
+  for (std::size_t round = 0; round < 24; ++round) {
+    const std::size_t split_at = (round * 7 + 3) % (expected.size() + 1);
+    auto tail = tree.split(split_at);
+    assert(tree.size() == split_at);
+    assert(tail.size() == expected.size() - split_at);
+    tree.merge(tail);
+    verify();
+
+    tree.insert(split_at, static_cast<long long>(1000 + round));
+    expected.insert(expected.begin() + split_at,
+                    static_cast<long long>(1000 + round));
+    verify();
+
+    const std::size_t removed = (round * 11 + 5) % expected.size();
+    tree.erase(removed);
+    expected.erase(expected.begin() + removed);
+    if (round % 3 == 0) {
+      tree.reverse();
+      std::reverse(expected.begin(), expected.end());
+    }
+    verify();
+  }
+  std::cerr << "incremental structural size tests passed! (capacity="
+            << Capacity << ")\n";
+}
+
 int main() {
   std::cerr << "start construction<4>\n";
   construction<4>();
@@ -197,6 +241,9 @@ int main() {
   structural_operations<8>();
   pool_reclamation_tests<4>();
   pool_reclamation_tests<8>();
+  incremental_structure_regression<4>();
+  incremental_structure_regression<8>();
+  incremental_structure_regression<16>();
 
   std::cerr << "All B+tree base test cases passed!\n";
 }
