@@ -7,6 +7,10 @@
 #define NODE_CAP 8
 #endif
 
+#if defined(BENCH_OP_MAX_RIGHT) || defined(BENCH_OP_MIN_LEFT)
+#define BENCH_BOUNDARY_SEARCH
+#endif
+
 #if defined(BENCH_TREE_SET)
 #include "data-structure/btree/bplustree-set.hpp"
 using BenchmarkTree =
@@ -19,13 +23,27 @@ using BenchmarkValue = long long;
 #elif defined(BENCH_TREE_SEGTREE)
 #include "data-structure/btree/bplustree-segtree.hpp"
 using BenchmarkMint = atcoder::modint998244353;
+#if defined(BENCH_BOUNDARY_SEARCH)
+// A nonnegative sum gives a monotone predicate for max_right / min_left.
+using BenchmarkValue = long long;
+using BenchmarkTree = Bplustree_Segtree<SumMonoid, NODE_CAP>;
+#else
 using BenchmarkValue = std::pair<BenchmarkMint, BenchmarkMint>;
 using BenchmarkTree = Bplustree_Segtree<AffineMonoid<BenchmarkMint>, NODE_CAP>;
+#endif
 #elif defined(BENCH_TREE_LAZY)
 #include "data-structure/btree/bplustree-lazysegtree.hpp"
 using BenchmarkMint = atcoder::modint998244353;
+#if defined(BENCH_BOUNDARY_SEARCH)
+using BenchmarkValue = long long;
+using BenchmarkTree = Bplustree_LazySegtree<
+    SumMonoid,
+    Action<long long, long long, AddSumMapping, AddComposition>,
+    true, NODE_CAP>;
+#else
 using BenchmarkValue = BenchmarkMint;
 using BenchmarkTree = AffineSumLazySegtree<BenchmarkMint, NODE_CAP>;
+#endif
 #else
 #error "Unknown benchmark tree"
 #endif
@@ -40,11 +58,11 @@ struct Query {
 inline BenchmarkValue read_value() {
   ll a;
   std::cin >> a;
-#if defined(BENCH_TREE_SEGTREE)
+#if defined(BENCH_TREE_SEGTREE) && !defined(BENCH_BOUNDARY_SEARCH)
   ll b;
   std::cin >> b;
   return {BenchmarkMint(a), BenchmarkMint(b)};
-#elif defined(BENCH_TREE_LAZY)
+#elif defined(BENCH_TREE_LAZY) && !defined(BENCH_BOUNDARY_SEARCH)
   return BenchmarkMint(a);
 #else
   return a;
@@ -52,9 +70,9 @@ inline BenchmarkValue read_value() {
 }
 
 inline BenchmarkValue inserted_value(const Query& q) {
-#if defined(BENCH_TREE_SEGTREE)
+#if defined(BENCH_TREE_SEGTREE) && !defined(BENCH_BOUNDARY_SEARCH)
   return {BenchmarkMint(q.a), BenchmarkMint(q.b)};
-#elif defined(BENCH_TREE_LAZY)
+#elif defined(BENCH_TREE_LAZY) && !defined(BENCH_BOUNDARY_SEARCH)
   return BenchmarkMint(q.y);
 #else
   return q.y;
@@ -62,9 +80,9 @@ inline BenchmarkValue inserted_value(const Query& q) {
 }
 
 inline void print(const BenchmarkValue& value) {
-#if defined(BENCH_TREE_SEGTREE)
+#if defined(BENCH_TREE_SEGTREE) && !defined(BENCH_BOUNDARY_SEARCH)
   std::cout << value.first.val() << ' ' << value.second.val() << '\n';
-#elif defined(BENCH_TREE_LAZY)
+#elif defined(BENCH_TREE_LAZY) && !defined(BENCH_BOUNDARY_SEARCH)
   std::cout << value.val() << '\n';
 #else
   std::cout << value << '\n';
@@ -92,7 +110,7 @@ signed main() {
     if (!std::cin) return 1;
   }
   std::vector<Query> queries(q);
-#if !defined(BENCH_OP_ACCESS)
+#if !defined(BENCH_OP_ACCESS) && !defined(BENCH_OP_ITERATE)
   for (auto& x : queries) {
 #if defined(BENCH_OP_INSERT)
 #if defined(BENCH_TREE_SET)
@@ -108,6 +126,11 @@ signed main() {
     std::cin >> x.x >> x.y;
 #elif defined(BENCH_OP_APPLY)
     std::cin >> x.x >> x.y >> x.a >> x.b;
+#elif defined(BENCH_OP_RANGE_ERASE) || defined(BENCH_OP_MAX_RIGHT) || \
+    defined(BENCH_OP_MIN_LEFT)
+    std::cin >> x.x >> x.y;
+#elif defined(BENCH_OP_SPLIT_MERGE) || defined(BENCH_OP_LOWER_BOUND)
+    std::cin >> x.x;
 #else
 #error "Unknown benchmark operation"
 #endif
@@ -116,7 +139,9 @@ signed main() {
 #endif
 
   BenchmarkTree tree(initial.begin(), initial.end());
-#if defined(BENCH_OP_PROD) || defined(BENCH_OP_ACCESS)
+#if defined(BENCH_OP_PROD) || defined(BENCH_OP_ACCESS) || \
+    defined(BENCH_OP_ITERATE) || defined(BENCH_OP_LOWER_BOUND) || \
+    defined(BENCH_BOUNDARY_SEARCH)
   std::vector<BenchmarkValue> answers(q);
 #endif
 
@@ -141,6 +166,37 @@ signed main() {
     tree.apply(x.x, x.y, {BenchmarkMint(x.a), BenchmarkMint(x.b)});
 #elif defined(BENCH_OP_ACCESS)
   for (ll i = 0; i < q; ++i) answers[i] = tree[i];
+#elif defined(BENCH_OP_RANGE_ERASE)
+  for (const auto& x : queries) tree.erase(x.x, x.y);
+#elif defined(BENCH_OP_SPLIT_MERGE)
+  for (const auto& x : queries) {
+    auto right = tree.split(x.x);
+    tree.merge(right);
+  }
+#elif defined(BENCH_OP_LOWER_BOUND)
+  for (ll i = 0; i < q; ++i) {
+    auto it = tree.lower_bound(queries[i].x);
+    answers[i] = it == tree.end() ? -1 : *it;
+  }
+#elif defined(BENCH_OP_MAX_RIGHT)
+  for (ll i = 0; i < q; ++i) {
+    const ll limit = queries[i].y;
+    answers[i] = tree.max_right(queries[i].x,
+                                [limit](const BenchmarkValue& sum) {
+                                  return sum <= limit;
+                                });
+  }
+#elif defined(BENCH_OP_MIN_LEFT)
+  for (ll i = 0; i < q; ++i) {
+    const ll limit = queries[i].y;
+    answers[i] = tree.min_left(queries[i].x,
+                               [limit](const BenchmarkValue& sum) {
+                                 return sum <= limit;
+                               });
+  }
+#elif defined(BENCH_OP_ITERATE)
+  ll index = 0;
+  for (const auto& value : tree) answers[index++] = value;
 #else
 #error "Unknown benchmark operation"
 #endif
@@ -149,7 +205,9 @@ signed main() {
   const auto elapsed =
       std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
   std::cerr << "BENCHMARK_NS=" << elapsed << '\n';
-#if defined(BENCH_OP_PROD) || defined(BENCH_OP_ACCESS)
+#if defined(BENCH_OP_PROD) || defined(BENCH_OP_ACCESS) || \
+    defined(BENCH_OP_ITERATE) || defined(BENCH_OP_LOWER_BOUND) || \
+    defined(BENCH_BOUNDARY_SEARCH)
   for (const auto& x : answers) print(x);
 #else
   for (const auto& x : tree) print(x);
