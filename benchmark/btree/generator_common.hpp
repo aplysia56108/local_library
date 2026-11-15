@@ -12,6 +12,9 @@
 namespace benchmark_generator {
 
 using ll = long long;
+#if defined(BENCH_OP_MAX_RIGHT) || defined(BENCH_OP_MIN_LEFT)
+#define BENCH_BOUNDARY_SEARCH
+#endif
 constexpr ll Q = 100'000;
 constexpr ll MOD = 998'244'353;
 
@@ -69,7 +72,10 @@ inline std::pair<ll, ll> make_range(Rng& rng, ll n, ll i) {
   return {l, l + 1 + rng.next() % limit};
 }
 
-#if defined(BENCH_TREE_SEGTREE)
+#if defined(BENCH_BOUNDARY_SEARCH)
+using Value = ll;
+inline Value value_at(ll i) { return lazy_value(i); }
+#elif defined(BENCH_TREE_SEGTREE)
 using Value = std::pair<ll, ll>;
 inline Value value_at(ll i) { return affine_value(i); }
 #elif defined(BENCH_TREE_SET)
@@ -104,6 +110,8 @@ signed main() {
   constexpr ll N = 0;
 #elif defined(BENCH_OP_ERASE)
   constexpr ll N = 2 * Q;
+#elif defined(BENCH_OP_RANGE_ERASE)
+  constexpr ll N = 5 * Q;
 #else
   constexpr ll N = Q;
 #endif
@@ -176,6 +184,76 @@ signed main() {
   for (ll i = 0; i < N; ++i)
     if (!removed[i]) print(output, initial[i]);
 #endif
+
+#elif defined(BENCH_OP_RANGE_ERASE)
+  Fenwick alive(N);
+  std::vector<char> removed(N, false);
+  ll remaining = N;
+  for (ll i = 0; i < Q; ++i) {
+    // Short but nontrivial contiguous erases; always keep enough live elements.
+    const ll count = std::min(remaining - (Q - i - 1),
+                              1 + static_cast<ll>(rng.next() % 6));
+    const ll left = rng.next() % (remaining - count + 1);
+    input << left << ' ' << left + count << '\n';
+    for (ll j = 0; j < count; ++j) {
+      const ll original_index = alive.kth(left);
+      removed[original_index] = true;
+      alive.add(original_index, -1);
+    }
+    remaining -= count;
+  }
+  for (ll i = 0; i < N; ++i)
+    if (!removed[i]) print(output, initial[i]);
+
+#elif defined(BENCH_OP_SPLIT_MERGE)
+  for (ll i = 0; i < Q; ++i) {
+    // Include both empty sides and near-edge splits, not just central splits.
+    ll index;
+    if (i % 1024 == 0) index = 0;
+    else if (i % 1024 == 1) index = N;
+    else if (i % 1024 == 2) index = 1;
+    else if (i % 1024 == 3) index = N - 1;
+    else index = rng.next() % (N + 1);
+    input << index << '\n';
+  }
+  for (const auto& x : initial) print(output, x);
+
+#elif defined(BENCH_OP_LOWER_BOUND)
+  std::sort(initial.begin(), initial.end());
+  for (ll i = 0; i < Q; ++i) {
+    // Include exact keys, misses between keys, and out-of-range searches.
+    const ll key = i % 4 == 0
+                       ? set_key(rng.next() % N)
+                       : static_cast<ll>(rng.next() % 1'000'000'009u);
+    input << key << '\n';
+    const auto it = std::lower_bound(initial.begin(), initial.end(), key);
+    print(output, it == initial.end() ? -1LL : *it);
+  }
+
+#elif defined(BENCH_BOUNDARY_SEARCH)
+  std::vector<ll> prefix(N + 1, 0);
+  for (ll i = 0; i < N; ++i) prefix[i + 1] = prefix[i] + initial[i];
+  for (ll i = 0; i < Q; ++i) {
+    const ll position = rng.next() % (N + 1);
+    const ll limit = i % 1000 == 0 ? 1'000'000'000'000LL
+                                   : static_cast<ll>(rng.next() % 1'000'000);
+    input << position << ' ' << limit << '\n';
+#if defined(BENCH_OP_MAX_RIGHT)
+    const auto it = std::upper_bound(prefix.begin() + position, prefix.end(),
+                                     prefix[position] + limit);
+    print(output, static_cast<ll>(it - prefix.begin()) - 1);
+#else
+    const auto it = std::lower_bound(prefix.begin(), prefix.begin() + position + 1,
+                                     prefix[position] - limit);
+    print(output, static_cast<ll>(it - prefix.begin()));
+#endif
+  }
+
+#elif defined(BENCH_OP_ITERATE)
+#if defined(BENCH_TREE_SET)
+  std::sort(initial.begin(), initial.end());
+#endif
+  for (const auto& x : initial) print(output, x);
 
 #elif defined(BENCH_OP_ACCESS)
   if constexpr (std::is_same_v<Value, ll>) {
