@@ -45,7 +45,7 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE/out/epoch-ab/old"
           mkdir -p out/epoch-ab/old/.deps
           ln -s "$GITHUB_WORKSPACE/.deps/ac-library" out/epoch-ab/old/.deps/ac-library
-          printf '{"schema":1,"records":{}}\n' > out/epoch-ab/empty.json
+          printf '%s\n' '{"schema":1,"records":{}}' > out/epoch-ab/empty.json
           python3 out/epoch-ab/old/benchmark/compare.py \
             --base-root "$GITHUB_WORKSPACE/out/epoch-ab/old" \
             --dev-root "$GITHUB_WORKSPACE" \
