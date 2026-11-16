@@ -161,3 +161,21 @@ falseへ高々1回変わるものとし、空区間の単位元には呼び出�
 
 公開APIの新規テストは `data-structure/btree/test/` に配置します。旧テストは廃止し、
 重い乱択・パフォーマンス検証はverifyに委ねます。
+
+### iteratorのepochキャッシュ
+
+`NodePools<Traits>::mutation_epoch` は、同じTraitsを持つ木で共通の更新世代です。
+iteratorはLeafのPool IDと、そのLeafへの経路を最後にmaterializeした世代を保持します。
+
+- `reverse` / `apply` / `insert` / `erase` / `split` / `merge` /
+  `assign` / `swap` などの論理変更時に世代を進めます。
+  `materialize` による内部的な遅延伝搬では進めません。
+- `operator*()` は世代一致なら根への遡及を省略します。
+  `operator++()` / `operator--()` は必要時に現在の経路を確定し、
+  移動先への下降経路だけをmaterializeします。毎要素の根への再走査が不要です。
+- 木の所属はsplit/merge/swapで変わるので、iteratorが`Tree*`を持つ代わりに
+  Pool共有の世代を利用します。別の木による無関係の変更でもキャッシュは
+  保守的に無効化されます（正しさには影響しません）。
+- 世代はあくまで**iterator内部のキャッシュ**であり、比較・等価性はLeaf IDだけで
+  決まります。Leaf自体をeraseした場合のiteratorは従来どおり無効です。
+

@@ -1,8 +1,10 @@
 #include "data-structure/btree/bplustree-segtree.hpp"
 #include "data-structure/btree/bplustree-lazysegtree.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -178,7 +180,7 @@ void iterator_epoch_lazy_tests() {
   const auto check = [&]() {
     assert(std::equal(tree.begin(), tree.end(), expected.begin(),
                       expected.end()));
-    assert(*saved == 2300 + (expected[23] - 2300));
+    assert(*saved == expected[23]);
     assert(tree.all_prod() ==
            std::accumulate(expected.begin(), expected.end(), 0LL));
   };
@@ -208,7 +210,7 @@ void iterator_epoch_lazy_tests() {
                     expected.end()));
 
   std::cerr << "iterator epoch lazy tests passed! (capacity="
-            << Capacity << ")\\n";
+            << Capacity << ")\n";
 }
 
 int main() {

@@ -18,7 +18,8 @@
  * C++20 の `std::random_access_iterator` コンセプトを満たす。
  * ただし木構造上、任意距離の移動やイテレータ差分は厳密には O(1) ではなく
  * O(NodeCapacity log_{NodeCapacity} N) となり得る。
- * 参照時は祖先から遅延更新を適用するため O(log_{NodeCapacity} N)。
+ * 参照時はepochが変わった場合だけ祖先から遅延更新を適用し、同一epochではO(1)。
+ * 連続した ++ は、新しい部分木への下降時だけ未伝搬情報を処理する。
  */
 // Traitsが含む情報
 // T:要素の型
@@ -53,16 +54,6 @@ class Iterator {
   }
   Leaf& this_leaf() const {
     return get_leaf(leaf_id_);
-  }
-
-  static void apply_reverse_path(id_type node_id) {
-    auto& node = get_node(node_id);
-    if (node.parent != null_id) apply_reverse_path(node.parent);
-    node.apply_reverse();
-  }
-
-  void apply_reverse_path() const {
-    apply_reverse_path(this_leaf().parent);
   }
 
   static void materialize_path(id_type node_id) {

@@ -287,7 +287,7 @@ void iterator_epoch_tests() {
   expected.erase(expected.begin() + 1);
   verify();
   std::cerr << "iterator epoch cache tests passed! (capacity="
-            << Capacity << ")\\n";
+            << Capacity << ")\n";
 }
 
 int main() {
