@@ -352,7 +352,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     requires(Traits::lazy)
   {
     assert(first <= last && last <= size());
+    if (first == last) return;
     apply_recursive(Parent::get_node(this->root_), first + 1, last + 1, f);
+    Pools::invalidate_iterator_paths();
   }
   void all_apply(const F& f)
     requires(Traits::lazy)

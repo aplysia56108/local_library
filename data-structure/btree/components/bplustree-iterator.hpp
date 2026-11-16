@@ -4,6 +4,7 @@
 #include <cassert>
 #include <compare>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <tuple>
 #include <type_traits>
@@ -41,6 +42,8 @@ class Iterator {
   static constexpr id_type null_id = NodePools<Traits>::null_id;
 
   id_type leaf_id_ = null_id;
+  // そのLeafの祖先経路を最後にmaterializeした世代。0は未検証。
+  mutable std::uint64_t validated_epoch_ = 0;
 
   static Leaf& get_leaf(const id_type& id) {
     return Pools::leaves()[id];
@@ -72,6 +75,17 @@ class Iterator {
     materialize_path(this_leaf().parent);
   }
 
+  /** @brief 更新がなければ、現在のLeafまでの祖先走査を省略する。 */
+  void ensure_materialized_path() const {
+    if constexpr (!VisitAll) {
+      const auto epoch = Pools::mutation_epoch;
+      if (validated_epoch_ != epoch) {
+        materialize_path();
+        validated_epoch_ = epoch;
+      }
+    }
+  }
+
   static void refresh_path(id_type node_id) {
     auto& node = get_node(node_id);
     node.refresh_metadata();
@@ -84,10 +98,9 @@ class Iterator {
 
   void advance(std::ptrdiff_t offset) {
     assert(leaf_id_ != null_id);
-    // Reversal changes each Leaf's position. Materialize it before reading
-    // the current position or computing the target index.
+    // reverseで変わるLeafのpositionを、epochが古い場合だけ確定する。
+    ensure_materialized_path();
     auto& leaf = this_leaf();
-    if constexpr (!VisitAll) apply_reverse_path();
     std::ptrdiff_t to_index =
         static_cast<std::ptrdiff_t>(leaf.position) + offset;
     id_type node_id = leaf.parent;
@@ -95,7 +108,10 @@ class Iterator {
     while (true) {
       auto& node = get_node(node_id);
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node.size)) {
-        leaf_id_ = node.template locate<VisitAll>(to_index);
+        // 新しいLeafの経路だけを降りながらmaterializeする。
+        // これで次のoperator*とadvanceでは根までの走査が不要になる。
+        leaf_id_ = node.template locate<true>(to_index);
+        if constexpr (!VisitAll) validated_epoch_ = Pools::mutation_epoch;
         return;
       }
       assert(node.parent != null_id);
@@ -120,11 +136,12 @@ class Iterator {
   template <bool OtherConst, bool OtherVisitALL>
     requires(IsConst && !OtherConst)
   Iterator(const Iterator<Traits, Tree, OtherConst, OtherVisitALL>& other)
-      : leaf_id_(other.leaf_id_) {}
+      : leaf_id_(other.leaf_id_),
+        validated_epoch_(OtherVisitALL ? 0 : other.validated_epoch_) {}
 
   reference operator*() const {
     assert(leaf_id_ != null_id);
-    if constexpr (!VisitAll) materialize_path();
+    ensure_materialized_path();
     return this_leaf().get();
   }
 
@@ -141,7 +158,7 @@ class Iterator {
   void set(const T& value) const
     requires(!IsConst)
   {
-    materialize_path();
+    ensure_materialized_path();
     this_leaf().set(value);
     refresh_path();
   }
@@ -190,8 +207,8 @@ class Iterator {
   }
 
   friend std::ptrdiff_t operator-(const Iterator& lhs, const Iterator& rhs) {
-    lhs.apply_reverse_path();
-    rhs.apply_reverse_path();
+    lhs.ensure_materialized_path();
+    rhs.ensure_materialized_path();
 
     id_type l_node_id = get_leaf(lhs.leaf_id_).parent;
     std::ptrdiff_t l_index = get_leaf(lhs.leaf_id_).position;
@@ -222,6 +239,9 @@ class Iterator {
     return (lhs - rhs) <=> 0;
   }
 
-  friend bool operator==(const Iterator&, const Iterator&) = default;
+  // epochはキャッシュ状態であり、iteratorの指す要素の同一性には含めない。
+  friend bool operator==(const Iterator& lhs, const Iterator& rhs) {
+    return lhs.leaf_id_ == rhs.leaf_id_;
+  }
 };
 }  // namespace Bplustree

@@ -226,6 +226,70 @@ void incremental_structure_regression() {
             << Capacity << ")\n";
 }
 
+
+/** @brief Pool共有epochによるiterator経路キャッシュを検証する。 */
+template <std::size_t Capacity>
+void iterator_epoch_tests() {
+  using Traits = Bplustree::Traits<long long, Capacity>;
+  using Pools = Bplustree::NodePools<Traits>;
+  Tree<Capacity> tree;
+  std::vector<long long> expected;
+  for (long long i = 0; i < 96; ++i) {
+    tree.push_back(i * 100);
+    expected.push_back(i * 100);
+  }
+
+  auto saved = tree.nth(23);
+  auto copy = saved;
+  assert(*saved == 2300);
+  const auto initial_epoch = Pools::mutation_epoch;
+  // 読み取りとコピーではepochを変えない。キャッシュが違っても同じLeaf。
+  assert(saved == copy);
+  const auto verify = [&]() {
+    assert(std::equal(tree.begin(), tree.end(), expected.begin(),
+                      expected.end()));
+    assert(tree.end() - tree.begin() ==
+           static_cast<std::ptrdiff_t>(expected.size()));
+    assert(*saved == 2300);
+    auto next = saved;
+    ++next;
+    const auto index = static_cast<std::size_t>(
+        std::find(expected.begin(), expected.end(), 2300) - expected.begin());
+    assert(index + 1 < expected.size());
+    assert(*next == expected[index + 1]);
+    assert(saved == copy);
+  };
+  verify();
+  assert(Pools::mutation_epoch == initial_epoch);
+
+  tree.reverse(7, 71);
+  std::reverse(expected.begin() + 7, expected.begin() + 71);
+  assert(Pools::mutation_epoch != initial_epoch);
+  verify();
+  tree.reverse();
+  std::reverse(expected.begin(), expected.end());
+  verify();
+
+  // split/mergeによってLeafの所属Treeと親IDが変化しても既存iteratorは有効。
+  const auto split_pos = static_cast<std::size_t>(
+      std::find(expected.begin(), expected.end(), 2300) - expected.begin());
+  auto right = tree.split(split_pos);
+  assert(*saved == 2300);
+  assert(std::equal(right.begin(), right.end(), expected.begin() + split_pos,
+                    expected.end()));
+  tree.merge(right);
+  verify();
+
+  // 参照先でないLeafのerase/insert後にも既存iteratorを再利用できる。
+  tree.insert(0, -100);
+  expected.insert(expected.begin(), -100);
+  tree.erase(1);
+  expected.erase(expected.begin() + 1);
+  verify();
+  std::cerr << "iterator epoch cache tests passed! (capacity="
+            << Capacity << ")\\n";
+}
+
 int main() {
   std::cerr << "start construction<4>\n";
   construction<4>();
@@ -244,6 +308,9 @@ int main() {
   incremental_structure_regression<4>();
   incremental_structure_regression<8>();
   incremental_structure_regression<16>();
+  iterator_epoch_tests<4>();
+  iterator_epoch_tests<8>();
+  iterator_epoch_tests<16>();
 
   std::cerr << "All B+tree base test cases passed!\n";
 }

@@ -163,6 +163,54 @@ void lazy_composition_tests() {
             << Capacity << ")\n";
 }
 
+
+/** @brief lazy/reverseの未伝搬経路でもepochキャッシュが値を正しく反映する。 */
+template <std::size_t Capacity>
+void iterator_epoch_lazy_tests() {
+  using Tree = BLazySegtree<long long, long long,
+      [](long long a, long long b) { return a + b; },
+      []() { return 0LL; },
+      AddSumMapping, AddComposition, true, Capacity>;
+  std::vector<long long> expected;
+  for (long long i = 0; i < 96; ++i) expected.push_back(i * 100);
+  Tree tree(expected.begin(), expected.end());
+  auto saved = tree.nth(23);
+  const auto check = [&]() {
+    assert(std::equal(tree.begin(), tree.end(), expected.begin(),
+                      expected.end()));
+    assert(*saved == 2300 + (expected[23] - 2300));
+    assert(tree.all_prod() ==
+           std::accumulate(expected.begin(), expected.end(), 0LL));
+  };
+  check();
+
+  tree.apply(8, 85, 7);
+  for (std::size_t i = 8; i < 85; ++i) expected[i] += 7;
+  assert(*saved == 2307);
+  check();
+
+  tree.reverse(5, 77);
+  std::reverse(expected.begin() + 5, expected.begin() + 77);
+  assert(*saved == 2307);
+  assert(std::equal(tree.begin(), tree.end(), expected.begin(),
+                    expected.end()));
+
+  tree.all_apply(11);
+  for (auto& x : expected) x += 11;
+  assert(*saved == 2318);
+  assert(std::equal(tree.begin(), tree.end(), expected.begin(),
+                    expected.end()));
+
+  auto right = tree.split(45);
+  assert(*saved == 2318);
+  tree.merge(right);
+  assert(std::equal(tree.begin(), tree.end(), expected.begin(),
+                    expected.end()));
+
+  std::cerr << "iterator epoch lazy tests passed! (capacity="
+            << Capacity << ")\\n";
+}
+
 int main() {
   leaf_storage_tests<4>();
   leaf_storage_tests<8>();
@@ -176,5 +224,8 @@ int main() {
   noncommutative_tests<8>();
   lazy_tests<4>();
   lazy_tests<8>();
+  iterator_epoch_lazy_tests<4>();
+  iterator_epoch_lazy_tests<8>();
+  iterator_epoch_lazy_tests<16>();
   std::cerr << "All B+tree aggregate test cases passed!\n";
 }
