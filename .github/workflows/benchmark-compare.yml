@@ -8,8 +8,71 @@ on:
         type: string
         required: true
       target:
-        description: Benchmark target (all, btree/set, btree/vector/insert, etc.)
-        type: string
+        description: Benchmark target
+        type: choice
+        options:
+          - all
+          - btree/set
+          - btree/vector
+          - btree/segtree
+          - btree/lazysegtree
+          - btree/set/insert
+          - btree/set/erase
+          - btree/set/access
+          - btree/set/access_random
+          - btree/set/lower_bound
+          - btree/set/iterate
+          - btree/vector/insert
+          - btree/vector/erase
+          - btree/vector/reverse
+          - btree/vector/access
+          - btree/vector/access_random
+          - btree/vector/split_merge
+          - btree/vector/range_erase
+          - btree/vector/iterate
+          - btree/segtree/prod
+          - btree/segtree/insert
+          - btree/segtree/erase
+          - btree/segtree/reverse
+          - btree/segtree/access
+          - btree/segtree/access_random
+          - btree/segtree/split_merge
+          - btree/segtree/range_erase
+          - btree/segtree/max_right
+          - btree/segtree/min_left
+          - btree/segtree/iterate
+          - btree/lazysegtree/prod
+          - btree/lazysegtree/apply
+          - btree/lazysegtree/insert
+          - btree/lazysegtree/erase
+          - btree/lazysegtree/reverse
+          - btree/lazysegtree/access
+          - btree/lazysegtree/access_random
+          - btree/lazysegtree/split_merge
+          - btree/lazysegtree/range_erase
+          - btree/lazysegtree/max_right
+          - btree/lazysegtree/min_left
+          - btree/lazysegtree/iterate
+          - btree/set/mixed_uniform
+          - btree/set/mixed_edges
+          - btree/set/mixed_hotspot
+          - btree/vector/mixed_uniform
+          - btree/vector/mixed_edges
+          - btree/vector/mixed_hotspot
+          - btree/segtree/mixed_uniform
+          - btree/segtree/mixed_edges
+          - btree/segtree/mixed_hotspot
+          - btree/lazysegtree/mixed_uniform
+          - btree/lazysegtree/mixed_edges
+          - btree/lazysegtree/mixed_hotspot
+          - btree/set/mixed_growth
+          - btree/set/mixed_shrink
+          - btree/vector/mixed_growth
+          - btree/vector/mixed_shrink
+          - btree/segtree/mixed_growth
+          - btree/segtree/mixed_shrink
+          - btree/lazysegtree/mixed_growth
+          - btree/lazysegtree/mixed_shrink
         default: all
       caps:
         description: Node capacities
