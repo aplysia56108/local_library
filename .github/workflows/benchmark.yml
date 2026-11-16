@@ -15,12 +15,14 @@ on:
           - btree/set/insert
           - btree/set/erase
           - btree/set/access
+          - btree/set/access_random
           - btree/set/lower_bound
           - btree/set/iterate
           - btree/vector/insert
           - btree/vector/erase
           - btree/vector/reverse
           - btree/vector/access
+          - btree/vector/access_random
           - btree/vector/split_merge
           - btree/vector/range_erase
           - btree/vector/iterate
@@ -29,6 +31,7 @@ on:
           - btree/segtree/erase
           - btree/segtree/reverse
           - btree/segtree/access
+          - btree/segtree/access_random
           - btree/segtree/split_merge
           - btree/segtree/range_erase
           - btree/segtree/max_right
@@ -40,6 +43,7 @@ on:
           - btree/lazysegtree/erase
           - btree/lazysegtree/reverse
           - btree/lazysegtree/access
+          - btree/lazysegtree/access_random
           - btree/lazysegtree/split_merge
           - btree/lazysegtree/range_erase
           - btree/lazysegtree/max_right
