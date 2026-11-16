@@ -129,7 +129,8 @@ signed main() {
 #elif defined(BENCH_OP_RANGE_ERASE) || defined(BENCH_OP_MAX_RIGHT) || \
     defined(BENCH_OP_MIN_LEFT)
     std::cin >> x.x >> x.y;
-#elif defined(BENCH_OP_SPLIT_MERGE) || defined(BENCH_OP_LOWER_BOUND)
+#elif defined(BENCH_OP_SPLIT_MERGE) || defined(BENCH_OP_LOWER_BOUND) || \
+    defined(BENCH_OP_ACCESS_RANDOM)
     std::cin >> x.x;
 #else
 #error "Unknown benchmark operation"
@@ -140,8 +141,8 @@ signed main() {
 
   BenchmarkTree tree(initial.begin(), initial.end());
 #if defined(BENCH_OP_PROD) || defined(BENCH_OP_ACCESS) || \
-    defined(BENCH_OP_ITERATE) || defined(BENCH_OP_LOWER_BOUND) || \
-    defined(BENCH_BOUNDARY_SEARCH)
+    defined(BENCH_OP_ACCESS_RANDOM) || defined(BENCH_OP_ITERATE) || \
+    defined(BENCH_OP_LOWER_BOUND) || defined(BENCH_BOUNDARY_SEARCH)
   std::vector<BenchmarkValue> answers(q);
 #endif
 
@@ -166,6 +167,9 @@ signed main() {
     tree.apply(x.x, x.y, {BenchmarkMint(x.a), BenchmarkMint(x.b)});
 #elif defined(BENCH_OP_ACCESS)
   for (ll i = 0; i < q; ++i) answers[i] = tree[i];
+#elif defined(BENCH_OP_ACCESS_RANDOM)
+  // Query indices are read before the timer; only operator[] is measured.
+  for (ll i = 0; i < q; ++i) answers[i] = tree[queries[i].x];
 #elif defined(BENCH_OP_RANGE_ERASE)
   for (const auto& x : queries) tree.erase(x.x, x.y);
 #elif defined(BENCH_OP_SPLIT_MERGE)
@@ -206,8 +210,8 @@ signed main() {
       std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
   std::cerr << "BENCHMARK_NS=" << elapsed << '\n';
 #if defined(BENCH_OP_PROD) || defined(BENCH_OP_ACCESS) || \
-    defined(BENCH_OP_ITERATE) || defined(BENCH_OP_LOWER_BOUND) || \
-    defined(BENCH_BOUNDARY_SEARCH)
+    defined(BENCH_OP_ACCESS_RANDOM) || defined(BENCH_OP_ITERATE) || \
+    defined(BENCH_OP_LOWER_BOUND) || defined(BENCH_BOUNDARY_SEARCH)
   for (const auto& x : answers) print(x);
 #else
   for (const auto& x : tree) print(x);
