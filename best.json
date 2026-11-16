@@ -2731,6 +2731,7 @@
     "btree/set/access/cap16": {
       "2b8abd6c468dac43": {
         "best_ns": 1122236,
+        "best_rss_kb": 15056,
         "commit": "f018b791756717107bd1facde55c449b83408ae1",
         "fingerprint": {
           "compiler": "g++ (GCC) 15.2.0",
@@ -2747,12 +2748,15 @@
             "-DNODE_CAP=16"
           ]
         },
+        "rss_commit": "e94c1868bb25dc26b89eb45cdbe94c07647377ad",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/43887310080",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
       }
     },
     "btree/set/access/cap32": {
       "c91fa16ff092f872": {
         "best_ns": 1113072,
+        "best_rss_kb": 14676,
         "commit": "f018b791756717107bd1facde55c449b83408ae1",
         "fingerprint": {
           "compiler": "g++ (GCC) 15.2.0",
@@ -2769,12 +2773,15 @@
             "-DNODE_CAP=32"
           ]
         },
+        "rss_commit": "e94c1868bb25dc26b89eb45cdbe94c07647377ad",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/43887310080",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
       }
     },
     "btree/set/access/cap64": {
       "967ccaa22912bd87": {
         "best_ns": 1218702,
+        "best_rss_kb": 14540,
         "commit": "f018b791756717107bd1facde55c449b83408ae1",
         "fingerprint": {
           "compiler": "g++ (GCC) 15.2.0",
@@ -2791,12 +2798,15 @@
             "-DNODE_CAP=64"
           ]
         },
+        "rss_commit": "e94c1868bb25dc26b89eb45cdbe94c07647377ad",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/43887310080",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
       }
     },
     "btree/set/access/cap8": {
       "aca54f628fb3388c": {
         "best_ns": 1417252,
+        "best_rss_kb": 15868,
         "commit": "f018b791756717107bd1facde55c449b83408ae1",
         "fingerprint": {
           "compiler": "g++ (GCC) 15.2.0",
@@ -2813,6 +2823,8 @@
             "-DNODE_CAP=8"
           ]
         },
+        "rss_commit": "e94c1868bb25dc26b89eb45cdbe94c07647377ad",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/43887310080",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
       }
     },
