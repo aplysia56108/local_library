@@ -263,6 +263,24 @@ signed main() {
   }
   for (const auto& x : initial) print(output, x);
 
+#elif defined(BENCH_OP_ACCESS_RANDOM)
+#if defined(BENCH_TREE_SET)
+  // The ordered Set uses sorted order as its position-based index.
+  std::sort(initial.begin(), initial.end());
+#endif
+  // Fisher-Yates shuffle: visit each of the same Q indices exactly once.
+  // Fixed-seed RNG and fixture generation are both outside the timed region.
+  std::vector<ll> order(N);
+  std::iota(order.begin(), order.end(), 0LL);
+  for (ll i = N - 1; i > 0; --i) {
+    const ll j = rng.next() % (i + 1);
+    std::swap(order[i], order[j]);
+  }
+  for (const ll index : order) {
+    input << index << '\n';
+    print(output, initial[index]);
+  }
+
 #elif defined(BENCH_OP_REVERSE)
   for (ll i = 0; i < Q; ++i) {
     auto [l, r] = make_range(rng, N, i);
