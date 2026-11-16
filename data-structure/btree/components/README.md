@@ -36,17 +36,36 @@ struct MyTraits {
 struct MyTraits::Internal : Bplustree::Internal<MyTraits> {
   using Bplustree::Internal<MyTraits>::Internal;
   long long aggregate = 0;
-  void after_sync(); // level==0ならLeafの値、その他は子Internalの積
+  void refresh_metadata(); // level==0ならLeafの値、その他は子Internalの積
 };
 ```
 
 派生コンテナはprotectedのroot_、Node/Leaf/Internal型、buildなどを利用できます。
-集約値を持つ場合はInternalのafter_syncを実装します。通常状態はcount < NodeCapで、
+集約値を持つ場合はInternalのrefresh_metadataを実装します。通常状態はcount < NodeCapで、
 insertがtrueを返した場合は直ちにsplitします。
 
 BaseのsplitはBase型を返します。派生型はBaseのムーブコンストラクタへ渡す
 引数を受けるコンストラクタを用意すると、追加の全要素コピーなしで結果を
 引き継げます。状態を持つ比較器などは派生型側で引き継ぎを管理してください。
+
+## 子の差分移動と不変条件
+
+`Internal::move_child` で `children` / `count` / `size` / 子の `parent` /
+`position` を差分更新します。`sync()` は廃止し、`refresh()` は
+派生側の `refresh_metadata()` だけを実行します。祖先への `size` 変化は
+挿入・削除・splitの処理側が伝搬します。
+
+`children[0, count)` のみ有効です。`count` 以降の値は未規定で、
+末尾の `null_id` クリアは不要です。移動途中は一時的に穴ができる場合が
+ありますが、構造変更を完了するまで検索・集約を呼びません。
+
+- `move_child<false>`: 同一親で位置変更。要素数は変えない。
+- `move_child<true, false>`: 新規子や親のない部分木を配置する。
+- `move_child<true, true>`: 元の親から suffix を切り離して移す。
+
+最後の操作では元の親の `count` が縮むため、右端から順に移します。
+`count` の退避が必要な移動ループには、理由をコメントで残します。
+子ノードを元の親の途中から単独で取り除く操作には使えません。
 
 ## 遅延更新と反転のフック
 
@@ -57,7 +76,7 @@ push_reverseはフラグを付け、apply_reverseが並び替えと子へのフ�
 遅延タグを付けるときは、そのInternalの集約値を直ちに論理上の値へ更新してください。
 Leafは遅延タグを持たず、作用を受けた時点で要素の値を書き換えます。
 非可換モノイドでの反転では順方向・逆方向の集約値を保持し、派生push_reverseで
-基本フラグを反転するとともに両集約値を交換します。after_syncは残っている
+基本フラグを反転するとともに両集約値を交換します。refresh_metadataは残っている
 遅延タグも考慮し、子の論理上の集約値から計算してください。
 
 ## Setter

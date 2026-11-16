@@ -29,7 +29,7 @@ void node_structure_test() {
   const auto removed_id = root.locate(0);
   assert(!root.erase(0));
   assert(root.count == Capacity - 2);
-  assert(root.children[root.count] == Pools::null_id);
+  // count 以降は未規定なので検査しない。
   assert(Pools::leaves()[root.locate(0)].get() == Capacity - 2);
 
   // 回収された ID が再利用される。古い Leaf ID は無効扱い。

@@ -83,7 +83,7 @@ struct AggregateTraits<M, A, R, C>::Internal
    * @details is_reversed / pending が残っていれば、再計算した物理状態の積に
    * それらを適用して論理状態の積を維持する。
    */
-  void after_sync() {
+  void refresh_metadata() {
     forward = backward = M::e();
     if (this->level == 0) {
       for (std::size_t i = 0; i < this->count; ++i)
@@ -245,7 +245,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         if (offset >= last) break;
       }
     }
-    node.after_sync();
+    node.refresh_metadata();
   }
 
   // predicate が破れた部分木だけを再帰的に探索する。

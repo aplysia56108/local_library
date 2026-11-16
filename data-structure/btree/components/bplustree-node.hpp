@@ -70,7 +70,8 @@ struct Leaf : Traits::Node {
 
 /**
  * @brief children は level==0 なら Leaf ID、それ以外は Internal ID。
- * @details 通常 count < NodeCap。挿入直後のみ count == NodeCap があり得る。
+ * @details children[0, count) のみ有効で、count 以降の内容は未規定。
+ * 通常 count < NodeCap。挿入直後のみ count == NodeCap があり得る。
  * 所有権は Pool の ID 木にあり、子 ID の移動は実体を移動しない。
  */
 template <class Traits>
@@ -91,11 +92,10 @@ struct Internal : Traits::Node {
   std::size_t size = 0;
   pos_type level = 0;
   bool is_reversed = false;
+  // count 以降は参照しない。null_id 終端の管理は不要。
   std::array<id_type, NodeCap> children{};
 
-  explicit Internal(pos_type lvl = 0) : N(), level(lvl) {
-    children.fill(null_id);
-  }
+  explicit Internal(pos_type lvl = 0) : N(), level(lvl) {}
 
   L& get_leaf(pos_type index) const {
     assert(level == 0 && index < count);
@@ -118,47 +118,64 @@ struct Internal : Traits::Node {
     return Pools::internals().index(*static_cast<const I*>(this));
   }
 
-  /** @brief count / size / parent / position を子 ID から再構築する。 */
-  void sync() {
-    const id_type self_id = id();
-    size = 0;
-    count = 0;
-    for (std::size_t i = 0; i < NodeCap; ++i) {
-      if (children[i] == null_id) break;
-      if (level == 0) {
-        auto& child = Pools::leaves()[children[i]];
-        child.parent = self_id;
-        child.position = i;
-        ++size;
-      } else {
-        auto& child = Pools::internals()[children[i]];
-        child.parent = self_id;
-        child.position = i;
+
+  /**
+   * @brief 子を配置し、count / size / parent / position を差分更新する。
+   * @details FromOther=false は同一親内の位置変更（size不変）。
+   * ConsiderOtherSync=true は移動元のsuffixを切り離す操作に限定する。
+   * 新しい子や別木の根は ConsiderOtherSync=false で配置する。
+   * 一括移動中は一時的に穴を許すが、完了するまで探索しない。
+   */
+  template <bool FromOther = true, bool ConsiderOtherSync = true>
+  void move_child(pos_type index, id_type child_id,
+                  id_type self_id = null_id) {
+    assert(index < NodeCap && child_id != null_id);
+    children[index] = child_id;
+    if (index >= count) count = index + 1;
+    if (level) {
+      auto& child = Pools::internals()[child_id];
+      if constexpr (FromOther) {
         size += child.size;
+        if constexpr (ConsiderOtherSync) {
+          assert(child.parent != null_id);
+          auto& other = Pools::internals()[child.parent];
+          assert(&other != this && other.size >= child.size);
+          other.size -= child.size;
+          if (child.position < other.count) other.count = child.position;
+        }
+        child.parent = self_id == null_id ? id() : self_id;
       }
-      ++count;
+      child.position = index;
+    } else {
+      auto& child = Pools::leaves()[child_id];
+      if constexpr (FromOther) {
+        ++size;
+        if constexpr (ConsiderOtherSync) {
+          assert(child.parent != null_id);
+          auto& other = Pools::internals()[child.parent];
+          assert(&other != this && other.size > 0);
+          --other.size;
+          if (child.position < other.count) other.count = child.position;
+        }
+        child.parent = self_id == null_id ? id() : self_id;
+      }
+      child.position = index;
     }
   }
-  void after_sync() {}
+
+  /** @brief 構造情報を再走査せず、派生クラスの集約情報を更新する。 */
+  void refresh_metadata() {}
   void refresh() {
-    sync();
-    static_cast<I*>(this)->after_sync();
+    static_cast<I*>(this)->refresh_metadata();
   }
+
   void apply_reverse() {
     if (!is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
     is_reversed = false;
-    if (level) {
-      for (pos_type i = 0; i < count; ++i) {
-        auto& child = get_child(i);
-        child.position = i;
-        child.push_reverse();
-      }
-    } else {
-      for (pos_type i = 0; i < count; ++i) {
-        auto& child = get_leaf(i);
-        child.position = i;
-      }
+    for (pos_type i = 0; i < count; ++i) {
+      this->template move_child<false>(i, children[i]);
+      if (level) get_child(i).push_reverse();
     }
   }
   void push_reverse() {
@@ -172,43 +189,52 @@ struct Internal : Traits::Node {
     static_cast<I*>(this)->apply_lazy();
   }
 
+
   /** @return 満杯になり直ちに split が必要なら true。 */
   bool insert(id_type child, pos_type index) {
     assert(child != null_id && index <= count && count < NodeCap);
-    for (pos_type i = count; i > index; --i) children[i] = children[i - 1];
-    children[index] = child;
-    ++count;
+    // move_child により count が増えるので、ループ上限を退避する。
+    const pos_type old_count = count;
+    for (pos_type i = old_count; i > index; --i)
+      this->template move_child<false>(i, children[i - 1]);
+    this->template move_child<true, false>(index, child);
     if (count == NodeCap) return true;
     refresh();
     return false;
   }
 
+
   /** @return Pool に確保された右兄弟の Internal ID。 */
   id_type split(pos_type left_count = HalfNodeCap) {
     assert(count <= NodeCap && left_count <= count);
     assert(left_count < NodeCap && count - left_count < NodeCap);
+    // 移動元のcountが縮むので、先に移動数を保存する。
     const pos_type right_count = count - left_count;
-    // emplace は vector を再確保し得る。ID と level を確保前に退避する。
+    // Pool 再確保で this が無効化されるため、ID と level を先に保存する。
     const id_type left_id = id();
     const pos_type current_level = level;
-    id_type right_id = Pools::make_internal(current_level);
+    const id_type right_id = Pools::make_internal(current_level);
     auto& left = Pools::internals()[left_id];
     auto& right = Pools::internals()[right_id];
-    for (pos_type i = 0; i < right_count; ++i) {
-      right.children[i] = left.children[left_count + i];
-      left.children[left_count + i] = null_id;
+    // 右端から取り出すと移動元の[0,count)を常に有効に保てる。
+    for (pos_type i = right_count; i > 0;) {
+      --i;
+      right.move_child(i, left.children[left_count + i], right_id);
     }
     left.refresh();
     right.refresh();
     return right_id;
   }
 
+
   /** @return この Internal が空になった場合 true。 */
   bool erase(pos_type index) {
     assert(count < NodeCap && index < count);
+    size -= child_size(index);
     Pools::recycle(children[index], level == 0);
-    for (pos_type i = index + 1; i < count; ++i) children[i - 1] = children[i];
-    children[count - 1] = null_id;
+    for (pos_type i = index + 1; i < count; ++i)
+      this->template move_child<false>(i - 1, children[i]);
+    --count;
     refresh();
     return count == 0;
   }
@@ -230,37 +256,43 @@ struct Internal : Traits::Node {
     return null_id;
   }
 
+
   /** @brief index の Internal 子を隣の兄弟へ移動し、元の子を回収する。 */
   void integrate_child(pos_type index) {
     assert(level > 0 && index < count);
     if (index && child_count(index - 1) + child_count(index) < NodeCap) {
       auto& left = get_child(index - 1);
       auto& right = get_child(index);
-
       left.materialize();
       right.materialize();
-      const auto left_count = left.count;
-      for (pos_type i = 0; i < right.count; ++i) {
-        left.children[left_count + i] = right.children[i];
-        right.children[i] = null_id;
+      // 右側のcountが移動ごとに縮むので、開始時の個数を保存する。
+      const pos_type left_count = left.count;
+      const pos_type right_count = right.count;
+      const id_type left_id = left.id();
+      for (pos_type i = right_count; i > 0;) {
+        --i;
+        left.move_child(left_count + i, right.children[i], left_id);
       }
-      right.count = 0;
       left.refresh();
     } else if (index + 1 < count &&
                child_count(index + 1) + child_count(index) < NodeCap) {
       auto& left = get_child(index);
       auto& right = get_child(index + 1);
-
       left.materialize();
       right.materialize();
-      const auto left_count = left.count;
-      for (pos_type i = right.count; i > 0; --i)
-        right.children[left_count + i - 1] = right.children[i - 1];
-      for (pos_type i = 0; i < left_count; ++i) {
-        right.children[i] = left.children[i];
-        left.children[i] = null_id;
+      // shiftで右側のcountが増え、移動で左側のcountが縮む。
+      // 両方の移動前の個数を保存する。
+      const pos_type left_count = left.count;
+      const pos_type right_count = right.count;
+      const id_type right_id = right.id();
+      for (pos_type i = right_count; i > 0;) {
+        --i;
+        right.template move_child<false>(left_count + i, right.children[i]);
       }
-      left.count = 0;
+      for (pos_type i = left_count; i > 0;) {
+        --i;
+        right.move_child(i, left.children[i], right_id);
+      }
       right.refresh();
     } else {
       return;
