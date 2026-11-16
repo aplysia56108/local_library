@@ -163,6 +163,8 @@ jobs:
             printf '{"schema":1,"records":{}}\n' > out/benchmark/best.json
           fi
 
+      # Main owns workload definitions and fixtures; the development worktree
+      # supplies only the library headers used at compilation.
       - name: Compare runtime and peak RSS
         shell: bash
         env:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare main and a development checkout on the same runner without writing bests."""
+"""Compare libraries using Main's benchmark sources and fixtures on one runner."""
 
 import argparse
 import hashlib
@@ -47,6 +47,7 @@ def summarize(results, metadata, base_sha, dev_sha):
         f"Compiler: {metadata['compiler']}  ", "",
         "**Below 100% is better.** Both versions were verified against the same",
         "expected output and run in alternating order on this runner.",
+        "Benchmark sources and fixtures are from Main; library headers use each variant's checkout.",
         "Peak RSS measures the whole process, including buffers and allocator overhead.",
         "",
         "### Summary by structure", "",
@@ -114,6 +115,22 @@ def summarize(results, metadata, base_sha, dev_sha):
     return "\n".join(lines)
 
 
+def compile_variant(source, library_root, executable, flags):
+    """Build Main's workload with headers from the selected library checkout.
+
+    The absolute source path keeps relative benchmark includes on Main.
+    The compiler's working directory and -I. resolve data-structure/
+    headers to the selected checkout, not to Main's implementation.
+    No benchmark files are required in the development checkout.
+    """
+    if not source.is_absolute():
+        raise ValueError("Benchmark source must be an absolute path from Main")
+    subprocess.run(
+        ["g++", *flags, str(source), "-o", str(executable)],
+        cwd=library_root, check=True, timeout=180,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-root", type=Path, required=True)
@@ -135,16 +152,6 @@ def main():
     dev_sha = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=dev_root, text=True
     ).strip()
-    diff = subprocess.run(
-        ["git", "diff", "--quiet", base_sha, dev_sha, "--", "benchmark/btree"],
-        cwd=dev_root,
-    )
-    if diff.returncode:
-        raise RuntimeError(
-            "Benchmark workloads differ between main and development. "
-            "Compare only when benchmark/btree sources are identical."
-        )
-
     baseline = json.loads(args.baseline.read_text())
     if baseline.get("schema") != 1:
         raise RuntimeError("Unsupported historical best-record format")
@@ -155,7 +162,6 @@ def main():
     fixture_cache, results = {}, []
 
     for source in benchmark.choose_cases(args.target):
-        relative_source = source.relative_to(base_root)
         relative_dir = source.parent.relative_to(benchmark.BENCHMARKS)
         input_bytes, expected = benchmark.load_fixtures(source, fixture_cache)
         fixture_sha = hashlib.sha256(input_bytes + b"\0" + expected).hexdigest()
@@ -165,10 +171,7 @@ def main():
             executables = {}
             for variant, root in (("main", base_root), ("dev", dev_root)):
                 exe = build / (variant + "_" + case.replace("/", "_") + ".exe")
-                subprocess.run(
-                    ["g++", *flags, str(relative_source), "-o", str(exe)],
-                    cwd=root, check=True, timeout=180,
-                )
+                compile_variant(source, root, exe, flags)
                 executables[variant] = exe
 
             samples = {
