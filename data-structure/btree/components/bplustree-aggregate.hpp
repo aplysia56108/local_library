@@ -83,9 +83,10 @@ struct AggregateTraits<M, A, R, C>::Internal
    * @details is_reversed / pending が残っていれば、再計算した物理状態の積に
    * それらを適用して論理状態の積を維持する。
    */
-  void refresh_metadata() {
+  template <bool IsBottom>
+  void refresh_metadata_typed() {
     forward = backward = M::e();
-    if (this->level == 0) {
+    if constexpr (IsBottom) {
       for (std::size_t i = 0; i < this->count; ++i)
         forward = M::op(forward, this->get_leaf(i).get());
       if constexpr (R) {
@@ -119,6 +120,13 @@ struct AggregateTraits<M, A, R, C>::Internal
     }
   }
 
+  void refresh_metadata() {
+    if (this->level == 0)
+      refresh_metadata_typed<true>();
+    else
+      refresh_metadata_typed<false>();
+  }
+
   /** @brief ノード全体への作用を遅延登録し、積だけ即時更新する。 */
   void push_lazy(const F& f)
     requires(Traits::lazy)
@@ -137,12 +145,13 @@ struct AggregateTraits<M, A, R, C>::Internal
   }
 
   /** @brief 未伝搬の作用を子へ渡す。Leaf には直接適用する。 */
-  void apply_lazy() {
+  template <bool IsBottom>
+  void apply_lazy_typed() {
     if constexpr (Traits::lazy) {
       if (!pending) return;
       F f = *pending;
       pending.reset();
-      if (this->level == 0) {
+      if constexpr (IsBottom) {
         for (std::size_t i = 0; i < this->count; ++i)
           this->get_leaf(i).push_lazy(f);
       } else {
@@ -150,6 +159,12 @@ struct AggregateTraits<M, A, R, C>::Internal
           this->get_child(i).push_lazy(f);
       }
     }
+  }
+  void apply_lazy() {
+    if (this->level == 0)
+      apply_lazy_typed<true>();
+    else
+      apply_lazy_typed<false>();
   }
 };
 
