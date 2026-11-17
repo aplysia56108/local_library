@@ -121,7 +121,8 @@ class Base {
         const id_type parent_id = Pools::make_internal(current_level);
         auto& parent = get_node(parent_id);
         while (parent.count < MaxCount && i < nodes.size())
-          parent.template move_child<true, false>(parent.count, nodes[i++], parent_id);
+          parent.template move_child<true, false>(parent.count, nodes[i++],
+                                                  parent_id);
         parent.refresh();
         next.push_back(parent_id);
       }
@@ -151,7 +152,6 @@ class Base {
     if (node.parent != null_id) materialize_path(node.parent);
     node.materialize();
   }
-
 
   /** @brief 下位の構造変更に伴う要素数の増減を祖先へ伝える。 */
   static void add_size_delta(Internal& node, difference_type delta) {
@@ -191,8 +191,9 @@ class Base {
         const id_type right_id = parent.split();
         if (upper_id != null_id) {
           // 左子の変化量と新しい右子の挿入量を足して祖先へ伝える。
-          return insert_recursive(upper_id, upper_pos + 1, right_id,
-                                  size_delta(old_size, get_node(parent_id).size));
+          return insert_recursive(
+              upper_id, upper_pos + 1, right_id,
+              size_delta(old_size, get_node(parent_id).size));
         }
         return right_id;
       }
@@ -248,7 +249,6 @@ class Base {
       root = make_new_root(root, right_id, level);
     }
   }
-
 
   static void erase_recursive(id_type parent_id, pos_type index,
                               difference_type delta = 0) {
@@ -531,6 +531,7 @@ class Base {
     init();
   }
   void resize(size_type count, const T& value = T{}) {
+    if (empty()) return assign(count, value);
     if (count < size()) erase(count, size());
     while (size() < count) push_back(value);
   }
