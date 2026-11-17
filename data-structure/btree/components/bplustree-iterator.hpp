@@ -104,13 +104,19 @@ class Iterator {
   static void reverse_path(id_type node_id) {
     auto& node = get_node(node_id);
     if (node.parent != null_id) reverse_path(node.parent);
-    node.apply_reverse();
+    Pools::with_internal(node_id, [](auto& typed) {
+      typed.template apply_reverse_typed<
+          Pools::template is_bottom_type<decltype(typed)>>();
+    });
   }
 
   static void materialize_path(id_type node_id) {
     auto& node = get_node(node_id);
     if (node.parent != null_id) materialize_path(node.parent);
-    node.materialize();
+    Pools::with_internal(node_id, [](auto& typed) {
+      typed.template materialize_typed<
+          Pools::template is_bottom_type<decltype(typed)>>();
+    });
   }
 
   void materialize_path() const {
@@ -167,7 +173,10 @@ class Iterator {
 
   static void refresh_path(id_type node_id) {
     auto& node = get_node(node_id);
-    node.refresh_metadata();
+    Pools::with_internal(node_id, [](auto& typed) {
+      typed.template refresh_typed<
+          Pools::template is_bottom_type<decltype(typed)>>();
+    });
     if (node.parent != null_id) refresh_path(node.parent);
   }
 
@@ -228,12 +237,19 @@ class Iterator {
         if constexpr (HasLazy) {
           // Lazyありの場合だけ、値epochと未伝搬タグを確認する。
           bool value_clean = validated_value_epoch_ == Epoch::value;
-          leaf_id_ = node.template locate<false>(to_index, &value_clean);
+          leaf_id_ = Pools::with_internal(node_id, [&](auto& typed) {
+            return typed.template locate_typed<
+                Pools::template is_bottom_type<decltype(typed)>, false>(
+                    to_index, &value_clean);
+          });
           validated_position_epoch_ = Epoch::position;
           validated_value_epoch_ = value_clean ? Epoch::value : 0;
         } else {
           // Set / Vector / Segtreeには値epochもLazy検証も不要。
-          leaf_id_ = node.template locate<false>(to_index);
+          leaf_id_ = Pools::with_internal(node_id, [&](auto& typed) {
+            return typed.template locate_typed<
+                Pools::template is_bottom_type<decltype(typed)>, false>(to_index);
+          });
           validated_position_epoch_ = Epoch::position;
         }
         reset_entry_port();
