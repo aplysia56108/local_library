@@ -60,6 +60,43 @@ class Base {
   static Internal& get_node(const id_type& id) {
     return Pools::internals()[id];
   }
+
+  /** @brief ID から実体型へ振り分け、子の型を constexpr で確定する。 */
+  static void materialize_node(id_type id) {
+    Pools::with_internal(id, [](auto& node) {
+      node.template materialize_typed<Pools::template is_bottom_type<decltype(node)>>();
+    });
+  }
+  static void refresh_node(id_type id) {
+    Pools::with_internal(id, [](auto& node) {
+      node.template refresh_typed<Pools::template is_bottom_type<decltype(node)>>();
+    });
+  }
+  static bool insert_node(id_type id, id_type child, pos_type index) {
+    return Pools::with_internal(id, [&](auto& node) {
+      return node.template insert_typed<Pools::template is_bottom_type<decltype(node)>>(
+          child, index);
+    });
+  }
+  static id_type split_node(id_type id, pos_type left_count) {
+    return Pools::with_internal(id, [&](auto& node) {
+      return node.template split_typed<Pools::template is_bottom_type<decltype(node)>>(
+          left_count);
+    });
+  }
+  static bool erase_node(id_type id, pos_type index) {
+    return Pools::with_internal(id, [&](auto& node) {
+      return node.template erase_typed<Pools::template is_bottom_type<decltype(node)>>(
+          index);
+    });
+  }
+  template <bool WithLazy = false>
+  static id_type locate_node(id_type id, size_type index) {
+    return Pools::with_internal(id, [&](auto& node) {
+      return node.template locate_typed<
+          Pools::template is_bottom_type<decltype(node)>, WithLazy>(index);
+    });
+  }
   static T init_value() {
     if constexpr (requires { Traits::identity(); })
       return Traits::identity();
@@ -120,10 +157,13 @@ class Base {
       next.reserve((nodes.size() + MaxCount - 1) / MaxCount);
       for (size_type i = 0; i < nodes.size();) {
         const id_type parent_id = Pools::make_internal(current_level);
-        auto& parent = get_node(parent_id);
-        while (parent.count < MaxCount && i < nodes.size())
-          parent.template move_child<true, false>(parent.count, nodes[i++], parent_id);
-        parent.refresh();
+        Pools::with_internal(parent_id, [&](auto& parent) {
+          constexpr bool IsBottom = Pools::template is_bottom_type<decltype(parent)>;
+          while (parent.count < MaxCount && i < nodes.size())
+            parent.template move_child_typed<IsBottom, true, false>(
+                parent.count, nodes[i++], parent_id);
+          parent.template refresh_typed<IsBottom>();
+        });
         if (current_level == 0) {
           if (previous_bottom != null_id)
             Internal::connect(previous_bottom, 1, parent_id, 0);
@@ -145,17 +185,19 @@ class Base {
   static id_type make_new_root(id_type left, id_type right,
                                pos_type level = 0) {
     const id_type parent_id = Pools::make_internal(level);
-    auto& parent = get_node(parent_id);
-    parent.template move_child<true, false>(0, left, parent_id);
-    parent.template move_child<true, false>(1, right, parent_id);
-    parent.refresh();
+    Pools::with_internal(parent_id, [&](auto& parent) {
+      constexpr bool IsBottom = Pools::template is_bottom_type<decltype(parent)>;
+      parent.template move_child_typed<IsBottom, true, false>(0, left, parent_id);
+      parent.template move_child_typed<IsBottom, true, false>(1, right, parent_id);
+      parent.template refresh_typed<IsBottom>();
+    });
     return parent_id;
   }
 
   static void materialize_path(id_type node_id) {
     auto& node = get_node(node_id);
     if (node.parent != null_id) materialize_path(node.parent);
-    node.materialize();
+    materialize_node(node_id);
   }
 
 
@@ -178,7 +220,7 @@ class Base {
   static void refresh_recursive(id_type node_id, difference_type delta = 0) {
     auto& node = get_node(node_id);
     add_size_delta(node, delta);
-    node.refresh();
+    refresh_node(node_id);
     if (node.parent != null_id) refresh_recursive(node.parent, delta);
   }
 
@@ -191,10 +233,10 @@ class Base {
     // 下位の分割により既存の左子のサイズが変化している分を先に補正する。
     add_size_delta(parent, delta);
     if (child != null_id) {
-      if (parent.insert(child, index)) {
+      if (insert_node(parent_id, child, index)) {
         const id_type upper_id = parent.parent;
         const pos_type upper_pos = parent.position;
-        const id_type right_id = parent.split();
+        const id_type right_id = split_node(parent_id, static_cast<pos_type>(NodeCap / 2));
         if (upper_id != null_id) {
           // 左子の変化量と新しい右子の挿入量を足して祖先へ伝える。
           return insert_recursive(upper_id, upper_pos + 1, right_id,
@@ -203,7 +245,7 @@ class Base {
         return right_id;
       }
     } else {
-      parent.refresh();
+      refresh_node(parent_id);
     }
     if (parent.parent != null_id)
       refresh_recursive(parent.parent, size_delta(old_size, parent.size));
@@ -218,7 +260,7 @@ class Base {
     id_type current_id = root;
     while (true) {
       auto& current = get_node(current_id);
-      current.materialize();
+      materialize_node(current_id);
       nodes.push_back(current_id);
       if (current.level == 0) break;
       if constexpr (Left)
@@ -235,7 +277,7 @@ class Base {
 
       while (true) {
         auto& node = get_node(node_id);
-        node.materialize();
+        materialize_node(node_id);
         if (node.size == 0 && node.parent != null_id) {
           erase(node.parent, node.position, root);
           break;
@@ -264,7 +306,7 @@ class Base {
     const pos_type upper_pos = parent.position;
     // 空の子を回収するときも、下位で失った分のsizeを反映させる。
     add_size_delta(parent, delta);
-    const bool empty = parent.erase(index);
+    const bool empty = erase_node(parent_id, index);
     const difference_type change = size_delta(old_size, parent.size);
     if (empty) {
       if (upper != null_id) erase_recursive(upper, upper_pos, change);
@@ -295,10 +337,10 @@ class Base {
       auto& parent = get_node(parent_id);
       assert(parent.size >= removed_from_boundary);
       parent.size -= removed_from_boundary;
-      const id_type next = parent.split(position);
+      const id_type next = split_node(parent_id, position);
       if (right != null_id) {
         if (get_node(right).count)
-          get_node(next).insert(right, 0);
+          insert_node(next, right, 0);
         else
           Pools::recycle(right);
       }
@@ -372,7 +414,7 @@ class Base {
   id_type locate(size_type index) const {
     assert(index <= size());
     ++index;
-    return get_node(root_).template locate<WithLazy>(index);
+    return locate_node<WithLazy>(root_, index);
   }
 
   static iterator mutable_iterator(const const_iterator& it) {
