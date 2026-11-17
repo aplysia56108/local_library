@@ -190,10 +190,12 @@ falseへ高々1回変わるものとし、空区間の単位元には呼び出�
   構造変更は両方の世代を保守的に進めます。
 - `++` / `--` / `+=` / イテレータ差分はReverseのみ伝搬し、
   値を読まない場合の高価なLazy適用を回避します。
-- `Traits::lazy` が無いか `false` の場合、`if constexpr` で値epochの
+- `Traits::lazy == false` の場合、`if constexpr` で値epochの
   検証と更新を生成しません。値epochメンバも空型で置き換え、
   `[[no_unique_address]]` によりメモリを使わず、位置epochのみで判定します。
-  LazySegtreeだけが2種類のepochを追跡します。
+  LazySegtreeと、`lazy`フラグ未宣言の拡張Traitsだけが2種類のepochを追跡します。
+  カスタムTraitsがLazyを持たないことを確約できる場合にだけ`lazy = false`を
+  宣言してください（互換性のため未宣言はLazyありとして扱います）。
 - `operator*()` は必要な場合だけLazyを含め経路をmaterializeします。
   連続走査では、新しい下降経路に未伝搬Lazyがなければ値キャッシュも
   引き継ぎ、毎回の根への走査を避けます。
