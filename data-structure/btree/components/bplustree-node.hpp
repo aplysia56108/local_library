@@ -125,11 +125,23 @@ struct Internal : Traits::Node {
     assert(level > 0 && index < count);
     return Pools::internals()[children[index]];
   }
+  template <bool IsBottom>
+  std::size_t child_size_typed(pos_type index) const {
+    if constexpr (IsBottom) return 1;
+    return get_child(index).size;
+  }
+  template <bool IsBottom>
+  pos_type child_count_typed(pos_type index) const {
+    if constexpr (IsBottom) return 1;
+    return get_child(index).count;
+  }
   std::size_t child_size(pos_type index) const {
-    return level == 0 ? 1 : get_child(index).size;
+    return level == 0 ? child_size_typed<true>(index)
+                      : child_size_typed<false>(index);
   }
   pos_type child_count(pos_type index) const {
-    return level == 0 ? 1 : get_child(index).count;
+    return level == 0 ? child_count_typed<true>(index)
+                      : child_count_typed<false>(index);
   }
 
   /** @brief この Internal の Pool ID を取得する。Pool
@@ -170,13 +182,31 @@ struct Internal : Traits::Node {
    * 新しい子や別木の根は ConsiderOtherSync=false で配置する。
    * 一括移動中は一時的に穴を許すが、完了するまで探索しない。
    */
-  template <bool FromOther = true, bool ConsiderOtherSync = true>
-  void move_child(pos_type index, id_type child_id,
-                  id_type self_id = null_id) {
+  /** @brief 型が既知のノードについて Leaf/Internal 子の処理を静的に分ける。 */
+  template <bool IsBottom, bool FromOther = true,
+            bool ConsiderOtherSync = true>
+  void move_child_typed(pos_type index, id_type child_id,
+                        id_type self_id = null_id) {
     assert(index < NodeCap && child_id != null_id);
     children[index] = child_id;
     if (index >= count) count = index + 1;
-    if (level) {
+
+    if constexpr (IsBottom) {
+      auto& child = Pools::leaves()[child_id];
+      if constexpr (FromOther) {
+        ++size;
+        if constexpr (ConsiderOtherSync) {
+          assert(child.parent != null_id);
+          auto& other = Pools::bottom(child.parent);
+          assert(static_cast<const void*>(&other) != static_cast<const void*>(this)
+                 && other.size > 0);
+          --other.size;
+          if (child.position < other.count) other.count = child.position;
+        }
+        child.parent = self_id == null_id ? id() : self_id;
+      }
+      child.position = index;
+    } else {
       auto& child = Pools::internals()[child_id];
       if constexpr (FromOther) {
         size += child.size;
@@ -190,21 +220,18 @@ struct Internal : Traits::Node {
         child.parent = self_id == null_id ? id() : self_id;
       }
       child.position = index;
-    } else {
-      auto& child = Pools::leaves()[child_id];
-      if constexpr (FromOther) {
-        ++size;
-        if constexpr (ConsiderOtherSync) {
-          assert(child.parent != null_id);
-          auto& other = Pools::internals()[child.parent];
-          assert(&other != this && other.size > 0);
-          --other.size;
-          if (child.position < other.count) other.count = child.position;
-        }
-        child.parent = self_id == null_id ? id() : self_id;
-      }
-      child.position = index;
     }
+  }
+
+  template <bool FromOther = true, bool ConsiderOtherSync = true>
+  void move_child(pos_type index, id_type child_id,
+                  id_type self_id = null_id) {
+    if (level == 0)
+      move_child_typed<true, FromOther, ConsiderOtherSync>(
+          index, child_id, self_id);
+    else
+      move_child_typed<false, FromOther, ConsiderOtherSync>(
+          index, child_id, self_id);
   }
 
   /** @brief 構造情報を再走査せず、派生クラスの集約情報を更新する。 */
