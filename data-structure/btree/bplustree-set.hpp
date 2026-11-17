@@ -111,21 +111,28 @@ class Bplustree_Set
 
   template <bool Equal>
   id_type max_l(id_type node_id, const Key& key) const {
-    const auto& node = Pools::internals()[node_id];
-    std::size_t l = 0;
-    std::size_t r = node.count;
-
-    while (l + 1 < r) {
-      const std::size_t m = (l + r) / 2;
-      const id_type id =
-          node.level ? node.get_child(m).min_leaf_id : node.children[m];
-      if (comp<Equal>(id, key))
-        l = m;
+    return Pools::with_internal(node_id, [&](auto& node) -> id_type {
+      constexpr bool IsBottom =
+          Pools::template is_bottom_type<decltype(node)>;
+      std::size_t l = 0;
+      std::size_t r = node.count;
+      while (l + 1 < r) {
+        const std::size_t m = (l + r) / 2;
+        id_type id;
+        if constexpr (IsBottom)
+          id = node.children[m];
+        else
+          id = node.get_child(m).min_leaf_id;
+        if (comp<Equal>(id, key))
+          l = m;
+        else
+          r = m;
+      }
+      if constexpr (IsBottom)
+        return node.children[l];
       else
-        r = m;
-    }
-    if (node.level) return max_l<Equal>(node.children[l], key);
-    return node.children[l];
+        return max_l<Equal>(node.children[l], key);
+    });
   }
 
  public:
