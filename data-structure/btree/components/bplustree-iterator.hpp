@@ -157,6 +157,18 @@ class Iterator {
         static_cast<std::ptrdiff_t>(leaf.position) + offset;
     id_type node_id = leaf.parent;
 
+    if constexpr (!VisitAll && !HasLazy) {
+      // Leafの親は必ず最下層Internal（level == 0）。
+      // positionを確定した後、同じ親の中なら汎用locateを使わずに
+      // 子IDを直接取得できる。位置epochはすでに検証済み。
+      auto& bottom = get_node(node_id);
+      if (0 <= to_index &&
+          to_index < static_cast<std::ptrdiff_t>(bottom.count)) {
+        leaf_id_ = bottom.children[static_cast<std::size_t>(to_index)];
+        return;
+      }
+    }
+
     while (true) {
       auto& node = get_node(node_id);
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node.size)) {
