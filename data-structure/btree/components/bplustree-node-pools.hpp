@@ -41,8 +41,9 @@ struct NodePools {
   }
 
   static I& get_internal(id_type id) {
-    assert(id != null_id);
-    if (is_bottom_id(id))
+    // Same precondition as ObjectPool::operator[]: id must be valid.
+    // Do not add per-access assertions on the traversal hot path.
+    if (id & bottom_mask)
       return static_cast<I&>(bottom_pool_[id & ~bottom_mask]);
     return internal_pool_[id];
   }
@@ -116,9 +117,11 @@ struct NodePools {
     return bottom_pool_;
   }
 
-  /** @brief Leaf の親など型が確定済みの Bottom ID を分岐なしで取得する。 */
+  /**
+   * @brief Leaf の親など、Bottom 型が既知の ID を分岐なしで取得する。
+   * @pre id は有効な BottomInternal ID。
+   */
   static B& bottom(id_type id) {
-    assert(is_bottom_id(id));
     return bottom_pool_[id & ~bottom_mask];
   }
 
