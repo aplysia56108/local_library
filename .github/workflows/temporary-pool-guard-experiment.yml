@@ -91,15 +91,15 @@ jobs:
           main="$GITHUB_WORKSPACE/out/guard-ab/main"
           old="$GITHUB_WORKSPACE/out/guard-ab/old"
           for target in \
-            btree/vector/access \
-            btree/vector/access_random \
-            btree/set/access \
-            btree/set/access_random \
-            btree/vector/iterate; do
+            btree/segtree/access \
+            btree/segtree/access_random \
+            btree/lazysegtree/access \
+            btree/lazysegtree/access_random \
+            btree/vector/insert; do
             echo "::group::A/B $target"
             python3 "$main/benchmark/compare.py" \
               --base-root "$old" --dev-root "$GITHUB_WORKSPACE" \
-              --target "$target" --caps 8,32,64 --runs 7 \
+              --target "$target" --caps 8,32 --runs 5 \
               --baseline "$GITHUB_WORKSPACE/out/guard-ab/empty.json"
             echo "::endgroup::"
           done
