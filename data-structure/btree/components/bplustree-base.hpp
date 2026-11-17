@@ -114,6 +114,7 @@ class Base {
     nodes.push_back(end);
 
     pos_type current_level = 0;
+    id_type previous_bottom = null_id;
     while (nodes.size() > 1) {
       std::vector<id_type> next;
       next.reserve((nodes.size() + MaxCount - 1) / MaxCount);
@@ -123,6 +124,11 @@ class Base {
         while (parent.count < MaxCount && i < nodes.size())
           parent.template move_child<true, false>(parent.count, nodes[i++], parent_id);
         parent.refresh();
+        if (current_level == 0) {
+          if (previous_bottom != null_id)
+            Internal::connect(previous_bottom, 1, parent_id, 0);
+          previous_bottom = parent_id;
+        }
         next.push_back(parent_id);
       }
       nodes = std::move(next);
@@ -307,6 +313,13 @@ class Base {
     cut_root(right);
     cut_zero_node(right);
     for (id_type id : end_nodes<true>(right)) get_node(id).integrate();
+    // The two resulting trees must have independent bottom-node paths.
+    // Both boundaries have been materialized, so ports 1/0 are their
+    // physical right/left ends respectively.
+    const id_type left_tail = end_nodes<false>(root).back();
+    const id_type right_head = end_nodes<true>(right).back();
+    Internal::connect(left_tail, 1, null_id, 0);
+    Internal::connect(right_head, 0, null_id, 0);
     return right;
   }
 
@@ -322,7 +335,10 @@ class Base {
       return right_id;
     }
     auto integrate_nodes = end_nodes<false>(left_id);
-    for (id_type id : end_nodes<true>(right_id)) integrate_nodes.push_back(id);
+    const auto right_edge = end_nodes<true>(right_id);
+    // Splice the two bottom-node paths before internal integration.
+    Internal::connect(integrate_nodes.back(), 1, right_edge.back(), 0);
+    for (id_type id : right_edge) integrate_nodes.push_back(id);
     if (left.level == right.level) {
       id_type root = make_new_root(left_id, right_id, left.level + 1);
       for (id_type id : integrate_nodes) get_node(id).integrate();

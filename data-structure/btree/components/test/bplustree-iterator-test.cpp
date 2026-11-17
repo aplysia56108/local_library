@@ -1,5 +1,6 @@
 #include "data-structure/btree/components/bplustree-base.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <compare>
@@ -76,11 +77,100 @@ void mutation() {
   std::cerr << "iterator mutation tests all passed!\n";
 }
 
+/** @brief Check forward/backward adjacency, never using iterator subtraction. */
+void check_linked_walk(Tree& tree, const std::vector<long long>& expected) {
+  std::vector<long long> forward, backward;
+  auto it = tree.begin();
+  for (std::size_t i = 0; i < expected.size(); ++i) {
+    assert(it != tree.end());
+    forward.push_back(*it);
+    ++it;
+  }
+  assert(it == tree.end());
+  it = tree.end();
+  for (std::size_t i = 0; i < expected.size(); ++i) {
+    --it;
+    backward.push_back(*it);
+  }
+  assert(it == tree.begin());
+  assert(forward == expected);
+  std::reverse(backward.begin(), backward.end());
+  assert(backward == expected);
+}
+
+/** @brief Repeated reversals and structural changes preserve bottom links. */
+void linked_reverse_and_splice() {
+  Tree tree{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  std::vector<long long> expected{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+  auto check = [&] { check_linked_walk(tree, expected); };
+  check();
+
+  auto reverse_range = [&](std::size_t l, std::size_t r) {
+    std::reverse(expected.begin() + l, expected.begin() + r);
+    tree.reverse(l, r);
+    check();
+  };
+  reverse_range(1, 10);
+  reverse_range(4, 12);
+  reverse_range(0, 9);
+  reverse_range(2, 8);
+  reverse_range(0, expected.size());
+
+  // A retained iterator must revalidate its direction after reverse.
+  auto retained = tree.nth(5);
+  const auto retained_value = *retained;
+  reverse_range(3, 10);
+  const auto found = std::find(expected.begin(), expected.end(), retained_value);
+  const auto index = static_cast<std::size_t>(found - expected.begin());
+  auto next = retained;
+  ++next;
+  assert(next == tree.nth(index + 1));
+  auto prev = retained;
+  --prev;
+  assert(prev == tree.nth(index - 1));
+
+  auto right = tree.split(5);
+  std::vector<long long> left_expected(expected.begin(), expected.begin() + 5);
+  std::vector<long long> right_expected(expected.begin() + 5, expected.end());
+  check_linked_walk(tree, left_expected);
+  check_linked_walk(right, right_expected);
+  tree.merge(right);
+  check();
+
+  tree.insert(2, 999);
+  expected.insert(expected.begin() + 2, 999);
+  check();
+  tree.erase(2);
+  expected.erase(expected.begin() + 2);
+  check();
+  tree.erase(3, 8);
+  expected.erase(expected.begin() + 3, expected.begin() + 8);
+  check();
+  tree.clear();
+  check_linked_walk(tree, {});
+
+  // A second iterator can materialize the very bottom node into which the
+  // first iterator entered through port 1. Its cached port must be repaired.
+  Tree pending{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+  pending.reverse();
+  auto crossing = pending.begin();
+  assert(*crossing == 16);
+  ++crossing; // Cross the boundary, into a bottom with pending reverse.
+  auto other = pending.nth(1); // Materialize that bottom from another path.
+  assert(*other == 15);
+  ++crossing;
+  assert(*crossing == 14);
+  check_linked_walk(pending, {16, 15, 14, 13, 12, 11, 10, 9,
+                              8, 7, 6, 5, 4, 3, 2, 1});
+  std::cerr << "linked bottom iteration tests all passed!\\n";
+}
+
 int main() {
   assert(It{} == It{});
   mutation();
 
   random_access();
+  linked_reverse_and_splice();
 
   std::cerr << "All iterator test cases passed!\n";
 }
