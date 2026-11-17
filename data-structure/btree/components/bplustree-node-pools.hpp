@@ -165,10 +165,12 @@ struct NodePools {
     if (is_leaf) {
       leaves().erase(id);
     } else {
-      auto& node = internals()[id];
-      if (node.level == 0) node.unlink();
-      for (pos_type i = 0; i < node.count; ++i)
-        recycle(node.children[i], node.level == 0);
+      with_internal(id, [&](auto& node) {
+        constexpr bool IsBottom = is_bottom_type<decltype(node)>;
+        if constexpr (IsBottom) node.unlink();
+        for (pos_type i = 0; i < node.count; ++i)
+          recycle(node.children[i], IsBottom);
+      });
       internals().erase(id);
     }
   }
