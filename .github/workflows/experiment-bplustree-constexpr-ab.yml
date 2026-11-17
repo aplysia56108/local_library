@@ -1,0 +1,80 @@
+name: Experiment - constexpr node A/B
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    if: github.head_ref == 'experiment/bplustree-internal-constexpr-dispatch'
+    runs-on: ubuntu-24.04
+    container: gcc:15.2
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/bplustree-internal-constexpr-dispatch
+
+      - name: Prepare measurement tools
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if ! command -v python3 >/dev/null || [[ ! -x /usr/bin/time ]]; then
+            apt-get update -qq
+            apt-get install -y -qq python3 time
+          fi
+          mkdir -p .deps
+          git clone https://github.com/atcoder/ac-library .deps/ac-library
+          git -C .deps/ac-library checkout --detach 864245a00b00dd008d1abfdc239618fdb7d139da
+
+      - name: Checkout PR 48 as baseline
+        shell: bash
+        run: |
+          git fetch --no-tags origin \
+            '+refs/heads/experiment/bplustree-bottom-internal-pool:refs/remotes/origin/constexpr-baseline'
+          baseline="$GITHUB_WORKSPACE/out/benchmark/constexpr-baseline"
+          mkdir -p "$GITHUB_WORKSPACE/out/benchmark"
+          git worktree add --detach "$baseline" refs/remotes/origin/constexpr-baseline
+          git config --global --add safe.directory "$baseline"
+          mkdir -p "$baseline/.deps" "$baseline/out/benchmark"
+          ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$baseline/.deps/ac-library"
+          printf '{"schema":1,"records":{}}\n' > "$baseline/out/benchmark/empty-best.json"
+
+      - name: A/B time and peak RSS against PR 48
+        shell: bash
+        run: |
+          baseline="$GITHUB_WORKSPACE/out/benchmark/constexpr-baseline"
+          results="$GITHUB_WORKSPACE/out/benchmark/constexpr-ab"
+          mkdir -p "$results"
+          for target in \
+              btree/vector/iterate \
+              btree/segtree/iterate \
+              btree/lazysegtree/iterate_interleaved_reverse \
+              btree/vector/reverse \
+              btree/vector/split_merge \
+              btree/segtree/prod \
+              btree/lazysegtree/apply \
+              btree/set/insert \
+              btree/set/lower_bound \
+              btree/vector/mixed_uniform; do
+            echo "::group::A/B $target"
+            (cd "$baseline" &&
+              python3 benchmark/compare.py \
+                --base-root "$baseline" --dev-root "$GITHUB_WORKSPACE" \
+                --target "$target" --caps all --runs 3 \
+                --baseline "$baseline/out/benchmark/empty-best.json")
+            cp "$baseline/out/benchmark/compare/results.json" \
+               "$results/${target//\//_}.json"
+            echo "::endgroup::"
+          done
+
+      - name: Upload raw A/B data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: constexpr-node-ab
+          path: out/benchmark/constexpr-ab/
+          retention-days: 14
