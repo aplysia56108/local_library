@@ -195,23 +195,23 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if constexpr (Reversed) {
       std::size_t offset = node.size;
       for (std::size_t i = node.count; i > 0; --i) {
-        auto& child = node.get_child(i - 1);
-        const std::size_t length = child.size;
+        const std::size_t length = node.child_size(i - 1);
         offset -= length;
         if (first < offset + length && offset < last)
           result = M::op(result, prod_recursive<true>(
-                                     child, first > offset ? first - offset : 0,
-                                     std::min(last - offset, length)));
+                                      node.get_child(i - 1),
+                                      first > offset ? first - offset : 0,
+                                      std::min(last - offset, length)));
         if (offset <= first) break;
       }
     } else {
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        const std::size_t length = child.size;
+        const std::size_t length = node.child_size(i);
         if (first < offset + length && offset < last)
-          result = M::op(
-              result, prod_recursive(child, first > offset ? first - offset : 0,
+          result = M::op(result, prod_recursive(
+                                     node.get_child(i),
+                                     first > offset ? first - offset : 0,
                                      std::min(last - offset, length)));
         offset += length;
         if (offset >= last) break;
@@ -237,10 +237,10 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     } else {
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        const std::size_t length = child.size;
+        const std::size_t length = node.child_size(i);
         if (first < offset + length && offset < last)
-          apply_recursive(child, first > offset ? first - offset : 0,
+          apply_recursive(node.get_child(i),
+                          first > offset ? first - offset : 0,
                           std::min(last - offset, length), f);
         offset += length;
         if (offset >= last) break;
@@ -283,18 +283,19 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if constexpr (Leftward) {
       std::size_t pos = end;
       for (std::size_t i = node.count; i > 0; --i) {
-        auto& child = node.get_child(i - 1);
-        pos -= child.size;
-        if (!search<true>(child, pos, first, last, value, predicate, result))
+        pos -= node.child_size(i - 1);
+        if (!search<true>(node.get_child(i - 1), pos, first, last, value,
+                          predicate, result))
           return false;
       }
     } else {
       std::size_t pos = offset;
       for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        if (!search<false>(child, pos, first, last, value, predicate, result))
+        const auto length = node.child_size(i);
+        if (!search<false>(node.get_child(i), pos, first, last, value,
+                           predicate, result))
           return false;
-        pos += child.size;
+        pos += length;
       }
     }
     return true;
