@@ -394,17 +394,18 @@ struct Internal : Traits::Node {
       return children[index];
     } else {
       for (pos_type i = 0; i < count; ++i) {
-        auto& child = get_child(i);
-        if (index < child.size) {
-          return Pools::with_internal(children[i], [&](auto& typed_child) {
-            using Child = std::remove_cvref_t<decltype(typed_child)>;
-            constexpr bool ChildBottom =
-                std::is_same_v<Child, BottomInternal<Traits>>;
-            return typed_child.template locate_typed<ChildBottom, WithLazy>(
-                index, value_clean);
-          });
-        }
-        index -= child.size;
+        const id_type found = Pools::with_internal(
+            children[i], [&](auto& child) -> id_type {
+              if (index >= child.size) {
+                index -= child.size;
+                return null_id;
+              }
+              constexpr bool ChildBottom =
+                  Pools::template is_bottom_type<decltype(child)>;
+              return child.template locate_typed<ChildBottom, WithLazy>(
+                  index, value_clean);
+            });
+        if (found != null_id) return found;
       }
       assert(false);
       return null_id;
