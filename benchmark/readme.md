@@ -122,6 +122,8 @@ g++ -std=c++23 -O2 generator.cpp -o /tmp/benchmark-generator
 
 ## GitHub Actions と記録
 
+GitHub Actionsの実行一覧では、**実行待ち（Queued / Pending）の段階から** `run-name` に操作対象・Cap・実行回数を表示する。通常版は実行ブランチ、A/B版は `development_ref` も表示する。例：`A/B btree/vector/iterate cap=16 runs=5 | perf/bplustree-static-pool-no-guard`。実行名は起動時の入力を示し、実行開始後にブランチ先端が変わっても表示を変更しない。実際に比較したSHAはA/B結果のサマリーで確認する。
+
 Actions → Performance benchmarks → Run workflow から対象ブランチ・種類/操作・Capを選択する。時間とPeak RSSをそれぞれ5回の**中央値**で比較し、各ベスト比120%超で🟡、150%超で🔴（遅くなっても警告のみ、結果の不一致は失敗）。
 
 **main の成功実行だけ**（通常のPerformance benchmarksとA/B比較のmain側の測定結果）`benchmark-records` ブランチの `best.json` を更新する。時間の `best_ns` とメモリの `best_rss_kb` は**独立して最小値を更新**し、元コミット・実行URLも別々に保持する。既存の `best_ns` のみの記録は読み込み可能で、次回からRSSベストを追加する。PRブランチでは読み取り・比較のみ。既存の `btree/vector/insert`（Cap8固定）の旧記録は残し、新方式の `btree/vector/insert/cap8` と区別する。
