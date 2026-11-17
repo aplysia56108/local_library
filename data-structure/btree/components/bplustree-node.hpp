@@ -417,47 +417,67 @@ struct Internal : Traits::Node {
     return locate_typed<false, WithLazy>(index, value_clean);
   }
 
-  /** @brief index の Internal 子を隣の兄弟へ移動し、元の子を回収する。 */
-  void integrate_child(pos_type index) {
+  /** @brief 同じ高さの子の型を固定して統合する。 */
+  template <bool ChildBottom>
+  void integrate_child_typed(pos_type index) {
     assert(level > 0 && index < count);
-    if (index && child_count(index - 1) + child_count(index) < NodeCap) {
-      auto& left = get_child(index - 1);
-      auto& right = get_child(index);
-      left.materialize();
-      right.materialize();
-      // 右側のcountが移動ごとに縮むので、開始時の個数を保存する。
+    auto get_typed_child = [&](pos_type i) -> decltype(auto) {
+      if constexpr (ChildBottom)
+        return (Pools::bottom(children[i]));
+      else
+        return (get_child(i));
+    };
+
+    if (index && get_typed_child(index - 1).count +
+                     get_typed_child(index).count < NodeCap) {
+      auto& left = get_typed_child(index - 1);
+      auto& right = get_typed_child(index);
+      left.template materialize_typed<ChildBottom>();
+      right.template materialize_typed<ChildBottom>();
       const pos_type left_count = left.count;
       const pos_type right_count = right.count;
       const id_type left_id = left.id();
       for (pos_type i = right_count; i > 0;) {
         --i;
-        left.move_child(left_count + i, right.children[i], left_id);
+        left.template move_child_typed<ChildBottom>(
+            left_count + i, right.children[i], left_id);
       }
-      left.refresh();
+      left.template refresh_typed<ChildBottom>();
     } else if (index + 1 < count &&
-               child_count(index + 1) + child_count(index) < NodeCap) {
-      auto& left = get_child(index);
-      auto& right = get_child(index + 1);
-      left.materialize();
-      right.materialize();
-      // shiftで右側のcountが増え、移動で左側のcountが縮む。
-      // 両方の移動前の個数を保存する。
+               get_typed_child(index + 1).count +
+                   get_typed_child(index).count < NodeCap) {
+      auto& left = get_typed_child(index);
+      auto& right = get_typed_child(index + 1);
+      left.template materialize_typed<ChildBottom>();
+      right.template materialize_typed<ChildBottom>();
       const pos_type left_count = left.count;
       const pos_type right_count = right.count;
       const id_type right_id = right.id();
       for (pos_type i = right_count; i > 0;) {
         --i;
-        right.template move_child<false>(left_count + i, right.children[i]);
+        right.template move_child_typed<ChildBottom, false>(
+            left_count + i, right.children[i]);
       }
       for (pos_type i = left_count; i > 0;) {
         --i;
-        right.move_child(i, left.children[i], right_id);
+        right.template move_child_typed<ChildBottom>(
+            i, left.children[i], right_id);
       }
-      right.refresh();
+      right.template refresh_typed<ChildBottom>();
     } else {
       return;
     }
-    erase(index);
+    erase_typed<false>(index);
+  }
+
+  /** @brief index の Internal 子を隣の兄弟へ移動し、元の子を回収する。 */
+  void integrate_child(pos_type index) {
+    assert(level > 0 && index < count);
+    // All siblings have the same node kind. Dispatch only at this boundary.
+    if (children[index] & Pools::bottom_mask)
+      integrate_child_typed<true>(index);
+    else
+      integrate_child_typed<false>(index);
   }
 
   /** @brief 統合成功時は自身の ID が無効になる。 */
