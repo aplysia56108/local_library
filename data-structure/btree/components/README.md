@@ -179,20 +179,24 @@ falseへ高々1回変わるものとし、空区間の単位元には呼び出�
 公開APIの新規テストは `data-structure/btree/test/` に配置します。旧テストは廃止し、
 重い乱択・パフォーマンス検証はverifyに委ねます。
 
-### iteratorのepochキャッシュ
+### iteratorの位置・値epochキャッシュ
 
-`IteratorEpoch<Traits>::current` は、同じTraitsを持つ木で共通の更新世代です。
-iteratorはLeafのPool IDと、そのLeafへの経路を最後にmaterializeした世代を保持します。
+`IteratorEpoch<Traits>::position` と `IteratorEpoch<Traits>::value` は
+同じTraitsの木で共有する独立した世代です。iteratorはLeaf IDのほかに、
+位置経路（Reverse）と値経路（Lazy）の検証済み世代を保持します。
 
-- `reverse` / `apply` / `insert` / `erase` / `split` / `merge` /
-  `assign` / `swap` などの論理変更時に世代を進めます。
-  `materialize` による内部的な遅延伝搬では進めません。
-- `operator*()` は世代一致なら根への遡及を省略します。
-  `operator++()` / `operator--()` は必要時に現在の経路を確定し、
-  移動先への下降経路だけをmaterializeします。毎要素の根への再走査が不要です。
-- 木の所属はsplit/merge/swapで変わるので、iteratorが`Tree*`を持つ代わりに
-  Pool共有の世代を利用します。別の木による無関係の変更でもキャッシュは
-  保守的に無効化されます（正しさには影響しません）。
-- 世代はあくまで**iterator内部のキャッシュ**であり、比較・等価性はLeaf IDだけで
-  決まります。Leaf自体をeraseした場合のiteratorは従来どおり無効です。
-
+- `reverse()` は位置世代だけ、`apply()` は値世代だけ進めます。
+  部分反転の分割・統合や、insert/erase/split/merge/assign/swapなどの
+  構造変更は両方の世代を保守的に進めます。
+- `++` / `--` / `+=` / イテレータ差分はReverseのみ伝搬し、
+  値を読まない場合の高価なLazy適用を回避します。
+- `operator*()` は必要な場合だけLazyを含め経路をmaterializeします。
+  連続走査では、新しい下降経路に未伝搬Lazyがなければ値キャッシュも
+  引き継ぎ、毎回の根への走査を避けます。
+- 一度値を確定したLeafから移動した際、下降経路に未伝搬Lazyが
+  あれば値キャッシュだけを無効化します。
+  位置キャッシュはそのまま有効です。
+- 木の所属はsplit/merge/swapで変わるため、`Tree*`ではなくTraits単位で
+  共有します。無関係な木の変更でも保守的な失効があり得ます。
+  epochはキャッシュにのみ使い、iteratorの等価性はLeaf IDで判定します。
+  Leafをeraseした場合のiteratorは無効です。
