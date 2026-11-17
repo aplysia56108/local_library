@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 #include <utility>
 
 #include "data-structure/object-pool/object_pool.hpp"
@@ -29,6 +30,9 @@ struct NodePools {
   using B = BottomInternal<Traits>;
   static constexpr id_type null_id = ObjectPool<L>::null_id;
   static constexpr id_type bottom_mask = id_type{1} << 31;
+  template <class Concrete>
+  static constexpr bool is_bottom_type =
+      std::is_same_v<std::remove_cvref_t<Concrete>, B>;
 
  private:
   // Two separate vector allocations allow upper internals to omit links.
