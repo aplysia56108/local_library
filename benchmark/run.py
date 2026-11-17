@@ -99,6 +99,50 @@ def load_fixtures(source, cache):
 
 
 
+def update_best_record(baseline, case, fingerprint_data, measured_ns,
+                       measured_rss_kib, *, commit=None, run_url=None):
+    """Update independent time/RSS bests for one verified main measurement.
+
+    Both the regular benchmark and the A/B comparison use this exact record
+    format and fingerprint. This only edits the supplied in-memory dictionary;
+    workflows publish it after all selected cases have completed successfully.
+    """
+    fingerprint = hashlib.sha256(
+        json.dumps(fingerprint_data, sort_keys=True).encode()
+    ).hexdigest()[:16]
+    per_case = baseline.setdefault("records", {}).setdefault(case, {})
+    old = per_case.get(fingerprint)
+    best = old.get("best_ns") if old else None
+    best_rss = old.get("best_rss_kb") if old else None
+    record = dict(old or {})
+
+    if commit is None:
+        commit = os.getenv("GITHUB_SHA", "local")
+    if run_url is None:
+        repo, run_id = os.getenv("GITHUB_REPOSITORY"), os.getenv("GITHUB_RUN_ID")
+        run_url = (f"https://github.com/{repo}/actions/runs/{run_id}"
+                   if repo and run_id else "local")
+
+    if best is None or measured_ns < best:
+        record.update({
+            "best_ns": measured_ns,
+            "fingerprint": fingerprint_data,
+            "commit": commit,
+            "run_url": run_url,
+        })
+    if best_rss is None or measured_rss_kib < best_rss:
+        record.update({
+            "best_rss_kb": measured_rss_kib,
+            "fingerprint": fingerprint_data,
+            "rss_commit": commit,
+            "rss_run_url": run_url,
+        })
+    if record != (old or {}):
+        per_case[fingerprint] = record
+
+    return fingerprint, best, best_rss
+
+
 def run_case(source, cap, runs, baseline, metadata, fixture_cache):
     case = source.parent.relative_to(BENCHMARKS).as_posix() + f"/cap{cap}"
     input_bytes, expected = load_fixtures(source, fixture_cache)
@@ -109,8 +153,6 @@ def run_case(source, cap, runs, baseline, metadata, fixture_cache):
         "flags": flags,
         "fixture_sha256": fixture_sha,
     }
-    fingerprint = hashlib.sha256(json.dumps(fingerprint_data, sort_keys=True).encode()).hexdigest()[:16]
-
     executable = BUILD / (case.replace("/", "_") + ".exe")
     compile_command = ["g++", *flags, str(source.relative_to(ROOT)), "-o", str(executable)]
     subprocess.run(compile_command, cwd=ROOT, check=True, timeout=180)
@@ -129,32 +171,9 @@ def run_case(source, cap, runs, baseline, metadata, fixture_cache):
 
     measured = statistics.median(durations)
     rss_measured = statistics.median(rss_peaks)
-    per_case = baseline.setdefault("records", {}).setdefault(case, {})
-    old = per_case.get(fingerprint)
-    best = old.get("best_ns") if old else None
-    best_rss = old.get("best_rss_kb") if old else None
-    record = dict(old or {})
-    run_url = (
-        f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
-        if os.getenv("GITHUB_REPOSITORY") and os.getenv("GITHUB_RUN_ID") else "local"
+    fingerprint, best, best_rss = update_best_record(
+        baseline, case, fingerprint_data, measured, rss_measured
     )
-    commit = os.getenv("GITHUB_SHA", "local")
-    if best is None or measured < best:
-        record.update({
-            "best_ns": measured,
-            "fingerprint": fingerprint_data,
-            "commit": commit,
-            "run_url": run_url,
-        })
-    if best_rss is None or rss_measured < best_rss:
-        record.update({
-            "best_rss_kb": rss_measured,
-            "fingerprint": fingerprint_data,
-            "rss_commit": commit,
-            "rss_run_url": run_url,
-        })
-    if record != (old or {}):
-        per_case[fingerprint] = record
 
     return {
         "case": case,

@@ -110,7 +110,7 @@ def summarize(results, metadata, base_sha, dev_sha):
         f"Historical time record from a different main commit: {old_commit} cases.",
         "A/B ratios may not transfer to different CPU models or code revisions.",
         "Raw samples and historical source metadata are saved in compare/results.json.",
-        "This workflow never updates benchmark-records.", "",
+        "Verified main measurements can update benchmark-records after all cases succeed.",
     ]
     return "\n".join(lines)
 
@@ -221,7 +221,18 @@ def main():
                     old_mem.get("rss_commit", old_mem.get("commit")) if old_mem else None,
                 "samples": samples,
             })
+            # Only main contributes measured bests. Never record development
+            # samples or extrapolated development bests.
+            benchmark.update_best_record(
+                baseline, case,
+                {"cpu": metadata["cpu"], "compiler": compiler,
+                 "flags": flags, "fixture_sha256": fixture_sha},
+                main_ns, main_rss, commit=base_sha,
+            )
 
+    (benchmark.BUILD / "best-updated.json").write_text(
+        json.dumps(baseline, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
+    )
     (build / "results.json").write_text(json.dumps({
         "base_sha": base_sha, "dev_sha": dev_sha,
         "metadata": metadata, "runs": args.runs, "results": results,
