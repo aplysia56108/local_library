@@ -1,4 +1,5 @@
 name: Performance A/B comparison
+run-name: 'A/B ${{ inputs.target }} cap=${{ inputs.caps }} runs=${{ inputs.runs }} | ${{ inputs.development_ref }}'
 
 on:
   workflow_dispatch:
