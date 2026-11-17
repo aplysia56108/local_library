@@ -81,7 +81,7 @@ class Base {
     root_ = new_root;
     bbegin_ = iterator{bbegin};
     end_ = iterator{end};
-    Epoch::invalidate();
+    Epoch::invalidate_all();
   }
 
   /** @brief 子が1つだけの根を縮め、古い Internal を回収する。 */
@@ -133,7 +133,7 @@ class Base {
     root_ = new_root;
     bbegin_ = iterator{bbegin};
     end_ = iterator{end};
-    Epoch::invalidate();
+    Epoch::invalidate_all();
   }
 
   static id_type make_new_root(id_type left, id_type right,
@@ -399,7 +399,7 @@ class Base {
     swap(left.root_, right.root_);
     swap(left.bbegin_, right.bbegin_);
     swap(left.end_, right.end_);
-    Epoch::invalidate();
+    Epoch::invalidate_all();
   }
   template <std::input_iterator InputIt>
   void assign(InputIt first, InputIt last) {
@@ -479,7 +479,7 @@ class Base {
     const pos_type position = leaf.position;
     const id_type child = Pools::make_leaf(value);
     insert(parent, position, child, root_);
-    Epoch::invalidate();
+    Epoch::invalidate_all();
     return iterator{child};
   }
 
@@ -503,7 +503,7 @@ class Base {
     id_type parent = leaf.parent;
     pos_type position = leaf.position;
     erase(parent, position, root_);
-    Epoch::invalidate();
+    Epoch::invalidate_all();
     return res;
   }
 
@@ -517,7 +517,7 @@ class Base {
     const id_type removed = devide(root_, first.leaf_id_);
     root_ = unite(root_, right);
     Pools::recycle(removed);
-    Epoch::invalidate();
+    Epoch::invalidate_all();
     return last;
   }
   void pop_back() {
@@ -577,7 +577,7 @@ class Base {
     const id_type bbegin_leaf = get_node(right.root_).locate(0);
     const id_type bbegin_parent = get_leaf(bbegin_leaf).parent;
     insert(bbegin_parent, 0, bbegin, right.root_);
-    Epoch::invalidate();
+    Epoch::invalidate_all();
     return right;
   }
 
@@ -602,7 +602,7 @@ class Base {
     get_node(root_).push_reverse();
     using std::swap;
     swap(bbegin_, end_);
-    Epoch::invalidate();
+    Epoch::invalidate_position();
   }
   void reverse(size_type first, size_type last) {
     assert(first <= last && last <= size());
@@ -617,7 +617,7 @@ class Base {
     get_node(middle).push_reverse();
     root_ = unite(root_, middle);
     root_ = unite(root_, right);
-    Epoch::invalidate();
+    Epoch::invalidate_position();
   }
   void debug_node_stats() const {
     std::cerr << "leaf slots in use: " << Pools::leaves().size() << '\n';
