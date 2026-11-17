@@ -244,6 +244,9 @@ void iterator_split_epoch_lazy_deferral_tests() {
   const auto position_before_apply = Epoch::position;
   const auto value_before_apply = Epoch::value;
   tree.all_apply(7);
+  std::cerr << "DEBUG epochs: pos=" << position_before_apply << "->"
+            << Epoch::position << " val=" << value_before_apply << "->"
+            << Epoch::value << " sum=" << tree.all_prod() << '\n';
   assert(Epoch::position == position_before_apply);
   assert(Epoch::value != value_before_apply);
 
