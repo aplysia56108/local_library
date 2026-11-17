@@ -1,0 +1,75 @@
+name: Temporary A/B non-lazy epoch specialization
+
+on:
+  push:
+    branches:
+      - feature/bplustree-split-iterator-epochs
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-compare:
+    runs-on: ubuntu-24.04
+    container: gcc:15.2
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare GCC, Python and ACL
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v python3 >/dev/null || [[ ! -x /usr/bin/time ]]; then
+            apt-get update -qq
+            apt-get install -y -qq python3 time
+          fi
+          mkdir -p .deps out/tests
+          git clone https://github.com/atcoder/ac-library .deps/ac-library
+          git -C .deps/ac-library checkout --detach 864245a00b00dd008d1abfdc239618fdb7d139da
+      - name: GCC 15.2 B+tree tests, including Iterator size assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in data-structure/btree/components/test/*.cpp data-structure/btree/test/*.cpp; do
+            echo "::group::$file"
+            g++ -std=c++23 -O2 -Wall -Wextra -I. -Idebug -I.deps/ac-library "$file" -o out/tests/no-lazy-epoch-test
+            timeout 75s out/tests/no-lazy-epoch-test
+            echo "::endgroup::"
+          done
+      - name: Prepare prior PR #44 baseline and benchmark scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          mkdir -p "$GITHUB_WORKSPACE/out/epoch-branch-ab"
+          git fetch --no-tags origin b6bef542f8eac821731c08e8319354df27ec3359
+          git worktree add --detach "$GITHUB_WORKSPACE/out/epoch-branch-ab/old" FETCH_HEAD
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          git worktree add --detach "$GITHUB_WORKSPACE/out/epoch-branch-ab/main" refs/remotes/origin/main
+          for path in "$GITHUB_WORKSPACE/out/epoch-branch-ab/old" "$GITHUB_WORKSPACE/out/epoch-branch-ab/main"; do
+            git config --global --add safe.directory "$path"
+            mkdir -p "$path/.deps"
+            ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$path/.deps/ac-library"
+          done
+          printf '%s\n' '{"schema":1,"records":{}}' > "$GITHUB_WORKSPACE/out/epoch-branch-ab/empty.json"
+          sed -i '/    if base_root != benchmark.ROOT:/,+1d' "$GITHUB_WORKSPACE/out/epoch-branch-ab/main/benchmark/compare.py"
+          echo "PR44_BASE=$(git -C "$GITHUB_WORKSPACE/out/epoch-branch-ab/old" rev-parse HEAD)"
+          echo "OPTIMIZED=$(git rev-parse HEAD)"
+      - name: Same-CPU A/B access, access_random, iterate
+        shell: bash
+        run: |
+          set -euo pipefail
+          main="$GITHUB_WORKSPACE/out/epoch-branch-ab/main"
+          old="$GITHUB_WORKSPACE/out/epoch-branch-ab/old"
+          for structure in set vector segtree lazysegtree; do
+            for operation in iterate access access_random; do
+              target="btree/$structure/$operation"
+              echo "::group::A/B $target (caps 8,16,32,64; 5 runs)"
+              python3 "$main/benchmark/compare.py" \
+                --base-root "$old" --dev-root "$GITHUB_WORKSPACE" \
+                --target "$target" --caps all --runs 5 \
+                --baseline "$GITHUB_WORKSPACE/out/epoch-branch-ab/empty.json"
+              echo "::endgroup::"
+            done
+          done
+          echo "All 48 A/B cases verified"
