@@ -1,0 +1,134 @@
+name: Temporary B+tree nonlazy locate true A/B
+
+on:
+  push:
+    branches:
+      - experiment/bplustree-nonlazy-locate-true
+
+permissions:
+  contents: read
+
+jobs:
+  test-asm-and-benchmark:
+    runs-on: ubuntu-24.04
+    container: gcc:15.2
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v python3 >/dev/null || [[ ! -x /usr/bin/time ]]; then
+            apt-get update -qq
+            apt-get install -y -qq python3 time binutils
+          fi
+          mkdir -p .deps out/tests out/locate-ab
+          git clone https://github.com/atcoder/ac-library .deps/ac-library
+          git -C .deps/ac-library checkout --detach 864245a00b00dd008d1abfdc239618fdb7d139da
+          echo "Compiler: $(g++ --version | head -1)"
+          echo "CPU: $(grep -m1 'model name' /proc/cpuinfo)"
+      - name: Test all B+tree components and public containers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in data-structure/btree/components/test/*.cpp data-structure/btree/test/*.cpp; do
+            echo "::group::$file"
+            g++ -std=c++23 -O2 -Wall -Wextra -I. -Idebug -I.deps/ac-library "$file" -o out/tests/locate-true
+            timeout 75s out/tests/locate-true
+            echo "::endgroup::"
+          done
+      - name: Prepare previous PR #44 code and main benchmark fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch --no-tags origin e233df156cafbd956874344bdac27471dcbc7438
+          git worktree add --detach "$GITHUB_WORKSPACE/out/locate-ab/old" FETCH_HEAD
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          git worktree add --detach "$GITHUB_WORKSPACE/out/locate-ab/main" refs/remotes/origin/main
+          for path in "$GITHUB_WORKSPACE/out/locate-ab/old" "$GITHUB_WORKSPACE/out/locate-ab/main"; do
+            git config --global --add safe.directory "$path"
+            mkdir -p "$path/.deps"
+            ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$path/.deps/ac-library"
+          done
+          printf '%s\n' '{"schema":1,"records":{}}' > "$GITHUB_WORKSPACE/out/locate-ab/empty.json"
+          sed -i '/    if base_root != benchmark.ROOT:/,+1d' "$GITHUB_WORKSPACE/out/locate-ab/main/benchmark/compare.py"
+          echo "Base=$(git -C "$GITHUB_WORKSPACE/out/locate-ab/old" rev-parse HEAD)"
+          echo "Dev=$(git rev-parse HEAD)"
+      - name: Compile GCC 15.2 assembly and compare locate/advance symbols
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE/out/locate-ab"
+          for version in old new; do
+            lib="$GITHUB_WORKSPACE"
+            if [[ "$version" == old ]]; then lib="$root/old"; fi
+            for structure in set vector segtree lazysegtree; do
+              src="$root/main/benchmark/btree/$structure/iterate/benchmark.cpp"
+              (
+                cd "$lib"
+                g++ -std=c++23 -O2 -Wall -Wextra -I. -Idebug -I.deps/ac-library \
+                  -DNODE_CAP=32 -c "$src" -o "$root/$version-$structure.o"
+              )
+              nm --demangle --print-size --size-sort "$root/$version-$structure.o" > "$root/$version-$structure.nm"
+              objdump -drwC -M intel "$root/$version-$structure.o" > "$root/$version-$structure.asm"
+            done
+          done
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          root=Path('out/locate-ab')
+          for structure in ('set','vector','segtree','lazysegtree'):
+              print(f"=== ASM SYMBOLS {structure} / Cap32 ===",flush=True)
+              for version in ('old','new'):
+                  s=(root/f'{version}-{structure}.nm').read_text().splitlines()
+                  functions=[]
+                  for line in s:
+                      if ('::advance(' in line or '::locate<' in line or '::reverse_path(' in line) and '::Internal<' in line or '::Iterator<' in line and ('::advance(' in line or '::reverse_path(' in line):
+                          m=re.match(r'([0-9a-f]+)\s+([0-9a-f]+)\s+\w\s+(.*)$',line)
+                          if m: functions.append((int(m.group(2),16),m.group(3)))
+                  for size,name in functions:
+                      print(f'{version:4} {size:5} bytes {name[:220]}',flush=True)
+          PY
+      - name: A/B iterate across capacities
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE/out/locate-ab"
+          for structure in set vector segtree lazysegtree; do
+            target="btree/$structure/iterate"
+            echo "::group::A/B $target caps all 7 runs"
+            python3 "$root/main/benchmark/compare.py" \
+              --base-root "$root/old" --dev-root "$GITHUB_WORKSPACE" \
+              --target "$target" --caps all --runs 7 \
+              --baseline "$root/empty.json"
+            echo "::endgroup::"
+          done
+      - name: A/B interleaved reverse and Lazy apply regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE/out/locate-ab"
+          for target in \
+            btree/vector/iterate_interleaved_reverse \
+            btree/segtree/iterate_interleaved_reverse \
+            btree/lazysegtree/iterate_interleaved_reverse \
+            btree/lazysegtree/iterate_interleaved_apply; do
+            echo "::group::A/B $target caps all 5 runs"
+            python3 "$root/main/benchmark/compare.py" \
+              --base-root "$root/old" --dev-root "$GITHUB_WORKSPACE" \
+              --target "$target" --caps all --runs 5 \
+              --baseline "$root/empty.json"
+            echo "::endgroup::"
+          done
+          echo "All 32 A/B cases output-verified."
+      - name: Upload code generation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nonlazy-locate-true-asm
+          path: |
+            out/locate-ab/*.nm
+            out/locate-ab/*.asm
+          retention-days: 14
