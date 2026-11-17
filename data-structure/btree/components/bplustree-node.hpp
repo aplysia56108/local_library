@@ -240,16 +240,24 @@ struct Internal : Traits::Node {
   }
 
   template <bool WithLazy = false>
-  id_type locate(std::size_t index) {
+  id_type locate(std::size_t index, bool* value_clean = nullptr) {
     apply_reverse();
-    if constexpr (WithLazy) static_cast<I*>(this)->apply_lazy();
+    if constexpr (WithLazy) {
+      static_cast<I*>(this)->apply_lazy();
+    } else if constexpr (requires { Traits::lazy; }) {
+      if constexpr (Traits::lazy) {
+        if (value_clean && *value_clean && static_cast<I*>(this)->pending)
+          *value_clean = false;
+      }
+    }
     if (level == 0) {
       assert(index < count);
       return children[index];
     }
     for (pos_type i = 0; i < count; ++i) {
       auto& child = get_child(i);
-      if (index < child.size) return child.template locate<WithLazy>(index);
+      if (index < child.size)
+        return child.template locate<WithLazy>(index, value_clean);
       index -= child.size;
     }
     assert(false);
