@@ -448,7 +448,9 @@ class Base {
     return rend();
   }
   const T& get(size_type index) const {
-    return *nth(index);
+    // 探索中に未伝搬のreverse/lazyを実体化し、そのLeafを直接参照する。
+    // 一時Iteratorの生成と参照時の根への再走査を省略する。
+    return get_leaf(locate<true>(index)).get();
   }
   const T& operator[](size_type index) const {
     return get(index);
