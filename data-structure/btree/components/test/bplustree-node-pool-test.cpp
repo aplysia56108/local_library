@@ -1,4 +1,4 @@
-#include "data-structure/btree/components/bplustree-node.hpp"
+#include "data-structure/btree/components/bplustree-base.hpp"
 
 #include <array>
 #include <cassert>
@@ -101,7 +101,12 @@ void node_pool_integrate_test() {
   std::cerr << "node pool integration tests all passed!\n";
 }
 
+// constinitなPoolがmain()より前のTree構築でも安全に利用できることを確認。
+Bplustree::Base<Bplustree::Traits<long long, 12>> global_tree{1, 2, 3};
+
 int main() {
+  assert(global_tree.size() == 3);
+  assert(global_tree.get(0) == 1 && global_tree.get(2) == 3);
   node_pool_basic_test<4>();
   node_pool_basic_test<8>();
   node_pool_reallocation_test();

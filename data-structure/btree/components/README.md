@@ -48,6 +48,21 @@ BaseのsplitはBase型を返します。派生型はBaseのムーブコンスト
 引数を受けるコンストラクタを用意すると、追加の全要素コピーなしで結果を
 引き継げます。状態を持つ比較器などは派生型側で引き継ぎを管理してください。
 
+## Poolの初期化とアクセスコスト
+
+`NodePools<Traits>` はLeafとInternalを、Traitsごとに共有する2つのPoolで保持します。
+Poolの実体は `inline static constinit ObjectPool<...>` とし、
+`leaves()` / `internals()` はその参照を返します。
+
+関数内の `static ObjectPool` は、初回アクセス時の初期化・デストラクタ登録を
+管理するガードがGCC 15.2の最適化後にも残り、ノード探索で繰り返し評価されます。
+`constinit` と `ObjectPool` の `constexpr` デフォルトコンストラクタを
+組み合わせることで、プールの初期化を静的初期化として保証し、
+ホットパス上のガード判定を除きます。
+
+`NodePools` のPoolは引き続きTraits単位で共有され、Leaf/Node IDの意味や
+構造操作の振る舞いは変わりません。グローバルなTreeの構築・破棄もテスト対象です。
+
 ## 子の差分移動と不変条件
 
 `Internal::move_child` で `children` / `count` / `size` / 子の `parent` /

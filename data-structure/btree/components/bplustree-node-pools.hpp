@@ -15,6 +15,14 @@ struct NodePools {
   using I = typename Traits::Internal;
   static constexpr id_type null_id = ObjectPool<L>::null_id;
 
+ private:
+  // ホットパスでの関数内staticの初期化ガードをなくす。
+  // constinitによりグローバルなTree構築時にも初期化済みとなる。
+  inline static constinit ObjectPool<L> leaf_pool_{};
+  inline static constinit ObjectPool<I> internal_pool_{};
+
+ public:
+
   static id_type id(L& leaf) {
     return leaves().index(leaf);
   }
@@ -24,12 +32,10 @@ struct NodePools {
   }
 
   static ObjectPool<L>& leaves() {
-    static ObjectPool<L> pool;
-    return pool;
+    return leaf_pool_;
   }
   static ObjectPool<I>& internals() {
-    static ObjectPool<I> pool;
-    return pool;
+    return internal_pool_;
   }
 
   /** @brief
