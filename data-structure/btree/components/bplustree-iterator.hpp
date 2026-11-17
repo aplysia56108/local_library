@@ -83,13 +83,13 @@ class Iterator {
   using ValueEpoch = std::conditional_t<HasLazy, std::uint64_t, NoValueEpoch>;
 
   id_type leaf_id_ = null_id;
+  // Place these two 1-byte fields into the padding before the epoch, keeping
+  // non-Lazy iterators at 16 bytes on 64-bit platforms.
+  mutable pos_type entry_port_ = 0;
+  mutable bool observed_port_swap_ = false;
   // 0は未検証。値epochはLazyをサポートするTraitsでのみ保持する。
   mutable std::uint64_t validated_position_epoch_ = 0;
   [[no_unique_address]] mutable ValueEpoch validated_value_epoch_{};
-  // Logical entry port into the current bottom node. Its physical numbering
-  // changes when apply_reverse() swaps children and the two ports.
-  mutable pos_type entry_port_ = 0;
-  mutable bool observed_port_swap_ = false;
 
   static Leaf& get_leaf(const id_type& id) {
     return Pools::leaves()[id];
@@ -262,9 +262,9 @@ class Iterator {
     requires(IsConst && !OtherConst)
   Iterator(const Iterator<Traits, Tree, OtherConst>& other)
       : leaf_id_(other.leaf_id_),
-        validated_position_epoch_(other.validated_position_epoch_),
         entry_port_(other.entry_port_),
-        observed_port_swap_(other.observed_port_swap_) {
+        observed_port_swap_(other.observed_port_swap_),
+        validated_position_epoch_(other.validated_position_epoch_) {
     if constexpr (HasLazy)
       validated_value_epoch_ = other.validated_value_epoch_;
   }
