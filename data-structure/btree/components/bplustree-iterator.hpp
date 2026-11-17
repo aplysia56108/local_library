@@ -119,16 +119,16 @@ class Iterator {
 
   /** @brief Reconcile the entry port with a local physical port swap. */
   void sync_entry_port() const {
-    const auto& bottom = get_node(this_leaf().parent);
-    if (observed_port_swap_ != bottom.bottom().ports_swapped) {
+    const auto& bottom = Pools::bottom(this_leaf().parent);
+    if (observed_port_swap_ != bottom.ports_swapped) {
       entry_port_ ^= 1;
-      observed_port_swap_ = bottom.bottom().ports_swapped;
+      observed_port_swap_ = bottom.ports_swapped;
     }
   }
 
   void reset_entry_port() const {
     entry_port_ = 0;
-    observed_port_swap_ = get_node(this_leaf().parent).bottom().ports_swapped;
+    observed_port_swap_ = Pools::bottom(this_leaf().parent).ports_swapped;
   }
 
   /** @brief 位置確定ではReverseだけを伝搬し、Lazyは保持する。 */
@@ -180,7 +180,7 @@ class Iterator {
     assert(leaf_id_ != null_id);
     ensure_position_path();
     const auto& leaf = this_leaf();
-    const auto& bottom = get_node(leaf.parent);
+    const auto& bottom = Pools::bottom(leaf.parent);
     const std::ptrdiff_t delta = (entry_port_ == 0 ? 1 : -1) *
                                  (forward ? 1 : -1);
     const auto next_pos = static_cast<std::ptrdiff_t>(leaf.position) + delta;
@@ -188,12 +188,12 @@ class Iterator {
       leaf_id_ = bottom.children[static_cast<std::size_t>(next_pos)];
       return;
     }
-    const auto link = bottom.bottom().links[forward ? (entry_port_ ^ 1) : entry_port_];
+    const auto link = bottom.links[forward ? (entry_port_ ^ 1) : entry_port_];
     assert(link.node != null_id);
-    const auto& neighbor = get_node(link.node);
+    const auto& neighbor = Pools::bottom(link.node);
     assert(neighbor.level == 0 && neighbor.count > 0);
     entry_port_ = forward ? link.port : (link.port ^ 1);
-    observed_port_swap_ = neighbor.bottom().ports_swapped;
+    observed_port_swap_ = neighbor.ports_swapped;
     const auto pos = forward ? (entry_port_ == 0 ? 0 : neighbor.count - 1)
                              : (entry_port_ == 0 ? neighbor.count - 1 : 0);
     leaf_id_ = neighbor.children[pos];
@@ -214,7 +214,7 @@ class Iterator {
       // Leafの親は必ず最下層Internal（level == 0）。
       // positionを確定した後、同じ親の中なら汎用locateを使わずに
       // 子IDを直接取得できる。位置epochはすでに検証済み。
-      auto& bottom = get_node(node_id);
+      auto& bottom = Pools::bottom(node_id);
       if (0 <= to_index &&
           to_index < static_cast<std::ptrdiff_t>(bottom.count)) {
         leaf_id_ = bottom.children[static_cast<std::size_t>(to_index)];
