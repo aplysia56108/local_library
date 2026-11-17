@@ -236,6 +236,12 @@ void iterator_split_epoch_lazy_deferral_tests() {
   using Tree = Bplustree_LazySegtree<SumMonoid, LazyAction, true, Capacity>;
   static_assert(std::same_as<typename Tree::traits_type, Traits>);
   using Epoch = Bplustree::IteratorEpoch<Traits>;
+  // LazyありのIteratorは位置と値の両epochを保持する。
+  static_assert(sizeof(typename Tree::iterator) >
+                sizeof(Bplustree::Iterator<
+                    Bplustree::Traits<long long, Capacity>,
+                    Bplustree::Base<Bplustree::Traits<long long, Capacity>>,
+                    false>));
 
   std::vector<long long> values(96);
   std::iota(values.begin(), values.end(), 0LL);
