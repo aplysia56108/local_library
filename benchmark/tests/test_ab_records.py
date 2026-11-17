@@ -103,12 +103,5 @@ class ABMainRecordTest(unittest.TestCase):
             self.assertEqual(results["results"][0]["base_rss_kib"], 3100)
             self.assertEqual(results["results"][0]["dev_rss_kib"], 1500)
 
-    def test_failed_comparison_never_writes_publishable_records(self):
-        # Persistence happens only after all selected cases complete.
-        with tempfile.TemporaryDirectory() as directory:
-            build = Path(directory) / "out/benchmark"
-            self.assertFalse((build / "best-updated.json").exists())
-
-
 if __name__ == "__main__":
     unittest.main()
