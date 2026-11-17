@@ -142,8 +142,8 @@ struct Internal : Traits::Node {
   /** @brief Connect two free ports symmetrically. Either endpoint may be null. */
   static void connect(id_type a, pos_type a_port, id_type b,
                       pos_type b_port) {
-    if (a != null_id) Pools::internals()[a].bottom().links[a_port] = {b, b_port};
-    if (b != null_id) Pools::internals()[b].bottom().links[b_port] = {a, a_port};
+    if (a != null_id) Pools::bottom(a).links[a_port] = {b, b_port};
+    if (b != null_id) Pools::bottom(b).links[b_port] = {a, a_port};
   }
 
   /** @brief Insert a new bottom node immediately after this bottom node. */
@@ -227,7 +227,7 @@ struct Internal : Traits::Node {
       for (pos_type port = 0; port < 2; ++port) {
         const Link next = data.links[port];
         if (next.node != null_id)
-          Pools::internals()[next.node].bottom().links[next.port] = {self, port};
+          Pools::bottom(next.node).links[next.port] = {self, port};
       }
     }
     for (pos_type i = 0; i < count; ++i) {
