@@ -19,7 +19,8 @@ class ObjectPool {
   std::vector<id_type> free_ids_;
 
  public:
-  ObjectPool() {};
+  // std::vectorのconstexprデフォルト構築により静的Poolをconstinit可能にする。
+  constexpr ObjectPool() = default;
 
   /** @brief 少なくとも n
    * スロット分の容量を事前に確保する。参照は無効化され得る。 */
