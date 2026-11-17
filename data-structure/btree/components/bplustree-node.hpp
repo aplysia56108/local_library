@@ -96,6 +96,16 @@ struct Internal : Traits::Node {
   // count 以降は参照しない。null_id 終端の管理は不要。
   std::array<id_type, NodeCap> children{};
 
+  // Only level-0 nodes use these ports. A port always denotes a physical
+  // end of children[], independent of the logical direction of traversal.
+  struct Link {
+    id_type node = null_id;
+    pos_type port = 0;
+  };
+  std::array<Link, 2> links{};
+  // Incrementing modulo 2 allows a retained iterator to detect a port swap.
+  bool ports_swapped = false;
+
   explicit Internal(pos_type lvl = 0) : N(), level(lvl) {}
 
   L& get_leaf(pos_type index) const {
@@ -119,6 +129,30 @@ struct Internal : Traits::Node {
     return Pools::internals().index(*static_cast<const I*>(this));
   }
 
+
+  /** @brief Connect two free ports symmetrically. Either endpoint may be null. */
+  static void connect(id_type a, pos_type a_port, id_type b,
+                      pos_type b_port) {
+    if (a != null_id) Pools::internals()[a].links[a_port] = {b, b_port};
+    if (b != null_id) Pools::internals()[b].links[b_port] = {a, a_port};
+  }
+
+  /** @brief Insert a new bottom node immediately after this bottom node. */
+  void link_after(id_type right_id) {
+    assert(level == 0 && right_id != null_id);
+    const id_type self = id();
+    const Link successor = links[1];
+    connect(self, 1, right_id, 0);
+    connect(right_id, 1, successor.node, successor.port);
+  }
+
+  /** @brief Remove a bottom node, joining its two surviving neighbors. */
+  void unlink() {
+    assert(level == 0);
+    const Link left = links[0], right = links[1];
+    connect(left.node, left.port, right.node, right.port);
+    links[0] = links[1] = {};
+  }
 
   /**
    * @brief 子を配置し、count / size / parent / position を差分更新する。
@@ -174,6 +208,18 @@ struct Internal : Traits::Node {
     if (!is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
     is_reversed = false;
+    if (level == 0) {
+      // Reversing the physical array does not change the logical path.
+      // Swap its physical entry ports and repair both reciprocal links.
+      std::swap(links[0], links[1]);
+      ports_swapped = !ports_swapped;
+      const id_type self = id();
+      for (pos_type port = 0; port < 2; ++port) {
+        const Link next = links[port];
+        if (next.node != null_id)
+          Pools::internals()[next.node].links[next.port] = {self, port};
+      }
+    }
     for (pos_type i = 0; i < count; ++i) {
       this->template move_child<false>(i, children[i]);
       if (level) get_child(i).push_reverse();
@@ -224,6 +270,7 @@ struct Internal : Traits::Node {
     }
     left.refresh();
     right.refresh();
+    if (current_level == 0) left.link_after(right_id);
     return right_id;
   }
 
