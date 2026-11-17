@@ -95,6 +95,8 @@ struct Internal : Traits::Node {
   bool is_reversed = false;
   // count 以降は参照しない。null_id 終端の管理は不要。
   std::array<id_type, NodeCap> children{};
+  // 実験: 全Internalに子部分木サイズをキャッシュする（最下層はすべて1）。
+  std::array<std::size_t, NodeCap> child_sizes{};
 
   explicit Internal(pos_type lvl = 0) : N(), level(lvl) {}
 
@@ -107,7 +109,8 @@ struct Internal : Traits::Node {
     return Pools::internals()[children[index]];
   }
   std::size_t child_size(pos_type index) const {
-    return level == 0 ? 1 : get_child(index).size;
+    assert(index < count);
+    return child_sizes[index];
   }
   pos_type child_count(pos_type index) const {
     return level == 0 ? 1 : get_child(index).count;
@@ -135,6 +138,7 @@ struct Internal : Traits::Node {
     if (index >= count) count = index + 1;
     if (level) {
       auto& child = Pools::internals()[child_id];
+      child_sizes[index] = child.size;
       if constexpr (FromOther) {
         size += child.size;
         if constexpr (ConsiderOtherSync) {
@@ -149,6 +153,7 @@ struct Internal : Traits::Node {
       child.position = index;
     } else {
       auto& child = Pools::leaves()[child_id];
+      child_sizes[index] = 1;
       if constexpr (FromOther) {
         ++size;
         if constexpr (ConsiderOtherSync) {
@@ -256,10 +261,10 @@ struct Internal : Traits::Node {
       return children[index];
     }
     for (pos_type i = 0; i < count; ++i) {
-      auto& child = get_child(i);
-      if (index < child.size)
-        return child.template locate<WithLazy>(index, value_clean);
-      index -= child.size;
+      const std::size_t length = child_sizes[i];
+      if (index < length)
+        return get_child(i).template locate<WithLazy>(index, value_clean);
+      index -= length;
     }
     assert(false);
     return null_id;
@@ -283,6 +288,9 @@ struct Internal : Traits::Node {
         left.move_child(left_count + i, right.children[i], left_id);
       }
       left.refresh();
+      // マージ対象のもう一方はサイズ0になる。erase前に両方のキャッシュを同期。
+      child_sizes[index - 1] = left.size;
+      child_sizes[index] = right.size;
     } else if (index + 1 < count &&
                child_count(index + 1) + child_count(index) < NodeCap) {
       auto& left = get_child(index);
@@ -303,6 +311,8 @@ struct Internal : Traits::Node {
         right.move_child(i, left.children[i], right_id);
       }
       right.refresh();
+      child_sizes[index] = left.size;
+      child_sizes[index + 1] = right.size;
     } else {
       return;
     }
