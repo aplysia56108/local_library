@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <type_traits>
 #include <utility>
 
 #include "data-structure/btree/components/bplustree-node-pools.hpp"
@@ -125,11 +126,23 @@ struct Internal : Traits::Node {
     assert(level > 0 && index < count);
     return Pools::internals()[children[index]];
   }
+  template <bool IsBottom>
+  std::size_t child_size_typed(pos_type index) const {
+    if constexpr (IsBottom) return 1;
+    return get_child(index).size;
+  }
+  template <bool IsBottom>
+  pos_type child_count_typed(pos_type index) const {
+    if constexpr (IsBottom) return 1;
+    return get_child(index).count;
+  }
   std::size_t child_size(pos_type index) const {
-    return level == 0 ? 1 : get_child(index).size;
+    return level == 0 ? child_size_typed<true>(index)
+                      : child_size_typed<false>(index);
   }
   pos_type child_count(pos_type index) const {
-    return level == 0 ? 1 : get_child(index).count;
+    return level == 0 ? child_count_typed<true>(index)
+                      : child_count_typed<false>(index);
   }
 
   /** @brief この Internal の Pool ID を取得する。Pool
@@ -170,13 +183,31 @@ struct Internal : Traits::Node {
    * 新しい子や別木の根は ConsiderOtherSync=false で配置する。
    * 一括移動中は一時的に穴を許すが、完了するまで探索しない。
    */
-  template <bool FromOther = true, bool ConsiderOtherSync = true>
-  void move_child(pos_type index, id_type child_id,
-                  id_type self_id = null_id) {
+  /** @brief 型が既知のノードについて Leaf/Internal 子の処理を静的に分ける。 */
+  template <bool IsBottom, bool FromOther = true,
+            bool ConsiderOtherSync = true>
+  void move_child_typed(pos_type index, id_type child_id,
+                        id_type self_id = null_id) {
     assert(index < NodeCap && child_id != null_id);
     children[index] = child_id;
     if (index >= count) count = index + 1;
-    if (level) {
+
+    if constexpr (IsBottom) {
+      auto& child = Pools::leaves()[child_id];
+      if constexpr (FromOther) {
+        ++size;
+        if constexpr (ConsiderOtherSync) {
+          assert(child.parent != null_id);
+          auto& other = Pools::bottom(child.parent);
+          assert(static_cast<const void*>(&other) != static_cast<const void*>(this)
+                 && other.size > 0);
+          --other.size;
+          if (child.position < other.count) other.count = child.position;
+        }
+        child.parent = self_id == null_id ? id() : self_id;
+      }
+      child.position = index;
+    } else {
       auto& child = Pools::internals()[child_id];
       if constexpr (FromOther) {
         size += child.size;
@@ -190,36 +221,49 @@ struct Internal : Traits::Node {
         child.parent = self_id == null_id ? id() : self_id;
       }
       child.position = index;
-    } else {
-      auto& child = Pools::leaves()[child_id];
-      if constexpr (FromOther) {
-        ++size;
-        if constexpr (ConsiderOtherSync) {
-          assert(child.parent != null_id);
-          auto& other = Pools::internals()[child.parent];
-          assert(&other != this && other.size > 0);
-          --other.size;
-          if (child.position < other.count) other.count = child.position;
-        }
-        child.parent = self_id == null_id ? id() : self_id;
-      }
-      child.position = index;
     }
+  }
+
+  template <bool FromOther = true, bool ConsiderOtherSync = true>
+  void move_child(pos_type index, id_type child_id,
+                  id_type self_id = null_id) {
+    if (level == 0)
+      move_child_typed<true, FromOther, ConsiderOtherSync>(
+          index, child_id, self_id);
+    else
+      move_child_typed<false, FromOther, ConsiderOtherSync>(
+          index, child_id, self_id);
   }
 
   /** @brief 構造情報を再走査せず、派生クラスの集約情報を更新する。 */
   void refresh_metadata() {}
+  /**
+   * @brief metadata と reverse/lazy の経路をノード種別で静的に分ける。
+   */
+  template <bool IsBottom>
+  void refresh_typed() {
+    if constexpr (requires(I& node) {
+                    node.template refresh_metadata_typed<IsBottom>();
+                  }) {
+      static_cast<I*>(this)->template refresh_metadata_typed<IsBottom>();
+    } else {
+      static_cast<I*>(this)->refresh_metadata();
+    }
+  }
   void refresh() {
-    static_cast<I*>(this)->refresh_metadata();
+    if (level == 0)
+      refresh_typed<true>();
+    else
+      refresh_typed<false>();
   }
 
-  void apply_reverse() {
+  template <bool IsBottom>
+  void apply_reverse_typed() {
     if (!is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
     is_reversed = false;
-    if (level == 0) {
-      // Reversing the physical array does not change the logical path.
-      // Swap its physical entry ports and repair both reciprocal links.
+
+    if constexpr (IsBottom) {
       auto& data = bottom();
       std::swap(data.links[0], data.links[1]);
       data.ports_swapped = !data.ports_swapped;
@@ -230,10 +274,17 @@ struct Internal : Traits::Node {
           Pools::bottom(next.node).links[next.port] = {self, port};
       }
     }
+
     for (pos_type i = 0; i < count; ++i) {
-      this->template move_child<false>(i, children[i]);
-      if (level) get_child(i).push_reverse();
+      this->template move_child_typed<IsBottom, false>(i, children[i]);
+      if constexpr (!IsBottom) get_child(i).push_reverse();
     }
+  }
+  void apply_reverse() {
+    if (level == 0)
+      apply_reverse_typed<true>();
+    else
+      apply_reverse_typed<false>();
   }
   void push_reverse() {
     is_reversed = !is_reversed;
@@ -241,129 +292,193 @@ struct Internal : Traits::Node {
   }
   void push_reverse_impl() {}
   void apply_lazy() {}
-  void materialize() {
-    apply_reverse();
-    static_cast<I*>(this)->apply_lazy();
-  }
 
+  template <bool IsBottom>
+  void materialize_typed() {
+    apply_reverse_typed<IsBottom>();
+    if constexpr (requires(I& node) {
+                    node.template apply_lazy_typed<IsBottom>();
+                  }) {
+      static_cast<I*>(this)->template apply_lazy_typed<IsBottom>();
+    } else {
+      static_cast<I*>(this)->apply_lazy();
+    }
+  }
+  void materialize() {
+    if (level == 0)
+      materialize_typed<true>();
+    else
+      materialize_typed<false>();
+  }
 
   /** @return 満杯になり直ちに split が必要なら true。 */
-  bool insert(id_type child, pos_type index) {
+  template <bool IsBottom>
+  bool insert_typed(id_type child, pos_type index) {
     assert(child != null_id && index <= count && count < NodeCap);
-    // move_child により count が増えるので、ループ上限を退避する。
     const pos_type old_count = count;
     for (pos_type i = old_count; i > index; --i)
-      this->template move_child<false>(i, children[i - 1]);
-    this->template move_child<true, false>(index, child);
+      this->template move_child_typed<IsBottom, false>(i, children[i - 1]);
+    this->template move_child_typed<IsBottom, true, false>(index, child);
     if (count == NodeCap) return true;
-    refresh();
+    refresh_typed<IsBottom>();
     return false;
   }
-
+  bool insert(id_type child, pos_type index) {
+    if (level == 0) return insert_typed<true>(child, index);
+    return insert_typed<false>(child, index);
+  }
 
   /** @return Pool に確保された右兄弟の Internal ID。 */
-  id_type split(pos_type left_count = HalfNodeCap) {
+  template <bool IsBottom>
+  id_type split_typed(pos_type left_count = HalfNodeCap) {
     assert(count <= NodeCap && left_count <= count);
     assert(left_count < NodeCap && count - left_count < NodeCap);
-    // 移動元のcountが縮むので、先に移動数を保存する。
     const pos_type right_count = count - left_count;
-    // Pool 再確保で this が無効化されるため、ID と level を先に保存する。
     const id_type left_id = id();
     const pos_type current_level = level;
-    const id_type right_id = Pools::make_internal(current_level);
+    const id_type right_id = Pools::make_internal(IsBottom ? 0 : current_level);
+    // Pool 拡張により this は無効になることがある。
     auto& left = Pools::internals()[left_id];
     auto& right = Pools::internals()[right_id];
-    // 右端から取り出すと移動元の[0,count)を常に有効に保てる。
     for (pos_type i = right_count; i > 0;) {
       --i;
-      right.move_child(i, left.children[left_count + i], right_id);
+      right.template move_child_typed<IsBottom>(
+          i, left.children[left_count + i], right_id);
     }
-    left.refresh();
-    right.refresh();
-    if (current_level == 0) left.link_after(right_id);
+    left.template refresh_typed<IsBottom>();
+    right.template refresh_typed<IsBottom>();
+    if constexpr (IsBottom) left.link_after(right_id);
     return right_id;
   }
-
-
-  /** @return この Internal が空になった場合 true。 */
-  bool erase(pos_type index) {
-    assert(count < NodeCap && index < count);
-    size -= child_size(index);
-    Pools::recycle(children[index], level == 0);
-    for (pos_type i = index + 1; i < count; ++i)
-      this->template move_child<false>(i - 1, children[i]);
-    --count;
-    refresh();
-    return count == 0;
+  id_type split(pos_type left_count = HalfNodeCap) {
+    if (level == 0) return split_typed<true>(left_count);
+    return split_typed<false>(left_count);
   }
 
-  template <bool WithLazy = false>
-  id_type locate(std::size_t index, bool* value_clean = nullptr) {
-    apply_reverse();
+  /** @return この Internal が空になった場合 true。 */
+  template <bool IsBottom>
+  bool erase_typed(pos_type index) {
+    assert(count < NodeCap && index < count);
+    size -= child_size_typed<IsBottom>(index);
+    Pools::recycle(children[index], IsBottom);
+    for (pos_type i = index + 1; i < count; ++i)
+      this->template move_child_typed<IsBottom, false>(i - 1, children[i]);
+    --count;
+    refresh_typed<IsBottom>();
+    return count == 0;
+  }
+  bool erase(pos_type index) {
+    if (level == 0) return erase_typed<true>(index);
+    return erase_typed<false>(index);
+  }
+
+  template <bool IsBottom, bool WithLazy = false>
+  id_type locate_typed(std::size_t index, bool* value_clean = nullptr) {
+    apply_reverse_typed<IsBottom>();
     if constexpr (WithLazy) {
-      static_cast<I*>(this)->apply_lazy();
+      if constexpr (requires(I& node) {
+                      node.template apply_lazy_typed<IsBottom>();
+                    })
+        static_cast<I*>(this)->template apply_lazy_typed<IsBottom>();
+      else
+        static_cast<I*>(this)->apply_lazy();
     } else if constexpr (requires { Traits::lazy; }) {
       if constexpr (Traits::lazy) {
         if (value_clean && *value_clean && static_cast<I*>(this)->pending)
           *value_clean = false;
       }
     }
-    if (level == 0) {
+
+    if constexpr (IsBottom) {
       assert(index < count);
       return children[index];
+    } else {
+      for (pos_type i = 0; i < count; ++i) {
+        const id_type found = Pools::with_internal(
+            children[i], [&](auto& child) -> id_type {
+              if (index >= child.size) {
+                index -= child.size;
+                return null_id;
+              }
+              constexpr bool ChildBottom =
+                  Pools::template is_bottom_type<decltype(child)>;
+              return child.template locate_typed<ChildBottom, WithLazy>(
+                  index, value_clean);
+            });
+        if (found != null_id) return found;
+      }
+      assert(false);
+      return null_id;
     }
-    for (pos_type i = 0; i < count; ++i) {
-      auto& child = get_child(i);
-      if (index < child.size)
-        return child.template locate<WithLazy>(index, value_clean);
-      index -= child.size;
-    }
-    assert(false);
-    return null_id;
+  }
+  template <bool WithLazy = false>
+  id_type locate(std::size_t index, bool* value_clean = nullptr) {
+    if (level == 0)
+      return locate_typed<true, WithLazy>(index, value_clean);
+    return locate_typed<false, WithLazy>(index, value_clean);
   }
 
-
-  /** @brief index の Internal 子を隣の兄弟へ移動し、元の子を回収する。 */
-  void integrate_child(pos_type index) {
+  /** @brief 同じ高さの子の型を固定して統合する。 */
+  template <bool ChildBottom>
+  void integrate_child_typed(pos_type index) {
     assert(level > 0 && index < count);
-    if (index && child_count(index - 1) + child_count(index) < NodeCap) {
-      auto& left = get_child(index - 1);
-      auto& right = get_child(index);
-      left.materialize();
-      right.materialize();
-      // 右側のcountが移動ごとに縮むので、開始時の個数を保存する。
+    auto get_typed_child = [&](pos_type i) -> decltype(auto) {
+      if constexpr (ChildBottom)
+        return (Pools::bottom(children[i]));
+      else
+        return (get_child(i));
+    };
+
+    if (index && get_typed_child(index - 1).count +
+                     get_typed_child(index).count < NodeCap) {
+      auto& left = get_typed_child(index - 1);
+      auto& right = get_typed_child(index);
+      left.template materialize_typed<ChildBottom>();
+      right.template materialize_typed<ChildBottom>();
       const pos_type left_count = left.count;
       const pos_type right_count = right.count;
       const id_type left_id = left.id();
       for (pos_type i = right_count; i > 0;) {
         --i;
-        left.move_child(left_count + i, right.children[i], left_id);
+        left.template move_child_typed<ChildBottom>(
+            left_count + i, right.children[i], left_id);
       }
-      left.refresh();
+      left.template refresh_typed<ChildBottom>();
     } else if (index + 1 < count &&
-               child_count(index + 1) + child_count(index) < NodeCap) {
-      auto& left = get_child(index);
-      auto& right = get_child(index + 1);
-      left.materialize();
-      right.materialize();
-      // shiftで右側のcountが増え、移動で左側のcountが縮む。
-      // 両方の移動前の個数を保存する。
+               get_typed_child(index + 1).count +
+                   get_typed_child(index).count < NodeCap) {
+      auto& left = get_typed_child(index);
+      auto& right = get_typed_child(index + 1);
+      left.template materialize_typed<ChildBottom>();
+      right.template materialize_typed<ChildBottom>();
       const pos_type left_count = left.count;
       const pos_type right_count = right.count;
       const id_type right_id = right.id();
       for (pos_type i = right_count; i > 0;) {
         --i;
-        right.template move_child<false>(left_count + i, right.children[i]);
+        right.template move_child_typed<ChildBottom, false>(
+            left_count + i, right.children[i]);
       }
       for (pos_type i = left_count; i > 0;) {
         --i;
-        right.move_child(i, left.children[i], right_id);
+        right.template move_child_typed<ChildBottom>(
+            i, left.children[i], right_id);
       }
-      right.refresh();
+      right.template refresh_typed<ChildBottom>();
     } else {
       return;
     }
-    erase(index);
+    erase_typed<false>(index);
+  }
+
+  /** @brief index の Internal 子を隣の兄弟へ移動し、元の子を回収する。 */
+  void integrate_child(pos_type index) {
+    assert(level > 0 && index < count);
+    // All siblings have the same node kind. Dispatch only at this boundary.
+    if (children[index] & Pools::bottom_mask)
+      integrate_child_typed<true>(index);
+    else
+      integrate_child_typed<false>(index);
   }
 
   /** @brief 統合成功時は自身の ID が無効になる。 */

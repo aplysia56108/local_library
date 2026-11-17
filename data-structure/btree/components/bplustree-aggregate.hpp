@@ -83,9 +83,10 @@ struct AggregateTraits<M, A, R, C>::Internal
    * @details is_reversed / pending が残っていれば、再計算した物理状態の積に
    * それらを適用して論理状態の積を維持する。
    */
-  void refresh_metadata() {
+  template <bool IsBottom>
+  void refresh_metadata_typed() {
     forward = backward = M::e();
-    if (this->level == 0) {
+    if constexpr (IsBottom) {
       for (std::size_t i = 0; i < this->count; ++i)
         forward = M::op(forward, this->get_leaf(i).get());
       if constexpr (R) {
@@ -119,6 +120,13 @@ struct AggregateTraits<M, A, R, C>::Internal
     }
   }
 
+  void refresh_metadata() {
+    if (this->level == 0)
+      refresh_metadata_typed<true>();
+    else
+      refresh_metadata_typed<false>();
+  }
+
   /** @brief ノード全体への作用を遅延登録し、積だけ即時更新する。 */
   void push_lazy(const F& f)
     requires(Traits::lazy)
@@ -137,12 +145,13 @@ struct AggregateTraits<M, A, R, C>::Internal
   }
 
   /** @brief 未伝搬の作用を子へ渡す。Leaf には直接適用する。 */
-  void apply_lazy() {
+  template <bool IsBottom>
+  void apply_lazy_typed() {
     if constexpr (Traits::lazy) {
       if (!pending) return;
       F f = *pending;
       pending.reset();
-      if (this->level == 0) {
+      if constexpr (IsBottom) {
         for (std::size_t i = 0; i < this->count; ++i)
           this->get_leaf(i).push_lazy(f);
       } else {
@@ -150,6 +159,12 @@ struct AggregateTraits<M, A, R, C>::Internal
           this->get_child(i).push_lazy(f);
       }
     }
+  }
+  void apply_lazy() {
+    if (this->level == 0)
+      apply_lazy_typed<true>();
+    else
+      apply_lazy_typed<false>();
   }
 };
 
@@ -170,18 +185,19 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using Pools = NodePools<Traits>;
   using Epoch = IteratorEpoch<Traits>;
 
-  template <bool Reversed = false>
-  static T prod_recursive(Internal& node, std::size_t first, std::size_t last) {
+  template <bool Reversed = false, class Concrete>
+  static T prod_recursive(Concrete& node, std::size_t first, std::size_t last) {
+    constexpr bool IsBottom = Pools::template is_bottom_type<Concrete>;
     if (first == last) return M::e();
     if (first == 0 && last == node.size) {
       if constexpr (Reversed) return node.backward;
       return node.forward;
     }
 
-    node.materialize();
+    node.template materialize_typed<IsBottom>();
     T result = M::e();
 
-    if (node.level == 0) {
+    if constexpr (IsBottom) {
       if constexpr (Reversed) {
         for (std::size_t i = last; i > first; --i)
           result = M::op(result, node.get_leaf(i - 1).get());
@@ -195,65 +211,71 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if constexpr (Reversed) {
       std::size_t offset = node.size;
       for (std::size_t i = node.count; i > 0; --i) {
-        auto& child = node.get_child(i - 1);
-        const std::size_t length = child.size;
-        offset -= length;
-        if (first < offset + length && offset < last)
-          result = M::op(result, prod_recursive<true>(
-                                     child, first > offset ? first - offset : 0,
-                                     std::min(last - offset, length)));
+        Pools::with_internal(node.children[i - 1], [&](auto& child) {
+          const std::size_t length = child.size;
+          offset -= length;
+          if (first < offset + length && offset < last)
+            result = M::op(result, prod_recursive<true>(
+                child, first > offset ? first - offset : 0,
+                std::min(last - offset, length)));
+        });
         if (offset <= first) break;
       }
     } else {
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        const std::size_t length = child.size;
-        if (first < offset + length && offset < last)
-          result = M::op(
-              result, prod_recursive(child, first > offset ? first - offset : 0,
-                                     std::min(last - offset, length)));
-        offset += length;
+        Pools::with_internal(node.children[i], [&](auto& child) {
+          const std::size_t length = child.size;
+          if (first < offset + length && offset < last)
+            result = M::op(result, prod_recursive(
+                child, first > offset ? first - offset : 0,
+                std::min(last - offset, length)));
+          offset += length;
+        });
         if (offset >= last) break;
       }
     }
     return result;
   }
 
-  static void apply_recursive(Internal& node, std::size_t first,
+  template <class Concrete>
+  static void apply_recursive(Concrete& node, std::size_t first,
                               std::size_t last, const F& f)
     requires(Traits::lazy)
   {
+    constexpr bool IsBottom = Pools::template is_bottom_type<Concrete>;
     if (first == last) return;
     if (first == 0 && last == node.size) {
       node.push_lazy(f);
       return;
     }
 
-    node.materialize();
-    if (node.level == 0) {
+    node.template materialize_typed<IsBottom>();
+    if constexpr (IsBottom) {
       for (std::size_t i = first; i < last; ++i) node.get_leaf(i).push_lazy(f);
 
     } else {
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        const std::size_t length = child.size;
-        if (first < offset + length && offset < last)
-          apply_recursive(child, first > offset ? first - offset : 0,
-                          std::min(last - offset, length), f);
-        offset += length;
+        Pools::with_internal(node.children[i], [&](auto& child) {
+          const std::size_t length = child.size;
+          if (first < offset + length && offset < last)
+            apply_recursive(child, first > offset ? first - offset : 0,
+                            std::min(last - offset, length), f);
+          offset += length;
+        });
         if (offset >= last) break;
       }
     }
-    node.refresh_metadata();
+    node.template refresh_typed<IsBottom>();
   }
 
   // predicate が破れた部分木だけを再帰的に探索する。
-  template <bool Leftward, class Predicate>
-  static bool search(Internal& node, std::size_t offset, std::size_t first,
+  template <bool Leftward, class Concrete, class Predicate>
+  static bool search(Concrete& node, std::size_t offset, std::size_t first,
                      std::size_t last, T& value, Predicate& predicate,
                      std::size_t& result) {
+    constexpr bool IsBottom = Pools::template is_bottom_type<Concrete>;
     const std::size_t end = offset + node.size;
     if (end <= first || last <= offset) return true;
     if (first <= offset && end <= last) {
@@ -266,8 +288,8 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
       }
     }
 
-    node.materialize();
-    if (node.level == 0) {
+    node.template materialize_typed<IsBottom>();
+    if constexpr (IsBottom) {
       for (std::size_t j = 0; j < node.count; ++j) {
         const std::size_t i = Leftward ? node.count - 1 - j : j;
         const std::size_t pos = offset + i;
@@ -283,18 +305,23 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if constexpr (Leftward) {
       std::size_t pos = end;
       for (std::size_t i = node.count; i > 0; --i) {
-        auto& child = node.get_child(i - 1);
-        pos -= child.size;
-        if (!search<true>(child, pos, first, last, value, predicate, result))
+        if (!Pools::with_internal(node.children[i - 1], [&](auto& child) {
+              pos -= child.size;
+              return search<true>(child, pos, first, last, value,
+                                  predicate, result);
+            }))
           return false;
       }
     } else {
       std::size_t pos = offset;
       for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        if (!search<false>(child, pos, first, last, value, predicate, result))
+        if (!Pools::with_internal(node.children[i], [&](auto& child) {
+              const bool ok = search<false>(child, pos, first, last, value,
+                                            predicate, result);
+              pos += child.size;
+              return ok;
+            }))
           return false;
-        pos += child.size;
       }
     }
     return true;
@@ -320,7 +347,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   /** @brief 半開区間 [first,last) の順方向の積。 */
   T prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return prod_recursive(Parent::get_node(this->root_), first + 1, last + 1);
+    return Pools::with_internal(this->root_, [&](auto& root) {
+      return prod_recursive(root, first + 1, last + 1);
+    });
   }
 
   /** @brief 全要素の逆方向の積。O(1)。 */
@@ -331,8 +360,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   /** @brief 半開区間 [first,last) の逆方向の積。 */
   T reverse_prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return prod_recursive<true>(Parent::get_node(this->root_), first + 1,
-                                last + 1);
+    return Pools::with_internal(this->root_, [&](auto& root) {
+      return prod_recursive<true>(root, first + 1, last + 1);
+    });
   }
 
   void prod_right(size_type index, const T& value) {
@@ -354,7 +384,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   {
     assert(first <= last && last <= size());
     if (first == last) return;
-    apply_recursive(Parent::get_node(this->root_), first + 1, last + 1, f);
+    Pools::with_internal(this->root_, [&](auto& root) {
+      apply_recursive(root, first + 1, last + 1, f);
+    });
     Epoch::invalidate_value();
   }
   void all_apply(const F& f)
@@ -374,8 +406,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
     T value = M::e();
     size_type result = left + 1;
-    search<false>(Parent::get_node(this->root_), 0, left + 1, size() + 1, value,
-                  predicate, result);
+    Pools::with_internal(this->root_, [&](auto& root) {
+      search<false>(root, 0, left + 1, size() + 1, value, predicate, result);
+    });
     return result - 1;
   }
 
@@ -390,8 +423,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
     T value = M::e();
     size_type result = right + 1;
-    search<true>(Parent::get_node(this->root_), 0, 1, right + 1, value,
-                 predicate, result);
+    Pools::with_internal(this->root_, [&](auto& root) {
+      search<true>(root, 0, 1, right + 1, value, predicate, result);
+    });
     return result - 1;
   }
 

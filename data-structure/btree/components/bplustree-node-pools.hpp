@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 #include <utility>
 
 #include "data-structure/object-pool/object_pool.hpp"
@@ -29,6 +30,9 @@ struct NodePools {
   using B = BottomInternal<Traits>;
   static constexpr id_type null_id = ObjectPool<L>::null_id;
   static constexpr id_type bottom_mask = id_type{1} << 31;
+  template <class Concrete>
+  static constexpr bool is_bottom_type =
+      std::is_same_v<std::remove_cvref_t<Concrete>, B>;
 
  private:
   // Two separate vector allocations allow upper internals to omit links.
@@ -118,6 +122,20 @@ struct NodePools {
   }
 
   /**
+   * @brief ID から最下層/上層の実際の型へ一度だけ振り分ける。
+   * @details Callback の引数型は BottomInternal& または Internal&。
+   * Callback 内では if constexpr により子の型を固定できる。
+   * ### 計算量
+   * O(1)。
+   */
+  template <class Callback>
+  static decltype(auto) with_internal(id_type id, Callback&& callback) {
+    if (id & bottom_mask)
+      return std::forward<Callback>(callback)(bottom_pool_[id & ~bottom_mask]);
+    return std::forward<Callback>(callback)(internal_pool_[id]);
+  }
+
+  /**
    * @brief Leaf の親など、Bottom 型が既知の ID を分岐なしで取得する。
    * @pre id は有効な BottomInternal ID。
    */
@@ -147,10 +165,12 @@ struct NodePools {
     if (is_leaf) {
       leaves().erase(id);
     } else {
-      auto& node = internals()[id];
-      if (node.level == 0) node.unlink();
-      for (pos_type i = 0; i < node.count; ++i)
-        recycle(node.children[i], node.level == 0);
+      with_internal(id, [&](auto& node) {
+        constexpr bool IsBottom = is_bottom_type<decltype(node)>;
+        if constexpr (IsBottom) node.unlink();
+        for (pos_type i = 0; i < node.count; ++i)
+          recycle(node.children[i], IsBottom);
+      });
       internals().erase(id);
     }
   }
