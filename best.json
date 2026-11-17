@@ -23,6 +23,29 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "997c257ad5d7c16a": {
+        "best_ns": 2358515,
+        "best_rss_kb": 14324,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/access/cap32": {
@@ -48,9 +71,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "978bbc6535c05802": {
+        "best_ns": 2209320,
+        "best_rss_kb": 13816,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/access/cap64": {
+      "e912dfae8ba91d6a": {
+        "best_ns": 2590360,
+        "best_rss_kb": 13688,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "fa680051dff12fbe": {
         "best_ns": 1438114,
         "best_rss_kb": 13692,
@@ -76,6 +145,29 @@
       }
     },
     "btree/lazysegtree/access/cap8": {
+      "3a284f743d16dbf0": {
+        "best_ns": 2468721,
+        "best_rss_kb": 15384,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "5ac750eea08a1fd1": {
         "best_ns": 1737849,
         "best_rss_kb": 15348,
@@ -101,6 +193,29 @@
       }
     },
     "btree/lazysegtree/access_random/cap16": {
+      "52763775b79806ce": {
+        "best_ns": 7305603,
+        "best_rss_kb": 14260,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "de3c8d05caa97b03111fee26cdb8b9f84f81a86b40c551b1dfe8e48cf3748817",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "d87d15853b7f73f2": {
         "best_ns": 8738271,
         "best_rss_kb": 14256,
@@ -149,6 +264,29 @@
       }
     },
     "btree/lazysegtree/access_random/cap32": {
+      "749cd4b047e1c31a": {
+        "best_ns": 6851101,
+        "best_rss_kb": 13884,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "de3c8d05caa97b03111fee26cdb8b9f84f81a86b40c551b1dfe8e48cf3748817",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "780f191c3826ef23": {
         "best_ns": 4639520,
         "best_rss_kb": 13804,
@@ -197,6 +335,29 @@
       }
     },
     "btree/lazysegtree/access_random/cap64": {
+      "072d16828077ce0f": {
+        "best_ns": 6924382,
+        "best_rss_kb": 13768,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "de3c8d05caa97b03111fee26cdb8b9f84f81a86b40c551b1dfe8e48cf3748817",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "207656d923995d54": {
         "best_ns": 4822653,
         "best_rss_kb": 13764,
@@ -245,6 +406,29 @@
       }
     },
     "btree/lazysegtree/access_random/cap8": {
+      "300de237b144b03f": {
+        "best_ns": 9365854,
+        "best_rss_kb": 15344,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "de3c8d05caa97b03111fee26cdb8b9f84f81a86b40c551b1dfe8e48cf3748817",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "3ccdd1fe3f31fb88": {
         "best_ns": 8221594,
         "best_rss_kb": 15344,
@@ -293,6 +477,29 @@
       }
     },
     "btree/lazysegtree/apply/cap16": {
+      "1173dcbc092fdb0c": {
+        "best_ns": 33043340,
+        "best_rss_kb": 14316,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "cc8d58164e371f2a9622c79e88dfdb701c4137a2a71aef9833acc08b31782777",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "701cd163f3223399": {
         "best_ns": 23176803,
         "best_rss_kb": 14400,
@@ -340,9 +547,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "6e758eb92fb09849": {
+        "best_ns": 39997720,
+        "best_rss_kb": 13808,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "cc8d58164e371f2a9622c79e88dfdb701c4137a2a71aef9833acc08b31782777",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/apply/cap64": {
+      "0fe00d20d0347407": {
+        "best_ns": 53460590,
+        "best_rss_kb": 13716,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "cc8d58164e371f2a9622c79e88dfdb701c4137a2a71aef9833acc08b31782777",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "a3403074aae490c0": {
         "best_ns": 36764117,
         "best_rss_kb": 13768,
@@ -390,9 +643,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "8873c2614bb03b66": {
+        "best_ns": 31640555,
+        "best_rss_kb": 15452,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "cc8d58164e371f2a9622c79e88dfdb701c4137a2a71aef9833acc08b31782777",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/erase/cap16": {
+      "64eabcfc1ead4e89": {
+        "best_ns": 32905963,
+        "best_rss_kb": 22228,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "1af99ffe476a3247628ab642573ac2f407e0bfc660c39c0baa8cab5baa3d628f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "eaeec092a15826e0": {
         "best_ns": 18845940,
         "best_rss_kb": 22176,
@@ -418,6 +717,29 @@
       }
     },
     "btree/lazysegtree/erase/cap32": {
+      "35497c57c9c4d148": {
+        "best_ns": 41001719,
+        "best_rss_kb": 21232,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "1af99ffe476a3247628ab642573ac2f407e0bfc660c39c0baa8cab5baa3d628f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "8e7304c01653b99d": {
         "best_ns": 23711383,
         "best_rss_kb": 21300,
@@ -465,9 +787,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "6a5d23baedd78ee8": {
+        "best_ns": 58808888,
+        "best_rss_kb": 20912,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "1af99ffe476a3247628ab642573ac2f407e0bfc660c39c0baa8cab5baa3d628f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/erase/cap8": {
+      "08b5f73d82be5a34": {
+        "best_ns": 33329327,
+        "best_rss_kb": 24232,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "1af99ffe476a3247628ab642573ac2f407e0bfc660c39c0baa8cab5baa3d628f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "5e9a0cc422fcd445": {
         "best_ns": 18797409,
         "best_rss_kb": 24200,
@@ -493,6 +861,29 @@
       }
     },
     "btree/lazysegtree/insert/cap16": {
+      "81bdd74a34e3a4cc": {
+        "best_ns": 31474098,
+        "best_rss_kb": 13560,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "8922ae6513d74f588d5bee80e99039547e53af7614670576bf9624a50552a629",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "bdfdccc7bd1d318c": {
         "best_ns": 23692047,
         "best_rss_kb": 13524,
@@ -540,9 +931,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "c3e02a6ffa01efb5": {
+        "best_ns": 37642480,
+        "best_rss_kb": 13008,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "8922ae6513d74f588d5bee80e99039547e53af7614670576bf9624a50552a629",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/insert/cap64": {
+      "0eb94b7db1572653": {
+        "best_ns": 53869525,
+        "best_rss_kb": 12704,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "8922ae6513d74f588d5bee80e99039547e53af7614670576bf9624a50552a629",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "1b023fabc35d26e9": {
         "best_ns": 36179921,
         "best_rss_kb": 12664,
@@ -590,6 +1027,29 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "c2313908ab8d80c2": {
+        "best_ns": 31932204,
+        "best_rss_kb": 15148,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "8922ae6513d74f588d5bee80e99039547e53af7614670576bf9624a50552a629",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/iterate/cap16": {
@@ -615,6 +1075,29 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "997c257ad5d7c16a": {
+        "best_ns": 1309328,
+        "best_rss_kb": 14344,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/iterate/cap32": {
@@ -640,9 +1123,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "978bbc6535c05802": {
+        "best_ns": 1058996,
+        "best_rss_kb": 13888,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/iterate/cap64": {
+      "e912dfae8ba91d6a": {
+        "best_ns": 910689,
+        "best_rss_kb": 13708,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "fa680051dff12fbe": {
         "best_ns": 503751,
         "best_rss_kb": 13688,
@@ -668,6 +1197,29 @@
       }
     },
     "btree/lazysegtree/iterate/cap8": {
+      "3a284f743d16dbf0": {
+        "best_ns": 1367653,
+        "best_rss_kb": 15428,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "035a7e79607f1297d7bbc5cc2b5ba12daf1d6c82dd5a74f9fea666aa2f8f0b8f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "5ac750eea08a1fd1": {
         "best_ns": 1110539,
         "best_rss_kb": 15408,
@@ -692,7 +1244,230 @@
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
       }
     },
+    "btree/lazysegtree/iterate_interleaved_apply/cap16": {
+      "b3c5f9c0973c6975": {
+        "best_ns": 67849349,
+        "best_rss_kb": 11104,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "40530098fd54176319a56c9b3ebba68847dd8848e15b1b493df4553789f8a3e0",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      }
+    },
+    "btree/lazysegtree/iterate_interleaved_apply/cap32": {
+      "7d366af77c3ff4db": {
+        "best_ns": 52917319,
+        "best_rss_kb": 10708,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "40530098fd54176319a56c9b3ebba68847dd8848e15b1b493df4553789f8a3e0",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      }
+    },
+    "btree/lazysegtree/iterate_interleaved_apply/cap64": {
+      "b95e9f437f2bc992": {
+        "best_ns": 40453613,
+        "best_rss_kb": 10568,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "40530098fd54176319a56c9b3ebba68847dd8848e15b1b493df4553789f8a3e0",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      }
+    },
+    "btree/lazysegtree/iterate_interleaved_apply/cap8": {
+      "0e6366c02f9e4020": {
+        "best_ns": 72792027,
+        "best_rss_kb": 12292,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "40530098fd54176319a56c9b3ebba68847dd8848e15b1b493df4553789f8a3e0",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      }
+    },
+    "btree/lazysegtree/iterate_interleaved_reverse/cap16": {
+      "a30cd683bc322fa5": {
+        "best_ns": 88570063,
+        "best_rss_kb": 11160,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "0dae11757246ca7b71d6be17bdd789d936e980b12f3372aadbad2c9b8e78822b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      }
+    },
+    "btree/lazysegtree/iterate_interleaved_reverse/cap32": {
+      "97c2827edb6af483": {
+        "best_ns": 67985375,
+        "best_rss_kb": 10716,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "0dae11757246ca7b71d6be17bdd789d936e980b12f3372aadbad2c9b8e78822b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      }
+    },
+    "btree/lazysegtree/iterate_interleaved_reverse/cap64": {
+      "8d4ad49fc789eb2b": {
+        "best_ns": 52404777,
+        "best_rss_kb": 10596,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "0dae11757246ca7b71d6be17bdd789d936e980b12f3372aadbad2c9b8e78822b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      }
+    },
+    "btree/lazysegtree/iterate_interleaved_reverse/cap8": {
+      "4f55f095eb6c1fde": {
+        "best_ns": 118551399,
+        "best_rss_kb": 12264,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "0dae11757246ca7b71d6be17bdd789d936e980b12f3372aadbad2c9b8e78822b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      }
+    },
     "btree/lazysegtree/max_right/cap16": {
+      "5ca4133bbff3b2eb": {
+        "best_ns": 26586801,
+        "best_rss_kb": 15032,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "9b59eb9b51fd18e0": {
         "best_ns": 16365441,
         "best_rss_kb": 15188,
@@ -718,6 +1493,29 @@
       }
     },
     "btree/lazysegtree/max_right/cap32": {
+      "38774fd5165549bc": {
+        "best_ns": 28677843,
+        "best_rss_kb": 14636,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "63c6e75415ae4df8": {
         "best_ns": 16905386,
         "best_rss_kb": 14584,
@@ -765,9 +1563,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "afbeb2893075403d": {
+        "best_ns": 33533908,
+        "best_rss_kb": 14532,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/max_right/cap8": {
+      "15d3f5f54993a39c": {
+        "best_ns": 29420684,
+        "best_rss_kb": 16120,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "f774dc7a4932649127cf860b44f5b020e624abc3b0ac6f3dd6fdbb207a82b5c8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "71c4ba5e95bd92c5": {
         "best_ns": 17291702,
         "best_rss_kb": 16204,
@@ -815,9 +1659,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "f924f0ef41f514c6": {
+        "best_ns": 27429292,
+        "best_rss_kb": 15132,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/min_left/cap32": {
+      "2ab8645c164354af": {
+        "best_ns": 29737513,
+        "best_rss_kb": 14664,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "2cafdc8b4535d3a1": {
         "best_ns": 17515566,
         "best_rss_kb": 14636,
@@ -843,6 +1733,29 @@
       }
     },
     "btree/lazysegtree/min_left/cap64": {
+      "1101c6f62fec16cd": {
+        "best_ns": 34896588,
+        "best_rss_kb": 14540,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "bce8de0ecac1c0f7": {
         "best_ns": 21113458,
         "best_rss_kb": 14536,
@@ -890,9 +1803,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "59ca0bff695c1ff7": {
+        "best_ns": 31024454,
+        "best_rss_kb": 16124,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "33d0b59678005ad07d0fdf49160aa40407cf1f243171b16cda8b6de75e687699",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/mixed_edges/cap16": {
+      "2e7f2ff31e41e64b": {
+        "best_ns": 41884087,
+        "best_rss_kb": 15156,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "516bb07388e9fbededa01f01b845dd7fdf91f6a7954af7cadfd28b67a773ca9b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "3c488151ac4fe4cc": {
         "best_ns": 31111883,
         "best_rss_kb": 15228,
@@ -918,6 +1877,29 @@
       }
     },
     "btree/lazysegtree/mixed_edges/cap32": {
+      "06ce5a8e2b64f8f4": {
+        "best_ns": 50350142,
+        "best_rss_kb": 14680,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "516bb07388e9fbededa01f01b845dd7fdf91f6a7954af7cadfd28b67a773ca9b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "fda03aee0b915df5": {
         "best_ns": 35823646,
         "best_rss_kb": 14672,
@@ -943,6 +1925,29 @@
       }
     },
     "btree/lazysegtree/mixed_edges/cap64": {
+      "3625ce5f7800a125": {
+        "best_ns": 55505785,
+        "best_rss_kb": 14544,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "516bb07388e9fbededa01f01b845dd7fdf91f6a7954af7cadfd28b67a773ca9b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "ccc7b24d36da2d73": {
         "best_ns": 40863363,
         "best_rss_kb": 14540,
@@ -968,6 +1973,29 @@
       }
     },
     "btree/lazysegtree/mixed_edges/cap8": {
+      "666f6cdabc926b0d": {
+        "best_ns": 43327262,
+        "best_rss_kb": 16164,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "516bb07388e9fbededa01f01b845dd7fdf91f6a7954af7cadfd28b67a773ca9b",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "dbc99503bce42a54": {
         "best_ns": 31805966,
         "best_rss_kb": 16228,
@@ -1015,9 +2043,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "7da906046b3ac54a": {
+        "best_ns": 80500072,
+        "best_rss_kb": 16840,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "e319ec872afacb59b206ff3c96a6f20ea92e3f02b48824a8e9d242a4b9f6f8ae",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/mixed_growth/cap32": {
+      "63625e3f20b04252": {
+        "best_ns": 86408228,
+        "best_rss_kb": 15900,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "e319ec872afacb59b206ff3c96a6f20ea92e3f02b48824a8e9d242a4b9f6f8ae",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "9543a44333c4d91d": {
         "best_ns": 61224756,
         "best_rss_kb": 15912,
@@ -1065,6 +2139,29 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "e208a918524568d4": {
+        "best_ns": 109131531,
+        "best_rss_kb": 15560,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "e319ec872afacb59b206ff3c96a6f20ea92e3f02b48824a8e9d242a4b9f6f8ae",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/mixed_growth/cap8": {
@@ -1090,6 +2187,29 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "de8dfe7b6cabfe42": {
+        "best_ns": 91051801,
+        "best_rss_kb": 18908,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "e319ec872afacb59b206ff3c96a6f20ea92e3f02b48824a8e9d242a4b9f6f8ae",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/mixed_hotspot/cap16": {
@@ -1115,6 +2235,29 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "a724561c038fb65c": {
+        "best_ns": 52026248,
+        "best_rss_kb": 15132,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "aaffdf1889fcb56cb863329214a1d15d3a4be9d0cd1dcfbacfd23c51edacdff5",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/mixed_hotspot/cap32": {
@@ -1140,9 +2283,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "e265c026c4f2993f": {
+        "best_ns": 57671045,
+        "best_rss_kb": 14664,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "aaffdf1889fcb56cb863329214a1d15d3a4be9d0cd1dcfbacfd23c51edacdff5",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/mixed_hotspot/cap64": {
+      "37abcccd8f14add1": {
+        "best_ns": 67963085,
+        "best_rss_kb": 14492,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "aaffdf1889fcb56cb863329214a1d15d3a4be9d0cd1dcfbacfd23c51edacdff5",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "4621f689fe820798": {
         "best_ns": 52826966,
         "best_rss_kb": 14568,
@@ -1168,6 +2357,29 @@
       }
     },
     "btree/lazysegtree/mixed_hotspot/cap8": {
+      "6a49d8419e0c3687": {
+        "best_ns": 53417519,
+        "best_rss_kb": 16252,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "aaffdf1889fcb56cb863329214a1d15d3a4be9d0cd1dcfbacfd23c51edacdff5",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "f093a42df73aa27a": {
         "best_ns": 40396489,
         "best_rss_kb": 16204,
@@ -1193,6 +2405,29 @@
       }
     },
     "btree/lazysegtree/mixed_shrink/cap16": {
+      "240bcf93be84c394": {
+        "best_ns": 82786358,
+        "best_rss_kb": 15204,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "b76adf70f4741f69f843aa1e14fff628589de4700508d4f315d4149174384cd8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "b9baf24edeaab167": {
         "best_ns": 61045564,
         "best_rss_kb": 15228,
@@ -1218,6 +2453,29 @@
       }
     },
     "btree/lazysegtree/mixed_shrink/cap32": {
+      "9e3af9a7418b3290": {
+        "best_ns": 88558897,
+        "best_rss_kb": 14668,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "b76adf70f4741f69f843aa1e14fff628589de4700508d4f315d4149174384cd8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "9f4b3b3a54179215": {
         "best_ns": 63734024,
         "best_rss_kb": 14696,
@@ -1243,6 +2501,29 @@
       }
     },
     "btree/lazysegtree/mixed_shrink/cap64": {
+      "dc542573e77fbd32": {
+        "best_ns": 107558084,
+        "best_rss_kb": 14484,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "b76adf70f4741f69f843aa1e14fff628589de4700508d4f315d4149174384cd8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "f77cff74796d35ad": {
         "best_ns": 76171988,
         "best_rss_kb": 14544,
@@ -1290,9 +2571,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "deb434135446a916": {
+        "best_ns": 91136022,
+        "best_rss_kb": 16480,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "b76adf70f4741f69f843aa1e14fff628589de4700508d4f315d4149174384cd8",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/mixed_uniform/cap16": {
+      "00cfc81a7bf66047": {
+        "best_ns": 77933660,
+        "best_rss_kb": 15348,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "afbffa83c3564120ebd028fa4a2edbcccbc1da98aed0199ae4ae8cdd6234c71a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "989165cf1086ab67": {
         "best_ns": 57421364,
         "best_rss_kb": 15236,
@@ -1340,6 +2667,29 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "3e8d96e98f349db0": {
+        "best_ns": 82094806,
+        "best_rss_kb": 14652,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "afbffa83c3564120ebd028fa4a2edbcccbc1da98aed0199ae4ae8cdd6234c71a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/mixed_uniform/cap64": {
@@ -1365,9 +2715,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "f9b0a068d6bb7c28": {
+        "best_ns": 102495599,
+        "best_rss_kb": 14540,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "afbffa83c3564120ebd028fa4a2edbcccbc1da98aed0199ae4ae8cdd6234c71a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/mixed_uniform/cap8": {
+      "4f4d31a3eb86cabc": {
+        "best_ns": 88278887,
+        "best_rss_kb": 17092,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "afbffa83c3564120ebd028fa4a2edbcccbc1da98aed0199ae4ae8cdd6234c71a",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "6c7c880b15487b54": {
         "best_ns": 62606080,
         "best_rss_kb": 17112,
@@ -1393,6 +2789,29 @@
       }
     },
     "btree/lazysegtree/prod/cap16": {
+      "4b43f43a5487ff73": {
+        "best_ns": 13862713,
+        "best_rss_kb": 14320,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "c8ae43f0597bcda0e51ea1e2cff4119a32b66c8802c67e6384d5c1db03956427",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "d4a6c94ff1443ff2": {
         "best_ns": 9208757,
         "best_rss_kb": 14324,
@@ -1440,9 +2859,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "c4d6c9017c7bdae3": {
+        "best_ns": 12938665,
+        "best_rss_kb": 13888,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "c8ae43f0597bcda0e51ea1e2cff4119a32b66c8802c67e6384d5c1db03956427",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/prod/cap64": {
+      "1af4f24cba398964": {
+        "best_ns": 12544577,
+        "best_rss_kb": 13688,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "c8ae43f0597bcda0e51ea1e2cff4119a32b66c8802c67e6384d5c1db03956427",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "98dee279b0b1384f": {
         "best_ns": 8156106,
         "best_rss_kb": 13680,
@@ -1490,9 +2955,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "7f089aead4a50a4d": {
+        "best_ns": 16936798,
+        "best_rss_kb": 15280,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "c8ae43f0597bcda0e51ea1e2cff4119a32b66c8802c67e6384d5c1db03956427",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/range_erase/cap16": {
+      "c6a904383340e00d": {
+        "best_ns": 230865534,
+        "best_rss_kb": 45540,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "701f03509e6475067d8e4d06cdb1f01830755639ec24d3d42c4533c06ea4715f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "d7ea5fe64d5d2776": {
         "best_ns": 171847167,
         "best_rss_kb": 45448,
@@ -1518,6 +3029,29 @@
       }
     },
     "btree/lazysegtree/range_erase/cap32": {
+      "0cdcec967924af14": {
+        "best_ns": 245089940,
+        "best_rss_kb": 43468,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "701f03509e6475067d8e4d06cdb1f01830755639ec24d3d42c4533c06ea4715f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "261c44dd0ce35707": {
         "best_ns": 201692474,
         "best_rss_kb": 43500,
@@ -1543,6 +3077,29 @@
       }
     },
     "btree/lazysegtree/range_erase/cap64": {
+      "7e29884d56f79f22": {
+        "best_ns": 296328196,
+        "best_rss_kb": 42640,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "701f03509e6475067d8e4d06cdb1f01830755639ec24d3d42c4533c06ea4715f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "d41d9c42214439bf": {
         "best_ns": 253346865,
         "best_rss_kb": 42500,
@@ -1568,6 +3125,29 @@
       }
     },
     "btree/lazysegtree/range_erase/cap8": {
+      "a4b6765f9b725f4e": {
+        "best_ns": 280327835,
+        "best_rss_kb": 50740,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "701f03509e6475067d8e4d06cdb1f01830755639ec24d3d42c4533c06ea4715f",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "adee35eaf3766125": {
         "best_ns": 224415705,
         "best_rss_kb": 50804,
@@ -1593,6 +3173,29 @@
       }
     },
     "btree/lazysegtree/reverse/cap16": {
+      "0e7f82be55745301": {
+        "best_ns": 220048560,
+        "best_rss_kb": 14420,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "821d1fd26824a086bd8cef8b907634fa195a07a7e11d15d2f1375e23721f70c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "b4c603a8f027e758": {
         "best_ns": 164469411,
         "best_rss_kb": 14380,
@@ -1618,6 +3221,29 @@
       }
     },
     "btree/lazysegtree/reverse/cap32": {
+      "b2fb0075617f26a5": {
+        "best_ns": 228071363,
+        "best_rss_kb": 13896,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "821d1fd26824a086bd8cef8b907634fa195a07a7e11d15d2f1375e23721f70c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "e203b6fd279a27e0": {
         "best_ns": 170428988,
         "best_rss_kb": 13844,
@@ -1643,6 +3269,29 @@
       }
     },
     "btree/lazysegtree/reverse/cap64": {
+      "84e1b40a298da459": {
+        "best_ns": 279387439,
+        "best_rss_kb": 13764,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "821d1fd26824a086bd8cef8b907634fa195a07a7e11d15d2f1375e23721f70c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "d7aaffce61cc8586": {
         "best_ns": 209079184,
         "best_rss_kb": 13756,
@@ -1690,9 +3339,55 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "80971ac655fbfca4": {
+        "best_ns": 248540410,
+        "best_rss_kb": 15676,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "821d1fd26824a086bd8cef8b907634fa195a07a7e11d15d2f1375e23721f70c4",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/split_merge/cap16": {
+      "333adf7eb3e6db02": {
+        "best_ns": 223315281,
+        "best_rss_kb": 14404,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "3c73379cfb7ccaaaf731fd996b01c7f8e673e95b107ded10624a761a99c84a7e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=16"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
+      },
       "b03463e8c365aaf3": {
         "best_ns": 164779318,
         "best_rss_kb": 14352,
@@ -1740,6 +3435,29 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "978321226fb17cb2": {
+        "best_ns": 245805575,
+        "best_rss_kb": 13916,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "3c73379cfb7ccaaaf731fd996b01c7f8e673e95b107ded10624a761a99c84a7e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=32"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/split_merge/cap64": {
@@ -1765,6 +3483,29 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "dccb64fd74ec22a6": {
+        "best_ns": 311071908,
+        "best_rss_kb": 13724,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "3c73379cfb7ccaaaf731fd996b01c7f8e673e95b107ded10624a761a99c84a7e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=64"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/lazysegtree/split_merge/cap8": {
@@ -1790,6 +3531,29 @@
         "rss_commit": "3d4ff5d86f01825dc9efc083631b73fa50e27c1d",
         "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44010009892",
         "run_url": "https://github.com/aplysia56108/local_library/actions/runs/43689824111"
+      },
+      "ea4bc89d1980f779": {
+        "best_ns": 239211611,
+        "best_rss_kb": 15796,
+        "commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "fingerprint": {
+          "compiler": "g++ (GCC) 15.2.0",
+          "cpu": "Intel(R) Xeon(R) 6975P-C",
+          "fixture_sha256": "3c73379cfb7ccaaaf731fd996b01c7f8e673e95b107ded10624a761a99c84a7e",
+          "flags": [
+            "-std=c++23",
+            "-O2",
+            "-Wall",
+            "-Wextra",
+            "-I.",
+            "-Idebug",
+            "-I.deps/ac-library",
+            "-DNODE_CAP=8"
+          ]
+        },
+        "rss_commit": "6388939340bff16543f9ea32940319d2bde244ab",
+        "rss_run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844",
+        "run_url": "https://github.com/aplysia56108/local_library/actions/runs/44011643844"
       }
     },
     "btree/segtree/access/cap16": {
