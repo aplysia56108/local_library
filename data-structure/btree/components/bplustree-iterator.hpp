@@ -72,7 +72,9 @@ class Iterator {
     if constexpr (requires { Traits::lazy; })
       return Traits::lazy;
     else
-      return false;
+      // 既存のカスタムTraitsはlazy宣言なしでapply_lazy()を実装できる。
+      // 未宣言の場合は安全のためLazyありとして扱う。
+      return true;
   }();
 
   // LazyがないTraitsでは値epochのキャッシュ自体を保持しない。
