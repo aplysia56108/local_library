@@ -1,0 +1,74 @@
+name: Temporary B+tree get direct experiment
+
+on:
+  push:
+    branches:
+      - experiment/bplustree-get-direct-20261117
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    container: gcc:15.2
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare tools and ACL
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v python3 >/dev/null || [[ ! -x /usr/bin/time ]]; then
+            apt-get update -qq
+            apt-get install -y -qq python3 time
+          fi
+          git clone https://github.com/atcoder/ac-library .deps/ac-library
+          git -C .deps/ac-library checkout --detach 864245a00b00dd008d1abfdc239618fdb7d139da
+      - name: B+tree unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/tests
+          for file in data-structure/btree/components/test/*.cpp data-structure/btree/test/*.cpp; do
+            echo "::group::$file"
+            g++ -std=c++23 -O2 -Wall -Wextra -I. -Idebug -I.deps/ac-library "$file" -o out/tests/get-test
+            timeout 70s out/tests/get-test
+            echo "::endgroup::"
+          done
+      - name: Prepare baseline and benchmark sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch --no-tags origin 3b997160f1e860a2acb9ccede7c4a6491791e975
+          git worktree add --detach "$GITHUB_WORKSPACE/out/get-ab/old" FETCH_HEAD
+          git fetch --no-tags origin main
+          git worktree add --detach "$GITHUB_WORKSPACE/out/get-ab/main" FETCH_HEAD
+          for path in "$GITHUB_WORKSPACE/out/get-ab/old" "$GITHUB_WORKSPACE/out/get-ab/main"; do
+            git config --global --add safe.directory "$path"
+            mkdir -p "$path/.deps"
+            ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$path/.deps/ac-library"
+          done
+          printf '%s\n' '{"schema":1,"records":{}}' > "$GITHUB_WORKSPACE/out/get-ab/empty.json"
+          sed -i '/    if base_root != benchmark.ROOT:/,+1d' "$GITHUB_WORKSPACE/out/get-ab/main/benchmark/compare.py"
+      - name: A/B benchmark old vs new
+        shell: bash
+        run: |
+          set -euo pipefail
+          main="$GITHUB_WORKSPACE/out/get-ab/main"
+          old="$GITHUB_WORKSPACE/out/get-ab/old"
+          for target in \
+            btree/vector/access \
+            btree/vector/access_random \
+            btree/set/access \
+            btree/segtree/access \
+            btree/lazysegtree/access \
+            btree/lazysegtree/access_random; do
+            echo "::group::A/B $target"
+            python3 "$main/benchmark/compare.py" \
+              --base-root "$old" --dev-root "$GITHUB_WORKSPACE" \
+              --target "$target" --caps 8,32,64 --runs 5 \
+              --baseline "$GITHUB_WORKSPACE/out/get-ab/empty.json"
+            echo "::endgroup::"
+          done
