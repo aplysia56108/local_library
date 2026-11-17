@@ -109,7 +109,7 @@ g++ -std=c++23 -O2 generator.cpp -o /tmp/benchmark-generator
 
 Actions → Performance benchmarks → Run workflow から対象ブランチ・種類/操作・Capを選択する。時間とPeak RSSをそれぞれ5回の**中央値**で比較し、各ベスト比120%超で🟡、150%超で🔴（遅くなっても警告のみ、結果の不一致は失敗）。
 
-**main の成功実行だけ** `benchmark-records` ブランチの `best.json` を更新する。時間の `best_ns` とメモリの `best_rss_kb` は**独立して最小値を更新**し、元コミット・実行URLも別々に保持する。既存の `best_ns` のみの記録は読み込み可能で、次回からRSSベストを追加する。PRブランチでは読み取り・比較のみ。既存の `btree/vector/insert`（Cap8固定）の旧記録は残し、新方式の `btree/vector/insert/cap8` と区別する。
+**main の成功実行だけ**（通常のPerformance benchmarksとA/B比較のmain側の測定結果）`benchmark-records` ブランチの `best.json` を更新する。時間の `best_ns` とメモリの `best_rss_kb` は**独立して最小値を更新**し、元コミット・実行URLも別々に保持する。既存の `best_ns` のみの記録は読み込み可能で、次回からRSSベストを追加する。PRブランチでは読み取り・比較のみ。既存の `btree/vector/insert`（Cap8固定）の旧記録は残し、新方式の `btree/vector/insert/cap8` と区別する。
 
 GitHub-hosted runnerのCPUモデルやホスト負荷は変化するため、最速比は参考指標。計測ログはArtifactに14日保存する。
 
@@ -122,6 +122,6 @@ GitHub-hosted runnerのCPUモデルやホスト負荷は変化するため、最
 - **開発ブランチにベンチマーク定義を取り込む必要はない。** 新しい操作（例：`access_random`）もMainに追加されていれば、そのまま古い開発ブランチと比較できる。ベンチマーク本体・フィクスチャはMainのものを両版で共用するため、ワークロードの食い違いは起こらない。開発版のライブラリがそのAPIを持たずコンパイルできない場合は、明確にビルドエラーとして失敗する。
 - **推定ベスト**は、既存mainベスト ×（今回の開発版/今回のmain）として計算する。時間とPeak RSSの両方に適用。ただし実測記録ではなく、CPU間で相対性能差が維持されるという仮定に基づく**参考値**である。
 - ベスト記録の検索では、コンパイラ・フラグ・フィクスチャSHA256の一致を必須とし、CPUモデルが一致する記録を優先する。異なるCPUやmainコミットの記録を使った推定はその旨を表示する。過去のメモリベストがなければ推定メモリ値を表示しない。
-- **A/B比較は記録を更新しない**（`contents: read`）。計測値・サンプル・元ベストの詳細は`out/benchmark/compare/results.json`に保存し、Artifactで14日保持する。重いので最初は対象・Capを絞るとよい。
+- **A/B比較でもmain側の実測中央値がベストを更新した場合は記録する。** 時間とPeak RSSは独立に更新し、開発版の実測値・推定ベストは記録しない。すべての対象ケースが正常終了した場合だけ `benchmark-records/best.json` を更新する。通常ベンチマークとA/B比較は同一のconcurrencyグループ（`benchmark-records`）で直列化し、共通の更新処理を用いる。過去ベストはA/B実行開始時の値を比較・推定に利用する。計測値・サンプル・元ベストの詳細は `out/benchmark/compare/results.json` に保存し、Artifactで14日保持する。重いので最初は対象・Capを絞るとよい。
 
 ピークRSSはプロセスの生存期間全体での最大値であり、B+treeの内部確保容量や、操作区間だけのメモリ使用量を測っているものではない。ノードのみの容量比較が必要になった場合は、別途専用の測定を追加する。
