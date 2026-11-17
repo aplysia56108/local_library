@@ -197,8 +197,20 @@ class Iterator {
   using reference = const T&;
   using pointer = const T*;
 
+  /** @brief 探索時に確定済みの経路をepochキャッシュへ引き継ぐ。 */
+  enum class Validation { None, Position, Value };
+
   Iterator() = default;
-  explicit Iterator(id_type leaf_id) : leaf_id_(leaf_id) {}
+  explicit Iterator(id_type leaf_id,
+                    Validation validation = Validation::None)
+      : leaf_id_(leaf_id) {
+    if (validation != Validation::None)
+      validated_position_epoch_ = Epoch::position;
+    if constexpr (HasLazy) {
+      if (validation == Validation::Value)
+        validated_value_epoch_ = Epoch::value;
+    }
+  }
 
   template <bool OtherConst>
     requires(IsConst && !OtherConst)
