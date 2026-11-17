@@ -169,11 +169,18 @@ class Base {
                            : -static_cast<difference_type>(before - after);
   }
 
-  static void refresh_recursive(id_type node_id, difference_type delta = 0) {
+  static void refresh_recursive(id_type node_id, difference_type delta = 0,
+                                pos_type changed_child = 0) {
     auto& node = get_node(node_id);
+    // 子のサイズが変化した経路だけ、親のキャッシュを差分同期する。
+    if (delta != 0) {
+      assert(node.level > 0 && changed_child < node.count);
+      node.child_sizes[changed_child] = get_node(node.children[changed_child]).size;
+    }
     add_size_delta(node, delta);
     node.refresh();
-    if (node.parent != null_id) refresh_recursive(node.parent, delta);
+    if (node.parent != null_id)
+      refresh_recursive(node.parent, delta, node.position);
   }
 
   static id_type insert_recursive(id_type parent_id, pos_type index,
@@ -184,6 +191,12 @@ class Base {
     const size_type old_size = parent.size;
     // 下位の分割により既存の左子のサイズが変化している分を先に補正する。
     add_size_delta(parent, delta);
+    if (delta != 0) {
+      // 再帰元のsplitで左子のサイズが変化している。
+      assert(child != null_id && index > 0 && parent.level > 0);
+      parent.child_sizes[index - 1] =
+          get_node(parent.children[index - 1]).size;
+    }
     if (child != null_id) {
       if (parent.insert(child, index)) {
         const id_type upper_id = parent.parent;
@@ -200,7 +213,8 @@ class Base {
       parent.refresh();
     }
     if (parent.parent != null_id)
-      refresh_recursive(parent.parent, size_delta(old_size, parent.size));
+      refresh_recursive(parent.parent, size_delta(old_size, parent.size),
+                        parent.position);
     return null_id;
   }
 
@@ -258,12 +272,16 @@ class Base {
     const pos_type upper_pos = parent.position;
     // 空の子を回収するときも、下位で失った分のsizeを反映させる。
     add_size_delta(parent, delta);
+    if (delta != 0) {
+      assert(parent.level > 0);
+      parent.child_sizes[index] = get_node(parent.children[index]).size;
+    }
     const bool empty = parent.erase(index);
     const difference_type change = size_delta(old_size, parent.size);
     if (empty) {
       if (upper != null_id) erase_recursive(upper, upper_pos, change);
     } else if (upper != null_id) {
-      refresh_recursive(upper, change);
+      refresh_recursive(upper, change, upper_pos);
     }
   }
 
@@ -289,6 +307,10 @@ class Base {
       auto& parent = get_node(parent_id);
       assert(parent.size >= removed_from_boundary);
       parent.size -= removed_from_boundary;
+      if (removed_from_boundary != 0) {
+        assert(position > 0 && parent.level > 0);
+        parent.child_sizes[position - 1] -= removed_from_boundary;
+      }
       const id_type next = parent.split(position);
       if (right != null_id) {
         if (get_node(right).count)
