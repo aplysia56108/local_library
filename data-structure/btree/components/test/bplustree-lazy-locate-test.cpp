@@ -47,6 +47,9 @@ class LazySequence : public Bplustree::Base<LazyTraits> {
   long long pending() const {
     return Parent::get_node(this->root_).pending;
   }
+  iterator nth_with_lazy(std::size_t i) {
+    return this->template locate_iterator<true>(i);
+  }
   long long inspect_without_lazy(std::size_t i) {
     return Parent::get_leaf(this->template locate<false>(i)).get();
   }
@@ -68,12 +71,20 @@ int main() {
   assert(*tree.nth(2) == 13);
   assert(tree.get(6) == 17);
 
+  // WithLazy=true returns an iterator with both epochs validated.
+  tree.add_all(3);
+  auto validated = tree.nth_with_lazy(1);
+  assert(*validated == 15);
+  tree.add_all(2);  // Pending actions need an explicit epoch invalidation.
+  // The custom add_all() does not invalidate epochs, so verify a fresh locate.
+  assert(*tree.nth_with_lazy(1) == 17);
+
   // set() must materialize before writing one element.
   tree.add_all(5);
   tree.set(3, 100);
   assert(tree.get(3) == 100);
-  assert(tree.get(0) == 16);
-  assert(tree.get(6) == 22);
+  assert(tree.get(0) == 21);
+  assert(tree.get(6) == 27);
 
   std::cerr << "All lazy locate test cases passed!\n";
 }
