@@ -101,6 +101,34 @@ void node_pool_integrate_test() {
   std::cerr << "node pool integration tests all passed!\n";
 }
 
+/** @brief 最下層のみにリンク領域を持ち、IDの型タグを維持する。 */
+template <std::size_t Capacity>
+void bottom_internal_layout_test() {
+  using Traits = Bplustree::Traits<long long, Capacity>;
+  using Pools = Bplustree::NodePools<Traits>;
+  using Upper = typename Traits::Internal;
+  using Bottom = Bplustree::BottomInternal<Traits>;
+  static_assert(sizeof(Upper) < sizeof(Bottom));
+
+  const auto bottom_id = Pools::make_internal(0);
+  const auto upper_id = Pools::make_internal(1);
+  assert((bottom_id & Pools::bottom_mask) != 0);
+  assert((upper_id & Pools::bottom_mask) == 0);
+  assert(bottom_id != upper_id);
+  assert(Pools::internals()[bottom_id].level == 0);
+  assert(Pools::internals()[upper_id].level == 1);
+  assert(Pools::internals().index(Pools::internals()[bottom_id]) == bottom_id);
+  assert(Pools::internals().index(Pools::internals()[upper_id]) == upper_id);
+  assert(Pools::internals()[bottom_id].bottom().links[0].node ==
+         Pools::null_id);
+  Pools::recycle(bottom_id);
+  Pools::recycle(upper_id);
+
+  std::cerr << "bottom internal layout tests all passed! (capacity="
+            << Capacity << ", upper=" << sizeof(Upper)
+            << ", bottom=" << sizeof(Bottom) << ")\\n";
+}
+
 // constinitなPoolがmain()より前のTree構築でも安全に利用できることを確認。
 Bplustree::Base<Bplustree::Traits<long long, 12>> global_tree{1, 2, 3};
 
@@ -111,5 +139,9 @@ int main() {
   node_pool_basic_test<8>();
   node_pool_reallocation_test();
   node_pool_integrate_test();
+  bottom_internal_layout_test<8>();
+  bottom_internal_layout_test<16>();
+  bottom_internal_layout_test<32>();
+  bottom_internal_layout_test<64>();
   std::cerr << "All node pool test cases passed!\n";
 }
