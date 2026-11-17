@@ -116,6 +116,12 @@ struct NodePools {
     return bottom_pool_;
   }
 
+  /** @brief Leaf の親など型が確定済みの Bottom ID を分岐なしで取得する。 */
+  static B& bottom(id_type id) {
+    assert(is_bottom_id(id));
+    return bottom_pool_[id & ~bottom_mask];
+  }
+
   /** @brief reserve による参照無効化に備え、両 Internal Pool を確保する。 */
   static void reserve_buffer(std::size_t leaf_buffer = 8,
                              std::size_t internal_buffer = 8) {
