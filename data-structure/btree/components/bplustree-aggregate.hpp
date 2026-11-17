@@ -353,7 +353,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   /** @brief 半開区間 [first,last) の順方向の積。 */
   T prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return prod_recursive(Parent::get_node(this->root_), first + 1, last + 1);
+    return Pools::with_internal(this->root_, [&](auto& root) {
+      return prod_recursive(root, first + 1, last + 1);
+    });
   }
 
   /** @brief 全要素の逆方向の積。O(1)。 */
@@ -364,8 +366,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   /** @brief 半開区間 [first,last) の逆方向の積。 */
   T reverse_prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return prod_recursive<true>(Parent::get_node(this->root_), first + 1,
-                                last + 1);
+    return Pools::with_internal(this->root_, [&](auto& root) {
+      return prod_recursive<true>(root, first + 1, last + 1);
+    });
   }
 
   void prod_right(size_type index, const T& value) {
@@ -387,7 +390,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   {
     assert(first <= last && last <= size());
     if (first == last) return;
-    apply_recursive(Parent::get_node(this->root_), first + 1, last + 1, f);
+    Pools::with_internal(this->root_, [&](auto& root) {
+      apply_recursive(root, first + 1, last + 1, f);
+    });
     Epoch::invalidate_value();
   }
   void all_apply(const F& f)
@@ -407,8 +412,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
     T value = M::e();
     size_type result = left + 1;
-    search<false>(Parent::get_node(this->root_), 0, left + 1, size() + 1, value,
-                  predicate, result);
+    Pools::with_internal(this->root_, [&](auto& root) {
+      search<false>(root, 0, left + 1, size() + 1, value, predicate, result);
+    });
     return result - 1;
   }
 
@@ -423,8 +429,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
     T value = M::e();
     size_type result = right + 1;
-    search<true>(Parent::get_node(this->root_), 0, 1, right + 1, value,
-                 predicate, result);
+    Pools::with_internal(this->root_, [&](auto& root) {
+      search<true>(root, 0, 1, right + 1, value, predicate, result);
+    });
     return result - 1;
   }
 
