@@ -52,9 +52,9 @@ struct IteratorEpoch {
   }
 };
 
-template <class Traits, class Tree, bool IsConst, bool VisitAll = false>
+template <class Traits, class Tree, bool IsConst>
 class Iterator {
-  template <class, class, bool, bool>
+  template <class, class, bool>
   friend class Iterator;
   friend Tree;
 
@@ -115,26 +115,22 @@ class Iterator {
 
   /** @brief 位置確定ではReverseだけを伝搬し、Lazyは保持する。 */
   void ensure_position_path() const {
-    if constexpr (!VisitAll) {
-      if (validated_position_epoch_ != Epoch::position) {
-        reverse_path(this_leaf().parent);
-        validated_position_epoch_ = Epoch::position;
-      }
+    if (validated_position_epoch_ != Epoch::position) {
+      reverse_path(this_leaf().parent);
+      validated_position_epoch_ = Epoch::position;
     }
   }
 
   /** @brief Lazyがなければ位置経路だけ、あれば必要時に値経路を確定する。 */
   void ensure_value_path() const {
-    if constexpr (!VisitAll) {
-      if constexpr (HasLazy) {
-        if (validated_value_epoch_ != Epoch::value) {
-          materialize_path();
-          validated_value_epoch_ = Epoch::value;
-          validated_position_epoch_ = Epoch::position;
-        }
-      } else {
-        ensure_position_path();
+    if constexpr (HasLazy) {
+      if (validated_value_epoch_ != Epoch::value) {
+        materialize_path();
+        validated_value_epoch_ = Epoch::value;
+        validated_position_epoch_ = Epoch::position;
       }
+    } else {
+      ensure_position_path();
     }
   }
 
@@ -157,7 +153,7 @@ class Iterator {
         static_cast<std::ptrdiff_t>(leaf.position) + offset;
     id_type node_id = leaf.parent;
 
-    if constexpr (!VisitAll && !HasLazy) {
+    if constexpr (!HasLazy) {
       // Leafの親は必ず最下層Internal（level == 0）。
       // positionを確定した後、同じ親の中なら汎用locateを使わずに
       // 子IDを直接取得できる。位置epochはすでに検証済み。
@@ -172,9 +168,7 @@ class Iterator {
     while (true) {
       auto& node = get_node(node_id);
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node.size)) {
-        if constexpr (VisitAll) {
-          leaf_id_ = node.template locate<true>(to_index);
-        } else if constexpr (HasLazy) {
+        if constexpr (HasLazy) {
           // Lazyありの場合だけ、値epochと未伝搬タグを確認する。
           bool value_clean = validated_value_epoch_ == Epoch::value;
           leaf_id_ = node.template locate<false>(to_index, &value_clean);
@@ -206,16 +200,13 @@ class Iterator {
   Iterator() = default;
   explicit Iterator(id_type leaf_id) : leaf_id_(leaf_id) {}
 
-  template <bool OtherConst, bool OtherVisitALL>
+  template <bool OtherConst>
     requires(IsConst && !OtherConst)
-  Iterator(const Iterator<Traits, Tree, OtherConst, OtherVisitALL>& other)
+  Iterator(const Iterator<Traits, Tree, OtherConst>& other)
       : leaf_id_(other.leaf_id_),
-        validated_position_epoch_(
-            OtherVisitALL ? 0 : other.validated_position_epoch_) {
-    if constexpr (HasLazy) {
-      validated_value_epoch_ =
-          OtherVisitALL ? 0 : other.validated_value_epoch_;
-    }
+        validated_position_epoch_(other.validated_position_epoch_) {
+    if constexpr (HasLazy)
+      validated_value_epoch_ = other.validated_value_epoch_;
   }
 
   reference operator*() const {
@@ -227,12 +218,6 @@ class Iterator {
   pointer operator->() const {
     return std::addressof(operator*());
   }
-
-  void init() const
-    requires VisitAll
-  {
-    materialize_path();
-  };
 
   void set(const T& value) const
     requires(!IsConst)
