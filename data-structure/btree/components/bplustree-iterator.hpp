@@ -83,6 +83,10 @@ class Iterator {
   using ValueEpoch = std::conditional_t<HasLazy, std::uint64_t, NoValueEpoch>;
 
   id_type leaf_id_ = null_id;
+  // Place these two 1-byte fields into the padding before the epoch, keeping
+  // non-Lazy iterators at 16 bytes on 64-bit platforms.
+  mutable pos_type entry_port_ = 0;
+  mutable bool observed_port_swap_ = false;
   // 0は未検証。値epochはLazyをサポートするTraitsでのみ保持する。
   mutable std::uint64_t validated_position_epoch_ = 0;
   [[no_unique_address]] mutable ValueEpoch validated_value_epoch_{};
@@ -113,11 +117,37 @@ class Iterator {
     materialize_path(this_leaf().parent);
   }
 
+  /** @brief Reconcile the entry port with a local physical port swap. */
+  void sync_entry_port() const {
+    const auto& bottom = Pools::bottom(this_leaf().parent);
+    if (observed_port_swap_ != bottom.ports_swapped) {
+      entry_port_ ^= 1;
+      observed_port_swap_ = bottom.ports_swapped;
+    }
+  }
+
+  void reset_entry_port() const {
+    entry_port_ = 0;
+    observed_port_swap_ = Pools::bottom(this_leaf().parent).ports_swapped;
+  }
+
   /** @brief 位置確定ではReverseだけを伝搬し、Lazyは保持する。 */
   void ensure_position_path() const {
     if (validated_position_epoch_ != Epoch::position) {
       reverse_path(this_leaf().parent);
       validated_position_epoch_ = Epoch::position;
+      reset_entry_port();
+    } else {
+      sync_entry_port();
+    }
+  }
+
+  /** @brief Random access needs the physical order to match logical order. */
+  void normalize_position_path() const {
+    ensure_position_path();
+    if (entry_port_ != 0) {
+      reverse_path(this_leaf().parent);
+      reset_entry_port();
     }
   }
 
@@ -128,6 +158,7 @@ class Iterator {
         materialize_path();
         validated_value_epoch_ = Epoch::value;
         validated_position_epoch_ = Epoch::position;
+        reset_entry_port();
       }
     } else {
       ensure_position_path();
@@ -144,10 +175,36 @@ class Iterator {
     refresh_path(this_leaf().parent);
   }
 
+  /** @brief Advance one leaf through the reversible bottom-node path. */
+  void step(bool forward) {
+    assert(leaf_id_ != null_id);
+    ensure_position_path();
+    const auto& leaf = this_leaf();
+    const auto& bottom = Pools::bottom(leaf.parent);
+    const std::ptrdiff_t delta = (entry_port_ == 0 ? 1 : -1) *
+                                 (forward ? 1 : -1);
+    const auto next_pos = static_cast<std::ptrdiff_t>(leaf.position) + delta;
+    if (0 <= next_pos && next_pos < bottom.count) {
+      leaf_id_ = bottom.children[static_cast<std::size_t>(next_pos)];
+      return;
+    }
+    const auto link = bottom.links[forward ? (entry_port_ ^ 1) : entry_port_];
+    assert(link.node != null_id);
+    const auto& neighbor = Pools::bottom(link.node);
+    assert(neighbor.level == 0 && neighbor.count > 0);
+    entry_port_ = forward ? link.port : (link.port ^ 1);
+    observed_port_swap_ = neighbor.ports_swapped;
+    const auto pos = forward ? (entry_port_ == 0 ? 0 : neighbor.count - 1)
+                             : (entry_port_ == 0 ? neighbor.count - 1 : 0);
+    leaf_id_ = neighbor.children[pos];
+    // A different bottom node can have unpropagated Lazy on its ancestors.
+    if constexpr (HasLazy) validated_value_epoch_ = 0;
+  }
+
   void advance(std::ptrdiff_t offset) {
     assert(leaf_id_ != null_id);
-    // 移動時はReverseだけ確定し、値を読まない要素のLazyは保持する。
-    ensure_position_path();
+    // Random jumps operate on the materialized physical order.
+    normalize_position_path();
     auto& leaf = this_leaf();
     std::ptrdiff_t to_index =
         static_cast<std::ptrdiff_t>(leaf.position) + offset;
@@ -157,7 +214,7 @@ class Iterator {
       // Leafの親は必ず最下層Internal（level == 0）。
       // positionを確定した後、同じ親の中なら汎用locateを使わずに
       // 子IDを直接取得できる。位置epochはすでに検証済み。
-      auto& bottom = get_node(node_id);
+      auto& bottom = Pools::bottom(node_id);
       if (0 <= to_index &&
           to_index < static_cast<std::ptrdiff_t>(bottom.count)) {
         leaf_id_ = bottom.children[static_cast<std::size_t>(to_index)];
@@ -179,6 +236,7 @@ class Iterator {
           leaf_id_ = node.template locate<false>(to_index);
           validated_position_epoch_ = Epoch::position;
         }
+        reset_entry_port();
         return;
       }
       assert(node.parent != null_id);
@@ -216,6 +274,8 @@ class Iterator {
     requires(IsConst && !OtherConst)
   Iterator(const Iterator<Traits, Tree, OtherConst>& other)
       : leaf_id_(other.leaf_id_),
+        entry_port_(other.entry_port_),
+        observed_port_swap_(other.observed_port_swap_),
         validated_position_epoch_(other.validated_position_epoch_) {
     if constexpr (HasLazy)
       validated_value_epoch_ = other.validated_value_epoch_;
@@ -240,7 +300,7 @@ class Iterator {
   }
 
   Iterator& operator++() {
-    advance(1);
+    step(true);
     return *this;
   }
 
@@ -251,7 +311,7 @@ class Iterator {
   }
 
   Iterator& operator--() {
-    advance(-1);
+    step(false);
     return *this;
   }
 
@@ -262,7 +322,12 @@ class Iterator {
   }
 
   Iterator& operator+=(std::ptrdiff_t offset) {
-    advance(offset);
+    if (offset == 1)
+      step(true);
+    else if (offset == -1)
+      step(false);
+    else if (offset != 0)
+      advance(offset);
     return *this;
   }
 
@@ -283,8 +348,8 @@ class Iterator {
   }
 
   friend std::ptrdiff_t operator-(const Iterator& lhs, const Iterator& rhs) {
-    lhs.ensure_position_path();
-    rhs.ensure_position_path();
+    lhs.normalize_position_path();
+    rhs.normalize_position_path();
 
     id_type l_node_id = get_leaf(lhs.leaf_id_).parent;
     std::ptrdiff_t l_index = get_leaf(lhs.leaf_id_).position;
