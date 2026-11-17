@@ -118,6 +118,20 @@ struct NodePools {
   }
 
   /**
+   * @brief ID から最下層/上層の実際の型へ一度だけ振り分ける。
+   * @details Callback の引数型は BottomInternal& または Internal&。
+   * Callback 内では if constexpr により子の型を固定できる。
+   * ### 計算量
+   * O(1)。
+   */
+  template <class Callback>
+  static decltype(auto) with_internal(id_type id, Callback&& callback) {
+    if (id & bottom_mask)
+      return std::forward<Callback>(callback)(bottom_pool_[id & ~bottom_mask]);
+    return std::forward<Callback>(callback)(internal_pool_[id]);
+  }
+
+  /**
    * @brief Leaf の親など、Bottom 型が既知の ID を分岐なしで取得する。
    * @pre id は有効な BottomInternal ID。
    */
