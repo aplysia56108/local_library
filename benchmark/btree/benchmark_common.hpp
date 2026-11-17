@@ -88,6 +88,19 @@ inline void print(const BenchmarkValue& value) {
   std::cout << value << '\n';
 #endif
 }
+
+/** @brief 順序に敏感な64bit FNV-1a。中間走査の独立検証に用いる。 */
+inline void hash_value(std::uint64_t& hash, const BenchmarkValue& value) {
+  constexpr std::uint64_t prime = 1099511628211ULL;
+#if defined(BENCH_TREE_SEGTREE) && !defined(BENCH_BOUNDARY_SEARCH)
+  hash = (hash ^ static_cast<std::uint64_t>(value.first.val())) * prime;
+  hash = (hash ^ static_cast<std::uint64_t>(value.second.val())) * prime;
+#elif defined(BENCH_TREE_LAZY) && !defined(BENCH_BOUNDARY_SEARCH)
+  hash = (hash ^ static_cast<std::uint64_t>(value.val())) * prime;
+#else
+  hash = (hash ^ static_cast<std::uint64_t>(value)) * prime;
+#endif
+}
 }  // namespace benchmark_case
 
 /**
@@ -122,14 +135,16 @@ signed main() {
 #endif
 #elif defined(BENCH_OP_ERASE)
     std::cin >> x.x;
-#elif defined(BENCH_OP_REVERSE) || defined(BENCH_OP_PROD)
+#elif defined(BENCH_OP_REVERSE) || defined(BENCH_OP_PROD) || \
+    defined(BENCH_OP_INTERLEAVE_REVERSE)
     std::cin >> x.x >> x.y;
-#elif defined(BENCH_OP_APPLY)
+#elif defined(BENCH_OP_APPLY) || defined(BENCH_OP_INTERLEAVE_APPLY)
     std::cin >> x.x >> x.y >> x.a >> x.b;
 #elif defined(BENCH_OP_RANGE_ERASE) || defined(BENCH_OP_MAX_RIGHT) || \
     defined(BENCH_OP_MIN_LEFT)
     std::cin >> x.x >> x.y;
-#elif defined(BENCH_OP_SPLIT_MERGE) || defined(BENCH_OP_LOWER_BOUND)
+#elif defined(BENCH_OP_SPLIT_MERGE) || defined(BENCH_OP_LOWER_BOUND) || \
+    defined(BENCH_OP_ACCESS_RANDOM)
     std::cin >> x.x;
 #else
 #error "Unknown benchmark operation"
@@ -140,9 +155,17 @@ signed main() {
 
   BenchmarkTree tree(initial.begin(), initial.end());
 #if defined(BENCH_OP_PROD) || defined(BENCH_OP_ACCESS) || \
-    defined(BENCH_OP_ITERATE) || defined(BENCH_OP_LOWER_BOUND) || \
-    defined(BENCH_BOUNDARY_SEARCH)
+    defined(BENCH_OP_ACCESS_RANDOM) || defined(BENCH_OP_ITERATE) || \
+    defined(BENCH_OP_LOWER_BOUND) || defined(BENCH_BOUNDARY_SEARCH)
   std::vector<BenchmarkValue> answers(q);
+#endif
+#if defined(BENCH_OP_INTERLEAVE_REVERSE) || defined(BENCH_OP_INTERLEAVE_APPLY)
+  // Keep the iterator to the original element across every update.
+  // It must follow that element even if reverse changes its rank.
+  auto anchor = tree.nth(n / 3);
+  std::vector<std::uint64_t> hashes(q);
+  std::vector<BenchmarkValue> anchor_values(q), next_values(q);
+  std::vector<char> has_next(q, false);
 #endif
 
   const auto start = std::chrono::steady_clock::now();
@@ -166,6 +189,9 @@ signed main() {
     tree.apply(x.x, x.y, {BenchmarkMint(x.a), BenchmarkMint(x.b)});
 #elif defined(BENCH_OP_ACCESS)
   for (ll i = 0; i < q; ++i) answers[i] = tree[i];
+#elif defined(BENCH_OP_ACCESS_RANDOM)
+  // Query indices are read before the timer; only operator[] is measured.
+  for (ll i = 0; i < q; ++i) answers[i] = tree[queries[i].x];
 #elif defined(BENCH_OP_RANGE_ERASE)
   for (const auto& x : queries) tree.erase(x.x, x.y);
 #elif defined(BENCH_OP_SPLIT_MERGE)
@@ -197,6 +223,29 @@ signed main() {
 #elif defined(BENCH_OP_ITERATE)
   ll index = 0;
   for (const auto& value : tree) answers[index++] = value;
+#elif defined(BENCH_OP_INTERLEAVE_REVERSE) || defined(BENCH_OP_INTERLEAVE_APPLY)
+  for (ll i = 0; i < q; ++i) {
+    const auto& query = queries[i];
+#if defined(BENCH_OP_INTERLEAVE_REVERSE)
+    tree.reverse(query.x, query.y);
+#else
+    tree.apply(query.x, query.y,
+               {BenchmarkMint(query.a), BenchmarkMint(query.b)});
+#endif
+    std::uint64_t hash = 14695981039346656037ULL;
+    for (const auto& value : tree) hash_value(hash, value);
+    hashes[i] = hash;
+
+    // An iterator captured before the first mutation must still refer to
+    // the same Leaf. ++ must find its current successor in the new order.
+    anchor_values[i] = *anchor;
+    auto next = anchor;
+    ++next;
+    if (next != tree.end()) {
+      has_next[i] = true;
+      next_values[i] = *next;
+    }
+  }
 #else
 #error "Unknown benchmark operation"
 #endif
@@ -205,9 +254,17 @@ signed main() {
   const auto elapsed =
       std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
   std::cerr << "BENCHMARK_NS=" << elapsed << '\n';
-#if defined(BENCH_OP_PROD) || defined(BENCH_OP_ACCESS) || \
-    defined(BENCH_OP_ITERATE) || defined(BENCH_OP_LOWER_BOUND) || \
-    defined(BENCH_BOUNDARY_SEARCH)
+#if defined(BENCH_OP_INTERLEAVE_REVERSE) || defined(BENCH_OP_INTERLEAVE_APPLY)
+  for (ll i = 0; i < q; ++i) {
+    std::cout << hashes[i] << '\n';
+    print(anchor_values[i]);
+    if (has_next[i]) print(next_values[i]);
+    else std::cout << "END\n";
+  }
+  for (const auto& value : tree) print(value);
+#elif defined(BENCH_OP_PROD) || defined(BENCH_OP_ACCESS) || \
+    defined(BENCH_OP_ACCESS_RANDOM) || defined(BENCH_OP_ITERATE) || \
+    defined(BENCH_OP_LOWER_BOUND) || defined(BENCH_BOUNDARY_SEARCH)
   for (const auto& x : answers) print(x);
 #else
   for (const auto& x : tree) print(x);

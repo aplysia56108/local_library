@@ -1,4 +1,5 @@
 name: Performance benchmarks
+run-name: 'Benchmark ${{ inputs.target }} cap=${{ inputs.caps }} runs=5 @${{ github.ref_name }}'
 
 on:
   workflow_dispatch:
@@ -15,36 +16,44 @@ on:
           - btree/set/insert
           - btree/set/erase
           - btree/set/access
+          - btree/set/access_random
           - btree/set/lower_bound
           - btree/set/iterate
           - btree/vector/insert
           - btree/vector/erase
           - btree/vector/reverse
           - btree/vector/access
+          - btree/vector/access_random
           - btree/vector/split_merge
           - btree/vector/range_erase
           - btree/vector/iterate
+          - btree/vector/iterate_interleaved_reverse
           - btree/segtree/prod
           - btree/segtree/insert
           - btree/segtree/erase
           - btree/segtree/reverse
           - btree/segtree/access
+          - btree/segtree/access_random
           - btree/segtree/split_merge
           - btree/segtree/range_erase
           - btree/segtree/max_right
           - btree/segtree/min_left
           - btree/segtree/iterate
+          - btree/segtree/iterate_interleaved_reverse
           - btree/lazysegtree/prod
           - btree/lazysegtree/apply
           - btree/lazysegtree/insert
           - btree/lazysegtree/erase
           - btree/lazysegtree/reverse
           - btree/lazysegtree/access
+          - btree/lazysegtree/access_random
           - btree/lazysegtree/split_merge
           - btree/lazysegtree/range_erase
           - btree/lazysegtree/max_right
           - btree/lazysegtree/min_left
           - btree/lazysegtree/iterate
+          - btree/lazysegtree/iterate_interleaved_reverse
+          - btree/lazysegtree/iterate_interleaved_apply
           - btree/set/mixed_uniform
           - btree/set/mixed_edges
           - btree/set/mixed_hotspot
@@ -142,22 +151,7 @@ jobs:
 
       - name: Update best records (main only)
         if: github.ref == 'refs/heads/main'
-        shell: bash
-        run: |
-          if git show-ref --verify --quiet refs/remotes/origin/benchmark-records; then
-            git switch -C benchmark-records refs/remotes/origin/benchmark-records
-          else
-            git switch --orphan benchmark-records
-            git rm -rf --quiet . || true
-          fi
-          cp out/benchmark/best-updated.json best.json
-          git add best.json
-          if ! git diff --cached --quiet; then
-            git -c user.name=github-actions[bot] \
-                -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
-                commit -m "benchmark: update best records"
-            git push origin HEAD:benchmark-records
-          fi
+        uses: ./.github/actions/push-benchmark-records
 
       - name: Upload benchmark logs
         if: always()

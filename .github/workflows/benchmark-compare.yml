@@ -1,4 +1,5 @@
 name: Performance A/B comparison
+run-name: 'A/B ${{ inputs.target }} cap=${{ inputs.caps }} runs=${{ inputs.runs }} | ${{ inputs.development_ref }}'
 
 on:
   workflow_dispatch:
@@ -8,8 +9,75 @@ on:
         type: string
         required: true
       target:
-        description: Benchmark target (all, btree/set, btree/vector/insert, etc.)
-        type: string
+        description: Benchmark target
+        type: choice
+        options:
+          - all
+          - btree/set
+          - btree/vector
+          - btree/segtree
+          - btree/lazysegtree
+          - btree/set/insert
+          - btree/set/erase
+          - btree/set/access
+          - btree/set/access_random
+          - btree/set/lower_bound
+          - btree/set/iterate
+          - btree/vector/insert
+          - btree/vector/erase
+          - btree/vector/reverse
+          - btree/vector/access
+          - btree/vector/access_random
+          - btree/vector/split_merge
+          - btree/vector/range_erase
+          - btree/vector/iterate
+          - btree/vector/iterate_interleaved_reverse
+          - btree/segtree/prod
+          - btree/segtree/insert
+          - btree/segtree/erase
+          - btree/segtree/reverse
+          - btree/segtree/access
+          - btree/segtree/access_random
+          - btree/segtree/split_merge
+          - btree/segtree/range_erase
+          - btree/segtree/max_right
+          - btree/segtree/min_left
+          - btree/segtree/iterate
+          - btree/segtree/iterate_interleaved_reverse
+          - btree/lazysegtree/prod
+          - btree/lazysegtree/apply
+          - btree/lazysegtree/insert
+          - btree/lazysegtree/erase
+          - btree/lazysegtree/reverse
+          - btree/lazysegtree/access
+          - btree/lazysegtree/access_random
+          - btree/lazysegtree/split_merge
+          - btree/lazysegtree/range_erase
+          - btree/lazysegtree/max_right
+          - btree/lazysegtree/min_left
+          - btree/lazysegtree/iterate
+          - btree/lazysegtree/iterate_interleaved_reverse
+          - btree/lazysegtree/iterate_interleaved_apply
+          - btree/set/mixed_uniform
+          - btree/set/mixed_edges
+          - btree/set/mixed_hotspot
+          - btree/vector/mixed_uniform
+          - btree/vector/mixed_edges
+          - btree/vector/mixed_hotspot
+          - btree/segtree/mixed_uniform
+          - btree/segtree/mixed_edges
+          - btree/segtree/mixed_hotspot
+          - btree/lazysegtree/mixed_uniform
+          - btree/lazysegtree/mixed_edges
+          - btree/lazysegtree/mixed_hotspot
+          - btree/set/mixed_growth
+          - btree/set/mixed_shrink
+          - btree/vector/mixed_growth
+          - btree/vector/mixed_shrink
+          - btree/segtree/mixed_growth
+          - btree/segtree/mixed_shrink
+          - btree/lazysegtree/mixed_growth
+          - btree/lazysegtree/mixed_shrink
         default: all
       caps:
         description: Node capacities
@@ -31,7 +99,12 @@ on:
         default: '5'
 
 permissions:
-  contents: read
+  contents: write
+
+# Serialized with Performance benchmarks: both may publish main bests.
+concurrency:
+  group: benchmark-records
+  cancel-in-progress: false
 
 jobs:
   compare:
@@ -100,6 +173,8 @@ jobs:
             printf '{"schema":1,"records":{}}\n' > out/benchmark/best.json
           fi
 
+      # Main owns workload definitions and fixtures; the development worktree
+      # supplies only the library headers used at compilation.
       - name: Compare runtime and peak RSS
         shell: bash
         env:
@@ -108,6 +183,10 @@ jobs:
           BENCHMARK_RUNS: ${{ inputs.runs }}
         run: |
           python3 benchmark/compare.py --base-root "$GITHUB_WORKSPACE" --dev-root "$GITHUB_WORKSPACE/out/benchmark/ab-dev-checkout" --target "$BENCHMARK_TARGET" --caps "$BENCHMARK_CAPS" --runs "$BENCHMARK_RUNS" --baseline out/benchmark/best.json
+
+      - name: Update main best records
+        if: github.ref == 'refs/heads/main'
+        uses: ./.github/actions/push-benchmark-records
 
       - name: Upload comparison results
         if: always()
