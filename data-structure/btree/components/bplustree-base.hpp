@@ -359,6 +359,15 @@ class Base {
     return get_node(root_).template locate<WithLazy>(index);
   }
 
+  /** @brief locateが保証した経路の検証状態をiteratorへ引き継ぐ。 */
+  template <bool WithLazy = false>
+  iterator locate_iterator(size_type index) const {
+    return iterator{
+        locate<WithLazy>(index),
+        WithLazy ? iterator::Validation::Value
+                 : iterator::Validation::Position};
+  }
+
   static iterator mutable_iterator(const const_iterator& it) {
     return iterator{it.leaf_id_};
   }
@@ -418,7 +427,7 @@ class Base {
     return size() == 0;
   }
   iterator nth(size_type index) const {
-    return iterator{locate(index)};
+    return locate_iterator(index);
   }
   iterator bbegin() const {
     return bbegin_;
@@ -462,7 +471,7 @@ class Base {
     return get(size() - 1);
   }
   setter_type operator()(size_type index) {
-    return {iterator{locate(index)}};
+    return {locate_iterator(index)};
   }
 
   void set(size_type index, const T& value) {
@@ -470,7 +479,7 @@ class Base {
   }
 
   iterator insert(size_type index, const T& value) {
-    return insert(iterator{locate<true>(index)}, value);
+    return insert(locate_iterator<true>(index), value);
   }
   iterator insert(iterator pos, const T& value) {
     auto& leaf = get_leaf(pos.leaf_id_);
@@ -492,8 +501,7 @@ class Base {
   }
 
   iterator erase(size_type index) {
-    auto leaf = locate(index);
-    return erase(iterator{leaf});
+    return erase(locate_iterator(index));
   }
 
   iterator erase(iterator pos) {
