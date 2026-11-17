@@ -1,0 +1,187 @@
+name: Temporary iterator assembly comparison
+
+on:
+  push:
+    branches:
+      - experiment/bplustree-iterator-asm-20261117
+
+permissions:
+  contents: read
+
+jobs:
+  compare-assembly:
+    runs-on: ubuntu-24.04
+    container: gcc:15.2
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare dependencies and identical source trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v python3 >/dev/null; then
+            apt-get update -qq
+            apt-get install -y -qq python3 binutils
+          fi
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          mkdir -p .deps out/assembly
+          git clone https://github.com/atcoder/ac-library .deps/ac-library
+          git -C .deps/ac-library checkout --detach 864245a00b00dd008d1abfdc239618fdb7d139da
+          for record in \
+            "single 01d766f7f8a97b6b5db2e650f5765d3c68d40b48" \
+            "split b6bef542f8eac821731c08e8319354df27ec3359" \
+            "optimized e233df156cafbd956874344bdac27471dcbc7438"; do
+            read -r name sha <<< "$record"
+            git fetch --no-tags origin "$sha"
+            git worktree add --detach "$GITHUB_WORKSPACE/out/assembly/$name" FETCH_HEAD
+            git config --global --add safe.directory "$GITHUB_WORKSPACE/out/assembly/$name"
+            mkdir -p "$GITHUB_WORKSPACE/out/assembly/$name/.deps"
+            ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$GITHUB_WORKSPACE/out/assembly/$name/.deps/ac-library"
+          done
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          git worktree add --detach "$GITHUB_WORKSPACE/out/assembly/main" refs/remotes/origin/main
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/out/assembly/main"
+          echo "Compiler: $(g++ --version | head -1)"
+          echo "Flags: -std=c++23 -O2 -Wall -Wextra -I. -Idebug -I.deps/ac-library -DNODE_CAP=32"
+      - name: Build identical annotated iterator loop probes for all versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > out/assembly/probe.cpp <<'CPP'
+          #include <cstdint>
+          #include <functional>
+          #include <atcoder/modint>
+          #include "data-structure/btree/bplustree-set.hpp"
+          #include "data-structure/btree/bplustree-vector.hpp"
+          #include "data-structure/btree/bplustree-segtree.hpp"
+          #include "data-structure/btree/bplustree-lazysegtree.hpp"
+          #ifndef NODE_CAP
+          #define NODE_CAP 32
+          #endif
+          using Mint = atcoder::modint998244353;
+          using Set = Bplustree_Set<long long, SetType::Set, std::less<long long>, NODE_CAP>;
+          using Vec = Bplustree_Vector<long long, NODE_CAP>;
+          using Seg = Bplustree_Segtree<AffineMonoid<Mint>, NODE_CAP>;
+          using Lazy = AffineSumLazySegtree<Mint, NODE_CAP>;
+          extern "C" __attribute__((used, noinline))
+          unsigned long long probe_set(const Set& tree) {
+            unsigned long long sum = 0;
+            for (const auto& value : tree) sum += static_cast<unsigned long long>(value);
+            return sum;
+          }
+          extern "C" __attribute__((used, noinline))
+          unsigned long long probe_vector(const Vec& tree) {
+            unsigned long long sum = 0;
+            for (const auto& value : tree) sum += static_cast<unsigned long long>(value);
+            return sum;
+          }
+          extern "C" __attribute__((used, noinline))
+          unsigned long long probe_segtree(const Seg& tree) {
+            unsigned long long sum = 0;
+            for (const auto& value : tree)
+              sum += static_cast<unsigned long long>(value.first.val()) +
+                     static_cast<unsigned long long>(value.second.val());
+            return sum;
+          }
+          extern "C" __attribute__((used, noinline))
+          unsigned long long probe_lazysegtree(const Lazy& tree) {
+            unsigned long long sum = 0;
+            for (const auto& value : tree)
+              sum += static_cast<unsigned long long>(value.val());
+            return sum;
+          }
+          CPP
+          for version in single split optimized; do
+            dir="$GITHUB_WORKSPACE/out/assembly/$version"
+            echo "::group::Building $version @ $(git -C "$dir" rev-parse --short HEAD)"
+            (
+              cd "$dir"
+              g++ -std=c++23 -O2 -Wall -Wextra -I. -Idebug -I.deps/ac-library \
+                -DNODE_CAP=32 -c "$GITHUB_WORKSPACE/out/assembly/probe.cpp" \
+                -o "$GITHUB_WORKSPACE/out/assembly/$version.o"
+            )
+            objdump -drwC -M intel "$GITHUB_WORKSPACE/out/assembly/$version.o" \
+              > "$GITHUB_WORKSPACE/out/assembly/$version.disasm"
+            nm -C -S "$GITHUB_WORKSPACE/out/assembly/$version.o" \
+              > "$GITHUB_WORKSPACE/out/assembly/$version.symbols"
+            echo "::endgroup::"
+          done
+      - name: Analyze instruction counts, branches and calls in inline iterator loops
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, json, collections, difflib
+          root = Path('out/assembly')
+          variants = ('single', 'split', 'optimized')
+          names = ('probe_set', 'probe_vector', 'probe_segtree', 'probe_lazysegtree')
+          def parse(path):
+              result, current = {}, None
+              for line in path.read_text().splitlines():
+                  head = re.match(r'^[0-9a-f]+ <([^>]+)>:$', line)
+                  if head:
+                      current = head.group(1)
+                      result.setdefault(current, [])
+                      continue
+                  if current is None:
+                      continue
+                  m = re.match(r'^\s*([0-9a-f]+):\s*(?:[0-9a-f]{2}\s+)+\s*(\S+)(?:\s+(.*))?$', line)
+                  if m:
+                      result[current].append((m.group(2), m.group(3) or '', line.strip()))
+              return result
+          data = {v: parse(root / f'{v}.disasm') for v in variants}
+          summary={}
+          for name in names:
+              print(f'\n### {name}, capacity=32 (actual C++ range-for, -O2)')
+              for variant in variants:
+                  body = data[variant].get(name)
+                  if body is None:
+                      raise RuntimeError(f'probe symbol missing: {variant} {name}')
+                  cnt=collections.Counter(x[0] for x in body)
+                  calls=[s[2] for s in body if s[0].startswith('call')]
+                  nbranch=sum(x[0].startswith('j') for x in body)
+                  print(f'{variant}: {len(body)} instructions, {nbranch} jumps, {len(calls)} calls, '
+                        f'mov={sum(n for k,n in cnt.items() if k.startswith("mov"))}, '
+                        f'cmp/test={sum(n for k,n in cnt.items() if k.startswith(("cmp", "test")))}')
+                  for c in calls[:15]:
+                      print('  call '+c)
+                  summary.setdefault(name,{})[variant]={'total':len(body),
+                      'jumps':nbranch,'calls':len(calls),'mnemonics':dict(cnt)}
+              base=data['single'][name]
+              end=data['optimized'][name]
+              print('  single first 35 instructions:')
+              for ins in base[:35]: print('  '+ins[2])
+              print('  optimized first 35 instructions:')
+              for ins in end[:35]: print('  '+ins[2])
+          (root/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2))
+          PY
+      - name: Compile exact benchmark iterate object files with the original flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          for version in single split optimized; do
+            dir="$GITHUB_WORKSPACE/out/assembly/$version"
+            for structure in set vector segtree lazysegtree; do
+              source="$GITHUB_WORKSPACE/out/assembly/main/benchmark/btree/$structure/iterate/benchmark.cpp"
+              (
+                cd "$dir"
+                g++ -std=c++23 -O2 -Wall -Wextra -I. -Idebug -I.deps/ac-library \
+                  -DNODE_CAP=32 -c "$source" \
+                  -o "$GITHUB_WORKSPACE/out/assembly/actual-$version-$structure.o"
+              )
+              objdump -drwC -M intel "$GITHUB_WORKSPACE/out/assembly/actual-$version-$structure.o" \
+                > "$GITHUB_WORKSPACE/out/assembly/actual-$version-$structure.disasm"
+            done
+          done
+          echo "Exact benchmark object code generated from Main's benchmark.cpp with each library version."
+      - name: Upload complete assembly for further review
+        uses: actions/upload-artifact@v4
+        with:
+          name: iterator-asm-gcc15-cap32
+          path: |
+            out/assembly/*.disasm
+            out/assembly/*.symbols
+            out/assembly/*.o
+            out/assembly/probe.cpp
+            out/assembly/summary.json
+          retention-days: 14
