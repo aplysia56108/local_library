@@ -1,4 +1,5 @@
 name: Performance benchmarks
+run-name: 'Benchmark ${{ inputs.target }} cap=${{ inputs.caps }} runs=5 @${{ github.ref_name }}'
 
 on:
   workflow_dispatch:
