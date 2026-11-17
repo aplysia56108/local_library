@@ -236,17 +236,33 @@ struct Internal : Traits::Node {
 
   /** @brief 構造情報を再走査せず、派生クラスの集約情報を更新する。 */
   void refresh_metadata() {}
+  /**
+   * @brief metadata と reverse/lazy の経路をノード種別で静的に分ける。
+   */
+  template <bool IsBottom>
+  void refresh_typed() {
+    if constexpr (requires(I& node) {
+                    node.template refresh_metadata_typed<IsBottom>();
+                  }) {
+      static_cast<I*>(this)->template refresh_metadata_typed<IsBottom>();
+    } else {
+      static_cast<I*>(this)->refresh_metadata();
+    }
+  }
   void refresh() {
-    static_cast<I*>(this)->refresh_metadata();
+    if (level == 0)
+      refresh_typed<true>();
+    else
+      refresh_typed<false>();
   }
 
-  void apply_reverse() {
+  template <bool IsBottom>
+  void apply_reverse_typed() {
     if (!is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
     is_reversed = false;
-    if (level == 0) {
-      // Reversing the physical array does not change the logical path.
-      // Swap its physical entry ports and repair both reciprocal links.
+
+    if constexpr (IsBottom) {
       auto& data = bottom();
       std::swap(data.links[0], data.links[1]);
       data.ports_swapped = !data.ports_swapped;
@@ -257,10 +273,17 @@ struct Internal : Traits::Node {
           Pools::bottom(next.node).links[next.port] = {self, port};
       }
     }
+
     for (pos_type i = 0; i < count; ++i) {
-      this->template move_child<false>(i, children[i]);
-      if (level) get_child(i).push_reverse();
+      this->template move_child_typed<IsBottom, false>(i, children[i]);
+      if constexpr (!IsBottom) get_child(i).push_reverse();
     }
+  }
+  void apply_reverse() {
+    if (level == 0)
+      apply_reverse_typed<true>();
+    else
+      apply_reverse_typed<false>();
   }
   void push_reverse() {
     is_reversed = !is_reversed;
@@ -268,11 +291,24 @@ struct Internal : Traits::Node {
   }
   void push_reverse_impl() {}
   void apply_lazy() {}
-  void materialize() {
-    apply_reverse();
-    static_cast<I*>(this)->apply_lazy();
-  }
 
+  template <bool IsBottom>
+  void materialize_typed() {
+    apply_reverse_typed<IsBottom>();
+    if constexpr (requires(I& node) {
+                    node.template apply_lazy_typed<IsBottom>();
+                  }) {
+      static_cast<I*>(this)->template apply_lazy_typed<IsBottom>();
+    } else {
+      static_cast<I*>(this)->apply_lazy();
+    }
+  }
+  void materialize() {
+    if (level == 0)
+      materialize_typed<true>();
+    else
+      materialize_typed<false>();
+  }
 
   /** @return 満杯になり直ちに split が必要なら true。 */
   bool insert(id_type child, pos_type index) {
