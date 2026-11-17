@@ -29,8 +29,8 @@ class Base {
   using value_type = typename Traits::T;
   using size_type = std::size_t;
   using difference_type = std::ptrdiff_t;
-  using const_iterator = Iterator<Traits, Base, true, false>;
-  using iterator = Iterator<Traits, Base, false, false>;
+  using const_iterator = Iterator<Traits, Base, true>;
+  using iterator = Iterator<Traits, Base, false>;
   using const_reverse_iterator = std::reverse_iterator<const_iterator>;
   using reverse_iterator = std::reverse_iterator<iterator>;
   using setter_type = Setter<Base>;
@@ -67,8 +67,8 @@ class Base {
       return T{};
   };
 
-  template <bool IsConst, bool VisitAll>
-  static id_type get_id(const Iterator<Traits, Base, IsConst, VisitAll>& it) {
+  template <bool IsConst>
+  static id_type get_id(const Iterator<Traits, Base, IsConst>& it) {
     return it.leaf_id_;
   }
 
