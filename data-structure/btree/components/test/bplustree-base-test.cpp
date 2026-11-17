@@ -232,6 +232,9 @@ template <std::size_t Capacity>
 void iterator_epoch_tests() {
   using Traits = Bplustree::Traits<long long, Capacity>;
   using Epoch = Bplustree::IteratorEpoch<Traits>;
+  // LazyのないIteratorはLeaf IDと位置epochだけを保持する。
+  static_assert(sizeof(typename Tree<Capacity>::iterator) <= 16);
+  static_assert(sizeof(typename Tree<Capacity>::const_iterator) <= 16);
   Tree<Capacity> tree;
   std::vector<long long> expected;
   for (long long i = 0; i < 96; ++i) {
