@@ -43,10 +43,21 @@ struct SetTraits<Key, Capacity>::Internal
     return Pools::leaves()[min_leaf_id].get();
   }
 
+  template <bool IsBottom>
+  void refresh_metadata_typed() {
+    if (this->count == 0) {
+      min_leaf_id = Pools::null_id;
+    } else if constexpr (IsBottom) {
+      min_leaf_id = this->children[0];
+    } else {
+      min_leaf_id = this->get_child(0).min_leaf_id;
+    }
+  }
   void refresh_metadata() {
-    min_leaf_id = this->count == 0 ? Pools::null_id
-                  : this->level    ? this->get_child(0).min_leaf_id
-                                   : this->children[0];
+    if (this->level == 0)
+      refresh_metadata_typed<true>();
+    else
+      refresh_metadata_typed<false>();
   }
 };
 
