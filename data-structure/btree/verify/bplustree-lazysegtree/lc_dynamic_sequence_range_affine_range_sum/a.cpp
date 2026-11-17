@@ -108,7 +108,7 @@ void solve() {
   vi a(n);
   cin >> a;
 
-  AffineSumLazySegtree<mint, 15> seg(all(a));
+  AffineSumLazySegtree<mint, 16> seg(all(a));
 
   rep(i, q) {
     int t;

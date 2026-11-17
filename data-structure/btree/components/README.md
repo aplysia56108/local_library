@@ -36,17 +36,51 @@ struct MyTraits {
 struct MyTraits::Internal : Bplustree::Internal<MyTraits> {
   using Bplustree::Internal<MyTraits>::Internal;
   long long aggregate = 0;
-  void after_sync(); // level==0ならLeafの値、その他は子Internalの積
+  void refresh_metadata(); // level==0ならLeafの値、その他は子Internalの積
 };
 ```
 
 派生コンテナはprotectedのroot_、Node/Leaf/Internal型、buildなどを利用できます。
-集約値を持つ場合はInternalのafter_syncを実装します。通常状態はcount < NodeCapで、
+集約値を持つ場合はInternalのrefresh_metadataを実装します。通常状態はcount < NodeCapで、
 insertがtrueを返した場合は直ちにsplitします。
 
 BaseのsplitはBase型を返します。派生型はBaseのムーブコンストラクタへ渡す
 引数を受けるコンストラクタを用意すると、追加の全要素コピーなしで結果を
 引き継げます。状態を持つ比較器などは派生型側で引き継ぎを管理してください。
+
+## Poolの初期化とアクセスコスト
+
+`NodePools<Traits>` はLeafとInternalを、Traitsごとに共有する2つのPoolで保持します。
+Poolの実体は `inline static constinit ObjectPool<...>` とし、
+`leaves()` / `internals()` はその参照を返します。
+
+関数内の `static ObjectPool` は、初回アクセス時の初期化・デストラクタ登録を
+管理するガードがGCC 15.2の最適化後にも残り、ノード探索で繰り返し評価されます。
+`constinit` と `ObjectPool` の `constexpr` デフォルトコンストラクタを
+組み合わせることで、プールの初期化を静的初期化として保証し、
+ホットパス上のガード判定を除きます。
+
+`NodePools` のPoolは引き続きTraits単位で共有され、Leaf/Node IDの意味や
+構造操作の振る舞いは変わりません。グローバルなTreeの構築・破棄もテスト対象です。
+
+## 子の差分移動と不変条件
+
+`Internal::move_child` で `children` / `count` / `size` / 子の `parent` /
+`position` を差分更新します。`sync()` は廃止し、`refresh()` は
+派生側の `refresh_metadata()` だけを実行します。祖先への `size` 変化は
+挿入・削除・splitの処理側が伝搬します。
+
+`children[0, count)` のみ有効です。`count` 以降の値は未規定で、
+末尾の `null_id` クリアは不要です。移動途中は一時的に穴ができる場合が
+ありますが、構造変更を完了するまで検索・集約を呼びません。
+
+- `move_child<false>`: 同一親で位置変更。要素数は変えない。
+- `move_child<true, false>`: 新規子や親のない部分木を配置する。
+- `move_child<true, true>`: 元の親から suffix を切り離して移す。
+
+最後の操作では元の親の `count` が縮むため、右端から順に移します。
+`count` の退避が必要な移動ループには、理由をコメントで残します。
+子ノードを元の親の途中から単独で取り除く操作には使えません。
 
 ## 遅延更新と反転のフック
 
@@ -57,7 +91,7 @@ push_reverseはフラグを付け、apply_reverseが並び替えと子へのフ�
 遅延タグを付けるときは、そのInternalの集約値を直ちに論理上の値へ更新してください。
 Leafは遅延タグを持たず、作用を受けた時点で要素の値を書き換えます。
 非可換モノイドでの反転では順方向・逆方向の集約値を保持し、派生push_reverseで
-基本フラグを反転するとともに両集約値を交換します。after_syncは残っている
+基本フラグを反転するとともに両集約値を交換します。refresh_metadataは残っている
 遅延タグも考慮し、子の論理上の集約値から計算してください。
 
 ## Setter
@@ -84,8 +118,10 @@ setterをさらに継承する場合は、コンストラクタとoperator=をus
 位置探索・点更新・挿入削除・split/mergeは通常 O(NodeCap × 木の高さ)、
 全体反転はO(1)、部分反転はsplit/mergeを使います。一括構築はO(N)、
 resizeによる追加は点挿入を繰り返します。連続した削除で疎なノードが残るため、
-メモリを詰め直す場合はrebuildを使います。反転などの構造変更後はiteratorを
-取り直してください。例外を投げる要素型に対する強い例外保証は提供しません。
+メモリを詰め直す場合はrebuildを使います。既存のiteratorは、指しているLeafが
+消えない限り、反転・挿入・split/merge後もLeaf IDを追跡できます。iteratorの
+キャッシュは世代更新時に自動的に再検証されます。例外を投げる要素型に対する
+強い例外保証は提供しません。
 
 test/にはvectorとの操作列比較、Setの安全なAPI公開例、加算・区間和の遅延拡張、
 文字列連結の非可換集約と反転、setterの作用型・制約の回帰テストがあります。
@@ -142,3 +178,31 @@ falseへ高々1回変わるものとし、空区間の単位元には呼び出�
 
 公開APIの新規テストは `data-structure/btree/test/` に配置します。旧テストは廃止し、
 重い乱択・パフォーマンス検証はverifyに委ねます。
+
+### iteratorの位置・値epochキャッシュ
+
+`IteratorEpoch<Traits>::position` と `IteratorEpoch<Traits>::value` は
+同じTraitsの木で共有する独立した世代です。iteratorはLeaf IDのほかに、
+位置経路（Reverse）と値経路（Lazy）の検証済み世代を保持します。
+
+- `reverse()` は位置世代だけ、`apply()` は値世代だけ進めます。
+  部分反転の分割・統合や、insert/erase/split/merge/assign/swapなどの
+  構造変更は両方の世代を保守的に進めます。
+- `++` / `--` / `+=` / イテレータ差分はReverseのみ伝搬し、
+  値を読まない場合の高価なLazy適用を回避します。
+- `Traits::lazy == false` の場合、`if constexpr` で値epochの
+  検証と更新を生成しません。値epochメンバも空型で置き換え、
+  `[[no_unique_address]]` によりメモリを使わず、位置epochのみで判定します。
+  LazySegtreeと、`lazy`フラグ未宣言の拡張Traitsだけが2種類のepochを追跡します。
+  カスタムTraitsがLazyを持たないことを確約できる場合にだけ`lazy = false`を
+  宣言してください（互換性のため未宣言はLazyありとして扱います）。
+- `operator*()` は必要な場合だけLazyを含め経路をmaterializeします。
+  連続走査では、新しい下降経路に未伝搬Lazyがなければ値キャッシュも
+  引き継ぎ、毎回の根への走査を避けます。
+- 一度値を確定したLeafから移動した際、下降経路に未伝搬Lazyが
+  あれば値キャッシュだけを無効化します。
+  位置キャッシュはそのまま有効です。
+- 木の所属はsplit/merge/swapで変わるため、`Tree*`ではなくTraits単位で
+  共有します。無関係な木の変更でも保守的な失効があり得ます。
+  epochはキャッシュにのみ使い、iteratorの等価性はLeaf IDで判定します。
+  Leafをeraseした場合のiteratorは無効です。
