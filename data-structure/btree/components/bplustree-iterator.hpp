@@ -169,8 +169,9 @@ class Iterator {
           validated_position_epoch_ = Epoch::position;
           validated_value_epoch_ = value_clean ? Epoch::value : 0;
         } else {
-          // Set / Vector / Segtreeには値epochもLazy検証も不要。
-          leaf_id_ = node.template locate<false>(to_index);
+          // LazyがないTraitsでは、従来と同じlocate<true>を使用する。
+          // apply_lazy()は空なので実行時の伝搬コストは増えない。
+          leaf_id_ = node.template locate<true>(to_index);
           validated_position_epoch_ = Epoch::position;
         }
         return;
