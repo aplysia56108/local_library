@@ -25,6 +25,7 @@ template <class value_type, std::size_t Capacity = 32>
 struct Traits {
   static_assert(3 <= Capacity && Capacity <= 255);
   using T = value_type;
+  static constexpr bool lazy = false;
   static constexpr pos_type kNodeCapacity = Capacity;
   static constexpr pos_type kNodeHalf = Capacity / 2;
   using Node = Bplustree::Node<Traits>;
