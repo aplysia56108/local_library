@@ -8,6 +8,13 @@
 #include <string>
 #include <vector>
 
+inline long long lazy_mapping_calls = 0;
+inline constexpr auto CountedAddSumMapping =
+    [](const long long& f, const long long& x, std::size_t size) {
+      ++lazy_mapping_calls;
+      return x + f * static_cast<long long>(size);
+    };
+
 struct ConcatMonoid {
   using value_type = std::string;
   static value_type e() { return ""; }
@@ -213,6 +220,80 @@ void iterator_epoch_lazy_tests() {
             << Capacity << ")\n";
 }
 
+
+/**
+ * @brief 位置操作はLazyを伝搬せず、値参照では正しく伝搬する。
+ * @details 全体反転は位置epochのみ、区間作用は値epochのみ進む。
+ */
+template <std::size_t Capacity>
+void iterator_split_epoch_lazy_deferral_tests() {
+  // 関数内ラムダによるローカル型の複数実体化を避け、
+  // テストするTraitsを明示的に同定できるようにする。
+  using LazyAction =
+      Action<long long, long long, CountedAddSumMapping, AddComposition>;
+  using Traits = Bplustree::AggregateTraits<SumMonoid, LazyAction, true,
+                                             Capacity>;
+  using Tree = Bplustree_LazySegtree<SumMonoid, LazyAction, true, Capacity>;
+  static_assert(std::same_as<typename Tree::traits_type, Traits>);
+  using Epoch = Bplustree::IteratorEpoch<Traits>;
+  // LazyありのIteratorは位置と値の両epochを保持する。
+  static_assert(sizeof(typename Tree::iterator) >
+                sizeof(Bplustree::Iterator<
+                    Bplustree::Traits<long long, Capacity>,
+                    Bplustree::Base<Bplustree::Traits<long long, Capacity>>,
+                    false>));
+
+  std::vector<long long> values(96);
+  std::iota(values.begin(), values.end(), 0LL);
+  Tree tree(values.begin(), values.end());
+  auto it = tree.nth(12);
+  assert(*it == 12);
+
+  const auto position_before_apply = Epoch::position;
+  const auto value_before_apply = Epoch::value;
+  tree.all_apply(7);
+  assert(Epoch::position == position_before_apply);
+  assert(Epoch::value != value_before_apply);
+
+  const auto mappings_after_apply = lazy_mapping_calls;
+  ++it;
+  it += 2;
+  --it;
+  assert(lazy_mapping_calls == mappings_after_apply);
+  assert(tree.end() - it == 96 - 14);
+  assert(lazy_mapping_calls == mappings_after_apply);
+  assert(*it == 21);
+  assert(lazy_mapping_calls > mappings_after_apply);
+
+  const auto value_before_reverse = Epoch::value;
+  const auto position_before_reverse = Epoch::position;
+  tree.reverse();
+  assert(Epoch::position != position_before_reverse);
+  assert(Epoch::value == value_before_reverse);
+  assert(*it == 21);
+  assert(tree.end() - it == 15);
+
+  const auto position_before_second_apply = Epoch::position;
+  const auto value_before_second_apply = Epoch::value;
+  tree.all_apply(5);
+  assert(Epoch::position == position_before_second_apply);
+  assert(Epoch::value != value_before_second_apply);
+  const auto mappings_before_moving = lazy_mapping_calls;
+  ++it;
+  assert(lazy_mapping_calls == mappings_before_moving);
+  assert(*it == 25);  // 反転後の次要素は元の13番目: 13+7+5。
+
+  auto snapshot = tree;
+  std::vector<long long> expected(values.size());
+  for (std::size_t i = 0; i < values.size(); ++i)
+    expected[i] = values[values.size() - i - 1] + 12;
+  assert(std::equal(tree.begin(), tree.end(), expected.begin(), expected.end()));
+  assert(std::equal(snapshot.begin(), snapshot.end(),
+                    expected.begin(), expected.end()));
+  std::cerr << "split epoch lazy deferral tests passed! (capacity="
+            << Capacity << ")\n";
+}
+
 int main() {
   leaf_storage_tests<4>();
   leaf_storage_tests<8>();
@@ -229,5 +310,8 @@ int main() {
   iterator_epoch_lazy_tests<4>();
   iterator_epoch_lazy_tests<8>();
   iterator_epoch_lazy_tests<16>();
+  iterator_split_epoch_lazy_deferral_tests<4>();
+  iterator_split_epoch_lazy_deferral_tests<8>();
+  iterator_split_epoch_lazy_deferral_tests<16>();
   std::cerr << "All B+tree aggregate test cases passed!\n";
 }

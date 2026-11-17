@@ -232,6 +232,9 @@ template <std::size_t Capacity>
 void iterator_epoch_tests() {
   using Traits = Bplustree::Traits<long long, Capacity>;
   using Epoch = Bplustree::IteratorEpoch<Traits>;
+  // LazyのないIteratorはLeaf IDと位置epochだけを保持する。
+  static_assert(sizeof(typename Tree<Capacity>::iterator) <= 16);
+  static_assert(sizeof(typename Tree<Capacity>::const_iterator) <= 16);
   Tree<Capacity> tree;
   std::vector<long long> expected;
   for (long long i = 0; i < 96; ++i) {
@@ -242,7 +245,7 @@ void iterator_epoch_tests() {
   auto saved = tree.nth(23);
   auto copy = saved;
   assert(*saved == 2300);
-  const auto initial_epoch = Epoch::current;
+  const auto initial_epoch = Epoch::position;
   // 読み取りとコピーではepochを変えない。キャッシュが違っても同じLeaf。
   assert(saved == copy);
   const auto verify = [&]() {
@@ -260,11 +263,11 @@ void iterator_epoch_tests() {
     assert(saved == copy);
   };
   verify();
-  assert(Epoch::current == initial_epoch);
+  assert(Epoch::position == initial_epoch);
 
   tree.reverse(7, 71);
   std::reverse(expected.begin() + 7, expected.begin() + 71);
-  assert(Epoch::current != initial_epoch);
+  assert(Epoch::position != initial_epoch);
   verify();
   tree.reverse();
   std::reverse(expected.begin(), expected.end());
@@ -314,9 +317,11 @@ void iterator_epoch_reverse_sentinels_test() {
   assert(old_bbegin == tree.bbegin());
   assert(old_end == tree.end());
 
-  const auto old_epoch = Epoch::current;
+  const auto old_epoch = Epoch::position;
+  const auto old_value_epoch = Epoch::value;
   tree.reverse();
-  assert(Epoch::current != old_epoch);
+  assert(Epoch::position != old_epoch);
+  assert(Epoch::value == old_value_epoch);
 
   // 反転後、旧左番兵が右番兵に、旧右番兵が左番兵になる。
   assert(old_bbegin == tree.end());

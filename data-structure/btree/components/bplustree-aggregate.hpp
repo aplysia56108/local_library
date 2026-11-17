@@ -355,7 +355,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     assert(first <= last && last <= size());
     if (first == last) return;
     apply_recursive(Parent::get_node(this->root_), first + 1, last + 1, f);
-    Epoch::invalidate();
+    Epoch::invalidate_value();
   }
   void all_apply(const F& f)
     requires(Traits::lazy)

@@ -28,24 +28,33 @@
 namespace Bplustree {
 
 /**
- * @brief Iteratorの経路キャッシュを無効化するための世代管理。
+ * @brief Iteratorの位置経路と値経路のキャッシュを別々に管理する世代。
  * @details 同一Traitsの木で共有する。split/merge/swapでLeafの所属木が変わっても、
  * IteratorはTreeへの参照を持たずに経路キャッシュを再検証できる。
  * 0はIteratorの未検証状態を表すため、世代値には使用しない。
  */
 template <class Traits>
 struct IteratorEpoch {
-  inline static std::uint64_t current = 1;
+  inline static std::uint64_t position = 1;
+  inline static std::uint64_t value = 1;
 
-  static void invalidate() noexcept {
-    ++current;
-    if (current == 0) ++current;
+  static void invalidate_position() noexcept {
+    ++position;
+    if (position == 0) ++position;
+  }
+  static void invalidate_value() noexcept {
+    ++value;
+    if (value == 0) ++value;
+  }
+  static void invalidate_all() noexcept {
+    invalidate_position();
+    invalidate_value();
   }
 };
 
-template <class Traits, class Tree, bool IsConst, bool VisitAll = false>
+template <class Traits, class Tree, bool IsConst>
 class Iterator {
-  template <class, class, bool, bool>
+  template <class, class, bool>
   friend class Iterator;
   friend Tree;
 
@@ -59,9 +68,24 @@ class Iterator {
   using id_type = typename Pools::id_type;
   static constexpr id_type null_id = NodePools<Traits>::null_id;
 
+  static constexpr bool HasLazy = [] {
+    if constexpr (requires { Traits::lazy; })
+      return Traits::lazy;
+    else
+      // 既存のカスタムTraitsはlazy宣言なしでapply_lazy()を実装できる。
+      // 未宣言の場合は安全のためLazyありとして扱う。
+      return true;
+  }();
+
+  // LazyがないTraitsでは値epochのキャッシュ自体を保持しない。
+  // [[no_unique_address]] により空のメンバに領域を割り当てない。
+  struct NoValueEpoch {};
+  using ValueEpoch = std::conditional_t<HasLazy, std::uint64_t, NoValueEpoch>;
+
   id_type leaf_id_ = null_id;
-  // そのLeafの祖先経路を最後にmaterializeした世代。0は未検証。
-  mutable std::uint64_t validated_epoch_ = 0;
+  // 0は未検証。値epochはLazyをサポートするTraitsでのみ保持する。
+  mutable std::uint64_t validated_position_epoch_ = 0;
+  [[no_unique_address]] mutable ValueEpoch validated_value_epoch_{};
 
   static Leaf& get_leaf(const id_type& id) {
     return Pools::leaves()[id];
@@ -71,6 +95,12 @@ class Iterator {
   }
   Leaf& this_leaf() const {
     return get_leaf(leaf_id_);
+  }
+
+  static void reverse_path(id_type node_id) {
+    auto& node = get_node(node_id);
+    if (node.parent != null_id) reverse_path(node.parent);
+    node.apply_reverse();
   }
 
   static void materialize_path(id_type node_id) {
@@ -83,14 +113,24 @@ class Iterator {
     materialize_path(this_leaf().parent);
   }
 
-  /** @brief 更新がなければ、現在のLeafまでの祖先走査を省略する。 */
-  void ensure_materialized_path() const {
-    if constexpr (!VisitAll) {
-      const auto epoch = Epoch::current;
-      if (validated_epoch_ != epoch) {
+  /** @brief 位置確定ではReverseだけを伝搬し、Lazyは保持する。 */
+  void ensure_position_path() const {
+    if (validated_position_epoch_ != Epoch::position) {
+      reverse_path(this_leaf().parent);
+      validated_position_epoch_ = Epoch::position;
+    }
+  }
+
+  /** @brief Lazyがなければ位置経路だけ、あれば必要時に値経路を確定する。 */
+  void ensure_value_path() const {
+    if constexpr (HasLazy) {
+      if (validated_value_epoch_ != Epoch::value) {
         materialize_path();
-        validated_epoch_ = epoch;
+        validated_value_epoch_ = Epoch::value;
+        validated_position_epoch_ = Epoch::position;
       }
+    } else {
+      ensure_position_path();
     }
   }
 
@@ -106,20 +146,39 @@ class Iterator {
 
   void advance(std::ptrdiff_t offset) {
     assert(leaf_id_ != null_id);
-    // reverseで変わるLeafのpositionを、epochが古い場合だけ確定する。
-    ensure_materialized_path();
+    // 移動時はReverseだけ確定し、値を読まない要素のLazyは保持する。
+    ensure_position_path();
     auto& leaf = this_leaf();
     std::ptrdiff_t to_index =
         static_cast<std::ptrdiff_t>(leaf.position) + offset;
     id_type node_id = leaf.parent;
 
+    if constexpr (!HasLazy) {
+      // Leafの親は必ず最下層Internal（level == 0）。
+      // positionを確定した後、同じ親の中なら汎用locateを使わずに
+      // 子IDを直接取得できる。位置epochはすでに検証済み。
+      auto& bottom = get_node(node_id);
+      if (0 <= to_index &&
+          to_index < static_cast<std::ptrdiff_t>(bottom.count)) {
+        leaf_id_ = bottom.children[static_cast<std::size_t>(to_index)];
+        return;
+      }
+    }
+
     while (true) {
       auto& node = get_node(node_id);
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node.size)) {
-        // 新しいLeafの経路だけを降りながらmaterializeする。
-        // これで次のoperator*とadvanceでは根までの走査が不要になる。
-        leaf_id_ = node.template locate<true>(to_index);
-        if constexpr (!VisitAll) validated_epoch_ = Epoch::current;
+        if constexpr (HasLazy) {
+          // Lazyありの場合だけ、値epochと未伝搬タグを確認する。
+          bool value_clean = validated_value_epoch_ == Epoch::value;
+          leaf_id_ = node.template locate<false>(to_index, &value_clean);
+          validated_position_epoch_ = Epoch::position;
+          validated_value_epoch_ = value_clean ? Epoch::value : 0;
+        } else {
+          // Set / Vector / Segtreeには値epochもLazy検証も不要。
+          leaf_id_ = node.template locate<false>(to_index);
+          validated_position_epoch_ = Epoch::position;
+        }
         return;
       }
       assert(node.parent != null_id);
@@ -141,15 +200,18 @@ class Iterator {
   Iterator() = default;
   explicit Iterator(id_type leaf_id) : leaf_id_(leaf_id) {}
 
-  template <bool OtherConst, bool OtherVisitALL>
+  template <bool OtherConst>
     requires(IsConst && !OtherConst)
-  Iterator(const Iterator<Traits, Tree, OtherConst, OtherVisitALL>& other)
+  Iterator(const Iterator<Traits, Tree, OtherConst>& other)
       : leaf_id_(other.leaf_id_),
-        validated_epoch_(OtherVisitALL ? 0 : other.validated_epoch_) {}
+        validated_position_epoch_(other.validated_position_epoch_) {
+    if constexpr (HasLazy)
+      validated_value_epoch_ = other.validated_value_epoch_;
+  }
 
   reference operator*() const {
     assert(leaf_id_ != null_id);
-    ensure_materialized_path();
+    ensure_value_path();
     return this_leaf().get();
   }
 
@@ -157,16 +219,10 @@ class Iterator {
     return std::addressof(operator*());
   }
 
-  void init() const
-    requires VisitAll
-  {
-    materialize_path();
-  };
-
   void set(const T& value) const
     requires(!IsConst)
   {
-    ensure_materialized_path();
+    ensure_value_path();
     this_leaf().set(value);
     refresh_path();
   }
@@ -215,8 +271,8 @@ class Iterator {
   }
 
   friend std::ptrdiff_t operator-(const Iterator& lhs, const Iterator& rhs) {
-    lhs.ensure_materialized_path();
-    rhs.ensure_materialized_path();
+    lhs.ensure_position_path();
+    rhs.ensure_position_path();
 
     id_type l_node_id = get_leaf(lhs.leaf_id_).parent;
     std::ptrdiff_t l_index = get_leaf(lhs.leaf_id_).position;
