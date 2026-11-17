@@ -102,20 +102,18 @@ class Iterator {
   }
 
   static void reverse_path(id_type node_id) {
-    auto& node = get_node(node_id);
-    if (node.parent != null_id) reverse_path(node.parent);
-    Pools::with_internal(node_id, [](auto& typed) {
-      typed.template apply_reverse_typed<
-          Pools::template is_bottom_type<decltype(typed)>>();
+    Pools::with_internal(node_id, [&](auto& node) {
+      if (node.parent != null_id) reverse_path(node.parent);
+      node.template apply_reverse_typed<
+          Pools::template is_bottom_type<decltype(node)>>();
     });
   }
 
   static void materialize_path(id_type node_id) {
-    auto& node = get_node(node_id);
-    if (node.parent != null_id) materialize_path(node.parent);
-    Pools::with_internal(node_id, [](auto& typed) {
-      typed.template materialize_typed<
-          Pools::template is_bottom_type<decltype(typed)>>();
+    Pools::with_internal(node_id, [&](auto& node) {
+      if (node.parent != null_id) materialize_path(node.parent);
+      node.template materialize_typed<
+          Pools::template is_bottom_type<decltype(node)>>();
     });
   }
 
@@ -172,12 +170,11 @@ class Iterator {
   }
 
   static void refresh_path(id_type node_id) {
-    auto& node = get_node(node_id);
-    Pools::with_internal(node_id, [](auto& typed) {
-      typed.template refresh_typed<
-          Pools::template is_bottom_type<decltype(typed)>>();
+    Pools::with_internal(node_id, [&](auto& node) {
+      node.template refresh_typed<
+          Pools::template is_bottom_type<decltype(node)>>();
+      if (node.parent != null_id) refresh_path(node.parent);
     });
-    if (node.parent != null_id) refresh_path(node.parent);
   }
 
   void refresh_path() const {
