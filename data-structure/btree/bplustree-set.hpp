@@ -17,6 +17,7 @@ namespace Bplustree {
 template <class Key, std::size_t Capacity>
 struct SetTraits {
   using T = Key;
+  static constexpr bool lazy = false;
   static constexpr std::size_t kNodeCapacity = Capacity;
   using Node = Bplustree::Node<SetTraits>;
   using Leaf = Bplustree::Leaf<SetTraits>;
