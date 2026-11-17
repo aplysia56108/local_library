@@ -1,0 +1,131 @@
+name: Temporary B+tree cached child sizes A/B
+
+on:
+  push:
+    branches:
+      - experiment/bplustree-cache-child-sizes-20261118
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-compare:
+    runs-on: ubuntu-24.04
+    container: gcc:15.2
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare dependencies and CPU summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v python3 >/dev/null || [[ ! -x /usr/bin/time ]]; then
+            apt-get update -qq
+            apt-get install -y -qq python3 time
+          fi
+          mkdir -p .deps out/tests out/cache-ab/results
+          git clone -q https://github.com/atcoder/ac-library .deps/ac-library
+          git -C .deps/ac-library checkout -q --detach 864245a00b00dd008d1abfdc239618fdb7d139da
+          echo "Compiler: $(g++ --version | head -1)"
+          echo "CPU: $(grep -m1 'model name' /proc/cpuinfo)"
+          echo "Experiment: $(git rev-parse HEAD)"
+      - name: Compile and run full B+tree tests including child size invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in data-structure/btree/components/test/*.cpp data-structure/btree/test/*.cpp; do
+            echo "::group::$file"
+            g++ -std=c++23 -O2 -Wall -Wextra -I. -Idebug -I.deps/ac-library "$file" -o out/tests/cache-child-sizes
+            timeout 90s out/tests/cache-child-sizes
+            echo "::endgroup::"
+          done
+          echo "All B+tree tests passed including child-size cache invariants"
+      - name: Prepare base checkout and identical benchmark fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch --no-tags origin 93d2e61fc470f1562686e218d37da548507e8840
+          git worktree add --detach "$GITHUB_WORKSPACE/out/cache-ab/base" FETCH_HEAD
+          root="$GITHUB_WORKSPACE/out/cache-ab/base"
+          git config --global --add safe.directory "$root"
+          mkdir -p "$root/.deps"
+          ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$root/.deps/ac-library"
+          printf '%s\n' '{"schema":1,"records":{}}' > "$GITHUB_WORKSPACE/out/cache-ab/empty.json"
+          echo "Base: $(git -C "$root" rev-parse HEAD)"
+          echo "Dev: $(git rev-parse HEAD)"
+      - name: Same CPU A/B memory and runtime for read/write/structural operations
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE/out/cache-ab/base"
+          for target in \
+            btree/set/access \
+            btree/set/access_random \
+            btree/set/iterate \
+            btree/set/insert \
+            btree/set/erase \
+            btree/set/lower_bound \
+            btree/vector/access \
+            btree/vector/access_random \
+            btree/vector/iterate \
+            btree/vector/insert \
+            btree/vector/erase \
+            btree/vector/reverse \
+            btree/vector/split_merge \
+            btree/segtree/access \
+            btree/segtree/access_random \
+            btree/segtree/iterate \
+            btree/segtree/insert \
+            btree/segtree/erase \
+            btree/segtree/prod \
+            btree/lazysegtree/access \
+            btree/lazysegtree/access_random \
+            btree/lazysegtree/iterate \
+            btree/lazysegtree/insert \
+            btree/lazysegtree/erase \
+            btree/lazysegtree/prod \
+            btree/lazysegtree/apply \
+            btree/lazysegtree/iterate_interleaved_reverse; do
+            echo "::group::A/B $target caps 8,16,32,64 runs 5"
+            python3 "$root/benchmark/compare.py" \
+              --base-root "$root" --dev-root "$GITHUB_WORKSPACE" \
+              --target "$target" --caps all --runs 5 \
+              --baseline "$GITHUB_WORKSPACE/out/cache-ab/empty.json"
+            safe_name="${target//\//_}"
+            cp "$root/out/benchmark/compare/results.json" \
+              "$GITHUB_WORKSPACE/out/cache-ab/results/${safe_name}.json"
+            echo "::endgroup::"
+          done
+      - name: Aggregate A/B results
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, math
+          from pathlib import Path
+          results=[]
+          for file in sorted(Path('out/cache-ab/results').glob('*.json')):
+              results.extend(json.loads(file.read_text())['results'])
+          assert len(results) == 27 * 4, f'Expected 108 cases: {len(results)}'
+          print('total cases:',len(results),flush=True)
+          for structure in ('set','vector','segtree','lazysegtree'):
+              subset=[r for r in results if r['case'].startswith(f'btree/{structure}/')]
+              geo=lambda key: 100*math.exp(sum(math.log(r[key]) for r in subset)/len(subset))
+              print(f'=== {structure} === time={geo("time_ratio"):.2f}% rss={geo("rss_ratio"):.2f}%')
+          print('=== OPERATION SUMMARY ===')
+          for name in sorted(set(r['case'].rsplit('/cap',1)[0] for r in results)):
+              subset=[r for r in results if r['case'].rsplit('/cap',1)[0]==name]
+              geo=lambda key: 100*math.exp(sum(math.log(r[key]) for r in subset)/len(subset))
+              print(f'{name} time={geo("time_ratio"):.2f}% rss={geo("rss_ratio"):.2f}% caps='+','.join(f'{r["time_ratio"]*100:.1f}%' for r in subset),flush=True)
+          Path('out/cache-ab/combined.json').write_text(json.dumps(results,indent=2))
+          PY
+      - name: Upload comparison outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cached-child-sizes-ab
+          path: |
+            out/cache-ab/results/*.json
+            out/cache-ab/combined.json
+          retention-days: 14
