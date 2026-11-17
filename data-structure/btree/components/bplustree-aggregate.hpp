@@ -211,31 +211,27 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if constexpr (Reversed) {
       std::size_t offset = node.size;
       for (std::size_t i = node.count; i > 0; --i) {
-        auto& child = node.get_child(i - 1);
-        const std::size_t length = child.size;
-        offset -= length;
-        if (first < offset + length && offset < last)
-          result = M::op(result, Pools::with_internal(
-               node.children[i - 1], [&](auto& typed_child) {
-                 return prod_recursive<true>(
-                     typed_child, first > offset ? first - offset : 0,
-                     std::min(last - offset, length));
-               }));
+        Pools::with_internal(node.children[i - 1], [&](auto& child) {
+          const std::size_t length = child.size;
+          offset -= length;
+          if (first < offset + length && offset < last)
+            result = M::op(result, prod_recursive<true>(
+                child, first > offset ? first - offset : 0,
+                std::min(last - offset, length)));
+        });
         if (offset <= first) break;
       }
     } else {
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        const std::size_t length = child.size;
-        if (first < offset + length && offset < last)
-          result = M::op(result, Pools::with_internal(
-              node.children[i], [&](auto& typed_child) {
-                return prod_recursive(
-                    typed_child, first > offset ? first - offset : 0,
-                    std::min(last - offset, length));
-              }));
-        offset += length;
+        Pools::with_internal(node.children[i], [&](auto& child) {
+          const std::size_t length = child.size;
+          if (first < offset + length && offset < last)
+            result = M::op(result, prod_recursive(
+                child, first > offset ? first - offset : 0,
+                std::min(last - offset, length)));
+          offset += length;
+        });
         if (offset >= last) break;
       }
     }
@@ -261,14 +257,13 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     } else {
       std::size_t offset = 0;
       for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        const std::size_t length = child.size;
-        if (first < offset + length && offset < last)
-          Pools::with_internal(node.children[i], [&](auto& typed_child) {
-            apply_recursive(typed_child, first > offset ? first - offset : 0,
+        Pools::with_internal(node.children[i], [&](auto& child) {
+          const std::size_t length = child.size;
+          if (first < offset + length && offset < last)
+            apply_recursive(child, first > offset ? first - offset : 0,
                             std::min(last - offset, length), f);
-          });
-        offset += length;
+          offset += length;
+        });
         if (offset >= last) break;
       }
     }
@@ -310,10 +305,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if constexpr (Leftward) {
       std::size_t pos = end;
       for (std::size_t i = node.count; i > 0; --i) {
-        auto& child = node.get_child(i - 1);
-        pos -= child.size;
-        if (!Pools::with_internal(node.children[i - 1], [&](auto& typed_child) {
-              return search<true>(typed_child, pos, first, last, value,
+        if (!Pools::with_internal(node.children[i - 1], [&](auto& child) {
+              pos -= child.size;
+              return search<true>(child, pos, first, last, value,
                                   predicate, result);
             }))
           return false;
@@ -321,13 +315,13 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     } else {
       std::size_t pos = offset;
       for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        if (!Pools::with_internal(node.children[i], [&](auto& typed_child) {
-              return search<false>(typed_child, pos, first, last, value,
-                                   predicate, result);
+        if (!Pools::with_internal(node.children[i], [&](auto& child) {
+              const bool ok = search<false>(child, pos, first, last, value,
+                                            predicate, result);
+              pos += child.size;
+              return ok;
             }))
           return false;
-        pos += child.size;
       }
     }
     return true;
