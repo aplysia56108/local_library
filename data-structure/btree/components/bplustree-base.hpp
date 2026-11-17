@@ -195,9 +195,11 @@ class Base {
   }
 
   static void materialize_path(id_type node_id) {
-    auto& node = get_node(node_id);
-    if (node.parent != null_id) materialize_path(node.parent);
-    materialize_node(node_id);
+    Pools::with_internal(node_id, [&](auto& node) {
+      if (node.parent != null_id) materialize_path(node.parent);
+      node.template materialize_typed<
+          Pools::template is_bottom_type<decltype(node)>>();
+    });
   }
 
 
@@ -218,10 +220,12 @@ class Base {
   }
 
   static void refresh_recursive(id_type node_id, difference_type delta = 0) {
-    auto& node = get_node(node_id);
-    add_size_delta(node, delta);
-    refresh_node(node_id);
-    if (node.parent != null_id) refresh_recursive(node.parent, delta);
+    Pools::with_internal(node_id, [&](auto& node) {
+      add_size_delta(node, delta);
+      node.template refresh_typed<
+          Pools::template is_bottom_type<decltype(node)>>();
+      if (node.parent != null_id) refresh_recursive(node.parent, delta);
+    });
   }
 
   static id_type insert_recursive(id_type parent_id, pos_type index,
