@@ -26,6 +26,7 @@ on:
           - btree/vector/split_merge
           - btree/vector/range_erase
           - btree/vector/iterate
+          - btree/vector/iterate_interleaved_reverse
           - btree/segtree/prod
           - btree/segtree/insert
           - btree/segtree/erase
@@ -37,6 +38,7 @@ on:
           - btree/segtree/max_right
           - btree/segtree/min_left
           - btree/segtree/iterate
+          - btree/segtree/iterate_interleaved_reverse
           - btree/lazysegtree/prod
           - btree/lazysegtree/apply
           - btree/lazysegtree/insert
@@ -49,6 +51,8 @@ on:
           - btree/lazysegtree/max_right
           - btree/lazysegtree/min_left
           - btree/lazysegtree/iterate
+          - btree/lazysegtree/iterate_interleaved_reverse
+          - btree/lazysegtree/iterate_interleaved_apply
           - btree/set/mixed_uniform
           - btree/set/mixed_edges
           - btree/set/mixed_hotspot

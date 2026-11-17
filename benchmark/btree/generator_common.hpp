@@ -15,7 +15,11 @@ using ll = long long;
 #if defined(BENCH_OP_MAX_RIGHT) || defined(BENCH_OP_MIN_LEFT)
 #define BENCH_BOUNDARY_SEARCH
 #endif
+#if defined(BENCH_OP_INTERLEAVE_REVERSE) || defined(BENCH_OP_INTERLEAVE_APPLY)
+constexpr ll Q = 64;  // 64 updates followed by complete 100,000-element scans.
+#else
 constexpr ll Q = 100'000;
+#endif
 constexpr ll MOD = 998'244'353;
 
 struct Rng {
@@ -72,6 +76,20 @@ inline std::pair<ll, ll> make_range(Rng& rng, ll n, ll i) {
   return {l, l + 1 + rng.next() % limit};
 }
 
+// Exercise reversal of the entire tree, both edges, empty ranges and
+// short/random ranges. Every update is followed by a complete scan.
+inline std::pair<ll, ll> interleave_range(Rng& rng, ll n, ll i) {
+  switch (i % 8) {
+    case 0: return {0, n};
+    case 1: return {0, n / 2};
+    case 2: return {n / 2, n};
+    case 3: return {0, 2};
+    case 4: return {n - 2, n};
+    case 5: return {n / 3, n / 3};
+    default: return make_range(rng, n, i);
+  }
+}
+
 #if defined(BENCH_BOUNDARY_SEARCH)
 using Value = ll;
 inline Value value_at(ll i) { return lazy_value(i); }
@@ -95,6 +113,18 @@ inline void print(std::ostream& os, ll value) { os << value << '\n'; }
 inline void print(std::ostream& os, std::pair<ll, ll> value) {
   os << value.first << ' ' << value.second << '\n';
 }
+
+inline void hash_component(std::uint64_t& hash, ll value) {
+  hash = (hash ^ static_cast<std::uint64_t>(value)) * 1099511628211ULL;
+}
+inline void hash_value(std::uint64_t& hash, const Value& value) {
+#if defined(BENCH_TREE_SEGTREE) && !defined(BENCH_BOUNDARY_SEARCH)
+  hash_component(hash, value.first);
+  hash_component(hash, value.second);
+#else
+  hash_component(hash, value);
+#endif
+}
 }  // namespace benchmark_generator
 
 /**
@@ -106,7 +136,9 @@ inline void print(std::ostream& os, std::pair<ll, ll> value) {
  */
 signed main() {
   using namespace benchmark_generator;
-#if defined(BENCH_OP_INSERT)
+#if defined(BENCH_OP_INTERLEAVE_REVERSE) || defined(BENCH_OP_INTERLEAVE_APPLY)
+  constexpr ll N = 100'000;
+#elif defined(BENCH_OP_INSERT)
   constexpr ll N = 0;
 #elif defined(BENCH_OP_ERASE)
   constexpr ll N = 2 * Q;
@@ -248,6 +280,33 @@ signed main() {
     print(output, static_cast<ll>(it - prefix.begin()));
 #endif
   }
+
+#elif defined(BENCH_OP_INTERLEAVE_REVERSE) || defined(BENCH_OP_INTERLEAVE_APPLY)
+  ll anchor_pos = N / 3;
+  for (ll i = 0; i < Q; ++i) {
+    const auto [l, r] = interleave_range(rng, N, i);
+#if defined(BENCH_OP_INTERLEAVE_REVERSE)
+    input << l << ' ' << r << '\n';
+    std::reverse(initial.begin() + l, initial.begin() + r);
+    if (l <= anchor_pos && anchor_pos < r)
+      anchor_pos = l + r - 1 - anchor_pos;
+#else
+    const ll a = rng.next() % 3, b = rng.next() % 1009;
+    input << l << ' ' << r << ' ' << a << ' ' << b << '\n';
+    for (ll j = l; j < r; ++j)
+      initial[j] = (a * initial[j] + b) % MOD;
+#endif
+    // Independent reference: every intermediate order is checked with a
+    // 64-bit rolling hash and the saved iterator's current successor.
+    std::uint64_t hash = 14695981039346656037ULL;
+    for (const auto& value : initial) hash_value(hash, value);
+    output << hash << '\n';
+    print(output, initial[anchor_pos]);
+    if (anchor_pos + 1 < N) print(output, initial[anchor_pos + 1]);
+    else output << "END\n";
+  }
+  // The final state is verified element-by-element, not only by hash.
+  for (const auto& value : initial) print(output, value);
 
 #elif defined(BENCH_OP_ITERATE)
 #if defined(BENCH_TREE_SET)

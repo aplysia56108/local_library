@@ -13,12 +13,12 @@ B+tree の代表的な処理を固定 seed の入力で実行し、**処理時�
 | segtree | prod / insert / erase / reverse / access | split_merge / range_erase / max_right / min_left / iterate | mixed_uniform / mixed_edges / mixed_hotspot / mixed_growth / mixed_shrink |
 | lazysegtree | prod / apply / insert / erase / reverse / access | split_merge / range_erase / max_right / min_left / iterate | mixed_uniform / mixed_edges / mixed_hotspot / mixed_growth / mixed_shrink |
 
-**合計53ワークロード × 4Cap（8/16/32/64）=212ケース**。各5回測定では1060回。第3段階の追加分は20ワークロード × 4Cap = 80ケース。重いので、開発時は `--target` と `--caps` で対象を絞ることを推奨する。
+**合計57ワークロード × 4Cap（8/16/32/64）=228ケース**。各5回測定では1140回。第3段階の追加分は20ワークロード × 4Cap = 80ケース。重いので、開発時は `--target` と `--caps` で対象を絞ることを推奨する。
 
 ## フィクスチャと計測範囲
 
 - `generator.cpp` は **B+tree に依存せず**、`std::vector` / Fenwick / `std::lower_bound` / prefix sum などを用いて `in.txt` / `out.txt` を生成する。
-- 通常は `in.txt` / `out.txt` をコミットする。第2段階の `range_erase` 3ケースと第3段階の `mixed_*` 20ケースは入力が大きいため **2ファイルをコミットせず、実行時に生成する**。`run.py` は両方なければジェネレータを1回コンパイル・実行して `out/benchmark/generated-fixtures/` に保存し、同一ジョブ内の各Capで使い回す。片方だけ存在する場合はエラー。
+- 通常は `in.txt` / `out.txt` をコミットする。第2段階の `range_erase` 3ケース、第3段階の `mixed_*` 20ケース、および `iterate_interleaved_*` 4ケースは入力が大きいため **2ファイルをコミットせず、実行時に生成する**。`run.py` は両方なければジェネレータを1回コンパイル・実行して `out/benchmark/generated-fixtures/` に保存し、同一ジョブ内の各Capで使い回す。片方だけ存在する場合はエラー。
 - すべてのケースで、**毎回バイト単位で期待出力を照合**。不一致・異常終了・タイムアウトは失敗。
 - 入力読み込み・初期構築・ジェネレータ実行・最終結果の出力・コンパイルは計測外。操作を `std::chrono::steady_clock` で測定し、標準エラーへ `BENCHMARK_NS=...` を出力する。
 - 出力内容は操作ごとのクエリ結果、または全要素の最終状態（`iterate` は走査結果）。結果は計測中に事前確保した配列へ保存し、計測後に出力する。
@@ -43,6 +43,15 @@ B+tree の代表的な処理を固定 seed の入力で実行し、**処理時�
 - `iterate`: 10万要素を `begin()`〜`end()` で全走査し、取得した値を順番どおりに事前確保した配列へ保存。 `access`（`operator[]`）とは分けて測定。
 
 Setでは `split / merge` と `erase(first,last)` を公開していないため、これらは対象外とする。
+
+**Iterator更新後走査の回帰検証**
+
+- `iterate_interleaved_reverse`（Vector / Segtree / LazySegtree）：10万要素に対して64回、`reverse(l, r)` と `for (const auto& value : tree)` による全走査を交互に実行。全区間・左右半分・両端・空区間・ランダム短区間を織り交ぜる。
+- `iterate_interleaved_apply`（LazySegtree）：同じ走査パターンで64回、Affine区間更新（`a = 0, 1, 2`、`b = 0..1008`）と全走査を交互に実行する。
+- 更新前に取得した要素のiteratorを保持し、**同じLeafへの参照が継続すること**と、コピーして`++`したときに**現在の順序の直後の要素へ進むこと**も毎回検証する（reverse時の位置は独立参照側で追跡）。
+- 各周回の走査結果は順序依存の64bit FNV-1aハッシュで検証し、最終状態は全要素を直接比較する。ハッシュは衝突可能性があるため、中間の全値一致を数学的に保証するものではない。
+- 計測には更新・全走査・ハッシュ計算・保存済みiteratorの確認を含む。初期構築・入出力は計測しない。現行`iterate`の純粋な走査速度とセットで評価する。生成器は独立した`std::vector`で期待値を計算する。
+
 
 **第3段階：混合操作・入力分布・要素数推移（各100,000操作、初期100,000要素）**
 
@@ -88,6 +97,12 @@ python3 benchmark/run.py --target btree/lazysegtree/mixed_hotspot --caps 8,16 --
 
 # 第2段階の1操作だけ、2つのCapを計測
 python3 benchmark/run.py --target btree/vector/split_merge --caps 8,16 --runs 5
+
+# reverse → 全走査を64回繰り返して比較
+python3 benchmark/run.py --target btree/vector/iterate_interleaved_reverse --caps 8,16 --runs 5
+
+# lazy作用 → 全走査を64回繰り返す
+python3 benchmark/run.py --target btree/lazysegtree/iterate_interleaved_apply --caps 8 --runs 5
 
 # 境界探索をまとめて計測
 python3 benchmark/run.py --target btree/segtree/max_right --caps all --runs 5
