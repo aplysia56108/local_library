@@ -227,11 +227,11 @@ void incremental_structure_regression() {
 }
 
 
-/** @brief Pool共有epochによるiterator経路キャッシュを検証する。 */
+/** @brief Traits共有epochによるiterator経路キャッシュを検証する。 */
 template <std::size_t Capacity>
 void iterator_epoch_tests() {
   using Traits = Bplustree::Traits<long long, Capacity>;
-  using Pools = Bplustree::NodePools<Traits>;
+  using Epoch = Bplustree::IteratorEpoch<Traits>;
   Tree<Capacity> tree;
   std::vector<long long> expected;
   for (long long i = 0; i < 96; ++i) {
@@ -242,7 +242,7 @@ void iterator_epoch_tests() {
   auto saved = tree.nth(23);
   auto copy = saved;
   assert(*saved == 2300);
-  const auto initial_epoch = Pools::mutation_epoch;
+  const auto initial_epoch = Epoch::current;
   // 読み取りとコピーではepochを変えない。キャッシュが違っても同じLeaf。
   assert(saved == copy);
   const auto verify = [&]() {
@@ -260,11 +260,11 @@ void iterator_epoch_tests() {
     assert(saved == copy);
   };
   verify();
-  assert(Pools::mutation_epoch == initial_epoch);
+  assert(Epoch::current == initial_epoch);
 
   tree.reverse(7, 71);
   std::reverse(expected.begin() + 7, expected.begin() + 71);
-  assert(Pools::mutation_epoch != initial_epoch);
+  assert(Epoch::current != initial_epoch);
   verify();
   tree.reverse();
   std::reverse(expected.begin(), expected.end());
@@ -299,7 +299,7 @@ void iterator_epoch_tests() {
 template <std::size_t Capacity>
 void iterator_epoch_reverse_sentinels_test() {
   using Traits = Bplustree::Traits<long long, Capacity>;
-  using Pools = Bplustree::NodePools<Traits>;
+  using Epoch = Bplustree::IteratorEpoch<Traits>;
   std::vector<long long> values(96);
   std::iota(values.begin(), values.end(), 1LL);
   Tree<Capacity> tree(values.begin(), values.end());
@@ -314,9 +314,9 @@ void iterator_epoch_reverse_sentinels_test() {
   assert(old_bbegin == tree.bbegin());
   assert(old_end == tree.end());
 
-  const auto old_epoch = Pools::mutation_epoch;
+  const auto old_epoch = Epoch::current;
   tree.reverse();
-  assert(Pools::mutation_epoch != old_epoch);
+  assert(Epoch::current != old_epoch);
 
   // 反転後、旧左番兵が右番兵に、旧右番兵が左番兵になる。
   assert(old_bbegin == tree.end());

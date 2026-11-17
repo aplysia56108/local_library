@@ -27,6 +27,22 @@
 // kNodeCapacity:Internalのmax容量
 namespace Bplustree {
 
+/**
+ * @brief Iteratorの経路キャッシュを無効化するための世代管理。
+ * @details 同一Traitsの木で共有する。split/merge/swapでLeafの所属木が変わっても、
+ * IteratorはTreeへの参照を持たずに経路キャッシュを再検証できる。
+ * 0はIteratorの未検証状態を表すため、世代値には使用しない。
+ */
+template <class Traits>
+struct IteratorEpoch {
+  inline static std::uint64_t current = 1;
+
+  static void invalidate() noexcept {
+    ++current;
+    if (current == 0) ++current;
+  }
+};
+
 template <class Traits, class Tree, bool IsConst, bool VisitAll = false>
 class Iterator {
   template <class, class, bool, bool>
@@ -39,6 +55,7 @@ class Iterator {
   using Internal = typename Traits::Internal;
   using T = typename Traits::T;
   using Pools = NodePools<Traits>;
+  using Epoch = IteratorEpoch<Traits>;
   using id_type = typename Pools::id_type;
   static constexpr id_type null_id = NodePools<Traits>::null_id;
 
@@ -69,7 +86,7 @@ class Iterator {
   /** @brief 更新がなければ、現在のLeafまでの祖先走査を省略する。 */
   void ensure_materialized_path() const {
     if constexpr (!VisitAll) {
-      const auto epoch = Pools::mutation_epoch;
+      const auto epoch = Epoch::current;
       if (validated_epoch_ != epoch) {
         materialize_path();
         validated_epoch_ = epoch;
@@ -102,7 +119,7 @@ class Iterator {
         // 新しいLeafの経路だけを降りながらmaterializeする。
         // これで次のoperator*とadvanceでは根までの走査が不要になる。
         leaf_id_ = node.template locate<true>(to_index);
-        if constexpr (!VisitAll) validated_epoch_ = Pools::mutation_epoch;
+        if constexpr (!VisitAll) validated_epoch_ = Epoch::current;
         return;
       }
       assert(node.parent != null_id);

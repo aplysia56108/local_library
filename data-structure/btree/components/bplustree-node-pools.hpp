@@ -15,19 +15,6 @@ struct NodePools {
   using I = typename Traits::Internal;
   static constexpr id_type null_id = ObjectPool<L>::null_id;
 
-  /**
-   * @brief 同じTraitsの木に対する反転・遅延・構造変更の世代。
-   * @details Iteratorは木へのポインタを持たず、split/merge/swap後もLeaf IDで
-   * 要素を追跡できるようにする。異なる木での変更も保守的に無効化する。
-   * 0 はIteratorの「未検証」を示す予約値。
-   */
-  inline static std::uint64_t mutation_epoch = 1;
-
-  static void invalidate_iterator_paths() noexcept {
-    ++mutation_epoch;
-    if (mutation_epoch == 0) ++mutation_epoch;
-  }
-
   static id_type id(L& leaf) {
     return leaves().index(leaf);
   }

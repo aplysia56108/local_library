@@ -166,7 +166,7 @@ falseへ高々1回変わるものとし、空区間の単位元には呼び出�
 
 ### iteratorのepochキャッシュ
 
-`NodePools<Traits>::mutation_epoch` は、同じTraitsを持つ木で共通の更新世代です。
+`IteratorEpoch<Traits>::current` は、同じTraitsを持つ木で共通の更新世代です。
 iteratorはLeafのPool IDと、そのLeafへの経路を最後にmaterializeした世代を保持します。
 
 - `reverse` / `apply` / `insert` / `erase` / `split` / `merge` /
