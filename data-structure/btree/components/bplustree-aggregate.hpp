@@ -356,6 +356,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     if (first == last) return;
     apply_recursive(Parent::get_node(this->root_), first + 1, last + 1, f);
     Epoch::invalidate_value();
+    std::cerr << "DEBUG APPLIED: " << typeid(Traits).name()
+              << " address=" << &Epoch::value
+              << " value=" << Epoch::value << '\n';
   }
   void all_apply(const F& f)
     requires(Traits::lazy)
