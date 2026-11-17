@@ -62,7 +62,8 @@ void node_subtree_test() {
   assert(Pools::make_leaf(30) == b);
   const auto reused_a = Pools::make_leaf(40);
   assert(reused_a == a);
-  const auto reused_internal = Pools::make_internal(0);
+  // Upper と Bottom は別 Pool。回収した上層 ID は同じ型で再利用する。
+  const auto reused_internal = Pools::make_internal(1);
   assert(reused_internal == root_id);
   Pools::leaves().erase(b);
   Pools::leaves().erase(reused_a);
