@@ -148,6 +148,20 @@ void linked_reverse_and_splice() {
   check();
   tree.clear();
   check_linked_walk(tree, {});
+
+  // A second iterator can materialize the very bottom node into which the
+  // first iterator entered through port 1. Its cached port must be repaired.
+  Tree pending{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+  pending.reverse();
+  auto crossing = pending.begin();
+  assert(*crossing == 16);
+  ++crossing; // Cross the boundary, into a bottom with pending reverse.
+  auto other = pending.nth(1); // Materialize that bottom from another path.
+  assert(*other == 15);
+  ++crossing;
+  assert(*crossing == 14);
+  check_linked_walk(pending, {16, 15, 14, 13, 12, 11, 10, 9,
+                              8, 7, 6, 5, 4, 3, 2, 1});
   std::cerr << "linked bottom iteration tests all passed!\\n";
 }
 
