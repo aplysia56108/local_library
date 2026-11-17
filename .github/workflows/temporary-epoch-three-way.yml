@@ -1,0 +1,75 @@
+name: Temporary iterator epoch three-way A/B
+
+on:
+  push:
+    branches:
+      - feature/bplustree-split-iterator-epochs
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    container: gcc:15.2
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare Python and ACL
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v python3 >/dev/null || [[ ! -x /usr/bin/time ]]; then
+            apt-get update -qq
+            apt-get install -y -qq python3 time
+          fi
+          mkdir -p .deps out/epoch-three-way
+          git clone https://github.com/atcoder/ac-library .deps/ac-library
+          git -C .deps/ac-library checkout --detach 864245a00b00dd008d1abfdc239618fdb7d139da
+      - name: Check out single-epoch and prior split-epoch versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          for record in "single 01d766f7f8a97b6b5db2e650f5765d3c68d40b48" "split b6bef542f8eac821731c08e8319354df27ec3359"; do
+            read -r label sha <<< "$record"
+            git fetch --no-tags origin "$sha"
+            git worktree add --detach "$GITHUB_WORKSPACE/out/epoch-three-way/$label" FETCH_HEAD
+            git config --global --add safe.directory "$GITHUB_WORKSPACE/out/epoch-three-way/$label"
+          done
+          git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+          git worktree add --detach "$GITHUB_WORKSPACE/out/epoch-three-way/main" refs/remotes/origin/main
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/out/epoch-three-way/main"
+          for label in single split main; do
+            path="$GITHUB_WORKSPACE/out/epoch-three-way/$label"
+            mkdir -p "$path/.deps"
+            ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$path/.deps/ac-library"
+          done
+          printf '%s\n' '{"schema":1,"records":{}}' > "$GITHUB_WORKSPACE/out/epoch-three-way/empty.json"
+          sed -i '/    if base_root != benchmark.ROOT:/,+1d' "$GITHUB_WORKSPACE/out/epoch-three-way/main/benchmark/compare.py"
+          printf 'single=%s\nsplit=%s\noptimized=%s\n' \
+            "$(git -C "$GITHUB_WORKSPACE/out/epoch-three-way/single" rev-parse HEAD)" \
+            "$(git -C "$GITHUB_WORKSPACE/out/epoch-three-way/split" rev-parse HEAD)" \
+            "$(git rev-parse HEAD)"
+      - name: Same-CPU iterate A/B against original one-epoch implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$GITHUB_WORKSPACE/out/epoch-three-way"
+          for version in split optimized; do
+            if [[ "$version" == split ]]; then
+              development="$root/split"
+            else
+              development="$GITHUB_WORKSPACE"
+            fi
+            for structure in set vector segtree lazysegtree; do
+              target="btree/$structure/iterate"
+              echo "::group::A/B single vs $version $target cap=all 7 runs"
+              python3 "$root/main/benchmark/compare.py" \
+                --base-root "$root/single" --dev-root "$development" \
+                --target "$target" --caps all --runs 7 \
+                --baseline "$root/empty.json"
+              echo "::endgroup::"
+            done
+          done
+          echo "All three-way 32 cases verified"
