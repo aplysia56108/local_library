@@ -226,6 +226,133 @@ void incremental_structure_regression() {
             << Capacity << ")\n";
 }
 
+
+/** @brief Traits共有epochによるiterator経路キャッシュを検証する。 */
+template <std::size_t Capacity>
+void iterator_epoch_tests() {
+  using Traits = Bplustree::Traits<long long, Capacity>;
+  using Epoch = Bplustree::IteratorEpoch<Traits>;
+  Tree<Capacity> tree;
+  std::vector<long long> expected;
+  for (long long i = 0; i < 96; ++i) {
+    tree.push_back(i * 100);
+    expected.push_back(i * 100);
+  }
+
+  auto saved = tree.nth(23);
+  auto copy = saved;
+  assert(*saved == 2300);
+  const auto initial_epoch = Epoch::current;
+  // 読み取りとコピーではepochを変えない。キャッシュが違っても同じLeaf。
+  assert(saved == copy);
+  const auto verify = [&]() {
+    assert(std::equal(tree.begin(), tree.end(), expected.begin(),
+                      expected.end()));
+    assert(tree.end() - tree.begin() ==
+           static_cast<std::ptrdiff_t>(expected.size()));
+    assert(*saved == 2300);
+    auto next = saved;
+    ++next;
+    const auto index = static_cast<std::size_t>(
+        std::find(expected.begin(), expected.end(), 2300) - expected.begin());
+    assert(index + 1 < expected.size());
+    assert(*next == expected[index + 1]);
+    assert(saved == copy);
+  };
+  verify();
+  assert(Epoch::current == initial_epoch);
+
+  tree.reverse(7, 71);
+  std::reverse(expected.begin() + 7, expected.begin() + 71);
+  assert(Epoch::current != initial_epoch);
+  verify();
+  tree.reverse();
+  std::reverse(expected.begin(), expected.end());
+  verify();
+
+  // split/mergeによってLeafの所属Treeと親IDが変化しても既存iteratorは有効。
+  const auto split_pos = static_cast<std::size_t>(
+      std::find(expected.begin(), expected.end(), 2300) - expected.begin());
+  auto right = tree.split(split_pos);
+  assert(*saved == 2300);
+  assert(std::equal(right.begin(), right.end(), expected.begin() + split_pos,
+                    expected.end()));
+  tree.merge(right);
+  verify();
+
+  // 参照先でないLeafのerase/insert後にも既存iteratorを再利用できる。
+  tree.insert(0, -100);
+  expected.insert(expected.begin(), -100);
+  tree.erase(1);
+  expected.erase(expected.begin() + 1);
+  verify();
+  std::cerr << "iterator epoch cache tests passed! (capacity="
+            << Capacity << ")\n";
+}
+
+
+/**
+ * @brief 全体反転時に、保持済みの番兵iteratorのepochを無効化できることを検証する。
+ * @details reverse()はbbegin_/end_を交換するが、古い番兵iteratorのコピーも
+ * 同じLeaf IDを追跡する。反転後の++/--は未伝搬の反転を必ず反映する必要がある。
+ */
+template <std::size_t Capacity>
+void iterator_epoch_reverse_sentinels_test() {
+  using Traits = Bplustree::Traits<long long, Capacity>;
+  using Epoch = Bplustree::IteratorEpoch<Traits>;
+  std::vector<long long> values(96);
+  std::iota(values.begin(), values.end(), 1LL);
+  Tree<Capacity> tree(values.begin(), values.end());
+
+  auto old_bbegin = tree.bbegin();
+  auto old_end = tree.end();
+  // 両番兵を一度移動して戻し、逆転前のepochがキャッシュされた状態にする。
+  ++old_bbegin;
+  --old_bbegin;
+  --old_end;
+  ++old_end;
+  assert(old_bbegin == tree.bbegin());
+  assert(old_end == tree.end());
+
+  const auto old_epoch = Epoch::current;
+  tree.reverse();
+  assert(Epoch::current != old_epoch);
+
+  // 反転後、旧左番兵が右番兵に、旧右番兵が左番兵になる。
+  assert(old_bbegin == tree.end());
+  assert(old_end == tree.bbegin());
+  auto last = old_bbegin;
+  --last;
+  assert(*last == 1);
+  auto first = old_end;
+  ++first;
+  assert(*first == 96);
+  assert(first == tree.begin());
+  assert(tree.end() - tree.bbegin() == 97);
+  assert(std::equal(tree.begin(), tree.end(),
+                    values.rbegin(), values.rend()));
+
+  // 反転後に取得したコピーについても、2度目の全体反転で失効する。
+  auto second_bbegin = tree.bbegin();
+  auto second_end = tree.end();
+  ++second_bbegin;
+  --second_bbegin;
+  --second_end;
+  ++second_end;
+  tree.reverse();
+  assert(second_bbegin == tree.end());
+  assert(second_end == tree.bbegin());
+  ++second_end;
+  --second_bbegin;
+  assert(*second_end == 1);
+  assert(*second_bbegin == 96);
+  assert(std::equal(tree.begin(), tree.end(),
+                    values.begin(), values.end()));
+
+  std::cerr << "iterator epoch reverse sentinel tests passed! (capacity="
+            << Capacity << ")\n";
+}
+
 int main() {
   std::cerr << "start construction<4>\n";
   construction<4>();
@@ -244,6 +371,12 @@ int main() {
   incremental_structure_regression<4>();
   incremental_structure_regression<8>();
   incremental_structure_regression<16>();
+  iterator_epoch_tests<4>();
+  iterator_epoch_tests<8>();
+  iterator_epoch_tests<16>();
+  iterator_epoch_reverse_sentinels_test<4>();
+  iterator_epoch_reverse_sentinels_test<8>();
+  iterator_epoch_reverse_sentinels_test<16>();
 
   std::cerr << "All B+tree base test cases passed!\n";
 }

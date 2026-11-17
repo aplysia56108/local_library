@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "data-structure/object-pool/object_pool.hpp"
 
 namespace Bplustree {

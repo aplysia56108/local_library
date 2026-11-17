@@ -168,6 +168,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using F = typename Traits::F;
   using id_type = typename Parent::id_type;
   using Pools = NodePools<Traits>;
+  using Epoch = IteratorEpoch<Traits>;
 
   template <bool Reversed = false>
   static T prod_recursive(Internal& node, std::size_t first, std::size_t last) {
@@ -352,7 +353,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     requires(Traits::lazy)
   {
     assert(first <= last && last <= size());
+    if (first == last) return;
     apply_recursive(Parent::get_node(this->root_), first + 1, last + 1, f);
+    Epoch::invalidate();
   }
   void all_apply(const F& f)
     requires(Traits::lazy)

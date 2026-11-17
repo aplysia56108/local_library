@@ -35,6 +35,7 @@ class Base {
   using reverse_iterator = std::reverse_iterator<iterator>;
   using setter_type = Setter<Base>;
   using Pools = NodePools<Traits>;
+  using Epoch = IteratorEpoch<Traits>;
   using id_type = typename Pools::id_type;
   using leaf_pool_type = ObjectPool<typename Traits::Leaf>;
   using internal_pool_type = ObjectPool<typename Traits::Internal>;
@@ -80,6 +81,7 @@ class Base {
     root_ = new_root;
     bbegin_ = iterator{bbegin};
     end_ = iterator{end};
+    Epoch::invalidate();
   }
 
   /** @brief 子が1つだけの根を縮め、古い Internal を回収する。 */
@@ -131,6 +133,7 @@ class Base {
     root_ = new_root;
     bbegin_ = iterator{bbegin};
     end_ = iterator{end};
+    Epoch::invalidate();
   }
 
   static id_type make_new_root(id_type left, id_type right,
@@ -396,6 +399,7 @@ class Base {
     swap(left.root_, right.root_);
     swap(left.bbegin_, right.bbegin_);
     swap(left.end_, right.end_);
+    Epoch::invalidate();
   }
   template <std::input_iterator InputIt>
   void assign(InputIt first, InputIt last) {
@@ -473,6 +477,7 @@ class Base {
     const pos_type position = leaf.position;
     const id_type child = Pools::make_leaf(value);
     insert(parent, position, child, root_);
+    Epoch::invalidate();
     return iterator{child};
   }
 
@@ -496,6 +501,7 @@ class Base {
     id_type parent = leaf.parent;
     pos_type position = leaf.position;
     erase(parent, position, root_);
+    Epoch::invalidate();
     return res;
   }
 
@@ -509,6 +515,7 @@ class Base {
     const id_type removed = devide(root_, first.leaf_id_);
     root_ = unite(root_, right);
     Pools::recycle(removed);
+    Epoch::invalidate();
     return last;
   }
   void pop_back() {
@@ -568,6 +575,7 @@ class Base {
     const id_type bbegin_leaf = get_node(right.root_).locate(0);
     const id_type bbegin_parent = get_leaf(bbegin_leaf).parent;
     insert(bbegin_parent, 0, bbegin, right.root_);
+    Epoch::invalidate();
     return right;
   }
 
@@ -585,13 +593,14 @@ class Base {
     root_ = unite(root_, right.root_);
     end_ = right.end_;
     right.root_ = null_id;
-    right.init();
+    right.init();  // init()で共有epochを更新する。
   }
 
   void reverse() {
     get_node(root_).push_reverse();
     using std::swap;
     swap(bbegin_, end_);
+    Epoch::invalidate();
   }
   void reverse(size_type first, size_type last) {
     assert(first <= last && last <= size());
@@ -606,6 +615,7 @@ class Base {
     get_node(middle).push_reverse();
     root_ = unite(root_, middle);
     root_ = unite(root_, right);
+    Epoch::invalidate();
   }
   void debug_node_stats() const {
     std::cerr << "leaf slots in use: " << Pools::leaves().size() << '\n';
