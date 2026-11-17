@@ -61,6 +61,8 @@ struct NodePools {
       leaves().erase(id);
     } else {
       auto& node = internals()[id];
+      // Release physical bottom links before reusing the pool slot.
+      if (node.level == 0) node.unlink();
       for (pos_type i = 0; i < node.count; ++i)
         recycle(node.children[i], node.level == 0);
       internals().erase(id);
