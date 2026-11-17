@@ -94,7 +94,12 @@ on:
         default: '5'
 
 permissions:
-  contents: read
+  contents: write
+
+# Serialized with Performance benchmarks: both may publish main bests.
+concurrency:
+  group: benchmark-records
+  cancel-in-progress: false
 
 jobs:
   compare:
@@ -173,6 +178,10 @@ jobs:
           BENCHMARK_RUNS: ${{ inputs.runs }}
         run: |
           python3 benchmark/compare.py --base-root "$GITHUB_WORKSPACE" --dev-root "$GITHUB_WORKSPACE/out/benchmark/ab-dev-checkout" --target "$BENCHMARK_TARGET" --caps "$BENCHMARK_CAPS" --runs "$BENCHMARK_RUNS" --baseline out/benchmark/best.json
+
+      - name: Update main best records
+        if: github.ref == 'refs/heads/main'
+        uses: ./.github/actions/push-benchmark-records
 
       - name: Upload comparison results
         if: always()
