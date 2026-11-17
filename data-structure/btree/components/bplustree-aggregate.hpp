@@ -185,18 +185,19 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using Pools = NodePools<Traits>;
   using Epoch = IteratorEpoch<Traits>;
 
-  template <bool Reversed = false>
-  static T prod_recursive(Internal& node, std::size_t first, std::size_t last) {
+  template <bool Reversed = false, class Concrete>
+  static T prod_recursive(Concrete& node, std::size_t first, std::size_t last) {
+    constexpr bool IsBottom = Pools::template is_bottom_type<Concrete>;
     if (first == last) return M::e();
     if (first == 0 && last == node.size) {
       if constexpr (Reversed) return node.backward;
       return node.forward;
     }
 
-    node.materialize();
+    node.template materialize_typed<IsBottom>();
     T result = M::e();
 
-    if (node.level == 0) {
+    if constexpr (IsBottom) {
       if constexpr (Reversed) {
         for (std::size_t i = last; i > first; --i)
           result = M::op(result, node.get_leaf(i - 1).get());
@@ -214,9 +215,12 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         const std::size_t length = child.size;
         offset -= length;
         if (first < offset + length && offset < last)
-          result = M::op(result, prod_recursive<true>(
-                                     child, first > offset ? first - offset : 0,
-                                     std::min(last - offset, length)));
+          result = M::op(result, Pools::with_internal(
+               node.children[i - 1], [&](auto& typed_child) {
+                 return prod_recursive<true>(
+                     typed_child, first > offset ? first - offset : 0,
+                     std::min(last - offset, length));
+               }));
         if (offset <= first) break;
       }
     } else {
@@ -225,9 +229,12 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         auto& child = node.get_child(i);
         const std::size_t length = child.size;
         if (first < offset + length && offset < last)
-          result = M::op(
-              result, prod_recursive(child, first > offset ? first - offset : 0,
-                                     std::min(last - offset, length)));
+          result = M::op(result, Pools::with_internal(
+              node.children[i], [&](auto& typed_child) {
+                return prod_recursive(
+                    typed_child, first > offset ? first - offset : 0,
+                    std::min(last - offset, length));
+              }));
         offset += length;
         if (offset >= last) break;
       }
@@ -235,18 +242,20 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     return result;
   }
 
-  static void apply_recursive(Internal& node, std::size_t first,
+  template <class Concrete>
+  static void apply_recursive(Concrete& node, std::size_t first,
                               std::size_t last, const F& f)
     requires(Traits::lazy)
   {
+    constexpr bool IsBottom = Pools::template is_bottom_type<Concrete>;
     if (first == last) return;
     if (first == 0 && last == node.size) {
       node.push_lazy(f);
       return;
     }
 
-    node.materialize();
-    if (node.level == 0) {
+    node.template materialize_typed<IsBottom>();
+    if constexpr (IsBottom) {
       for (std::size_t i = first; i < last; ++i) node.get_leaf(i).push_lazy(f);
 
     } else {
@@ -255,20 +264,23 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         auto& child = node.get_child(i);
         const std::size_t length = child.size;
         if (first < offset + length && offset < last)
-          apply_recursive(child, first > offset ? first - offset : 0,
-                          std::min(last - offset, length), f);
+          Pools::with_internal(node.children[i], [&](auto& typed_child) {
+            apply_recursive(typed_child, first > offset ? first - offset : 0,
+                            std::min(last - offset, length), f);
+          });
         offset += length;
         if (offset >= last) break;
       }
     }
-    node.refresh_metadata();
+    node.template refresh_typed<IsBottom>();
   }
 
   // predicate が破れた部分木だけを再帰的に探索する。
-  template <bool Leftward, class Predicate>
-  static bool search(Internal& node, std::size_t offset, std::size_t first,
+  template <bool Leftward, class Concrete, class Predicate>
+  static bool search(Concrete& node, std::size_t offset, std::size_t first,
                      std::size_t last, T& value, Predicate& predicate,
                      std::size_t& result) {
+    constexpr bool IsBottom = Pools::template is_bottom_type<Concrete>;
     const std::size_t end = offset + node.size;
     if (end <= first || last <= offset) return true;
     if (first <= offset && end <= last) {
@@ -281,8 +293,8 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
       }
     }
 
-    node.materialize();
-    if (node.level == 0) {
+    node.template materialize_typed<IsBottom>();
+    if constexpr (IsBottom) {
       for (std::size_t j = 0; j < node.count; ++j) {
         const std::size_t i = Leftward ? node.count - 1 - j : j;
         const std::size_t pos = offset + i;
@@ -300,14 +312,20 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
       for (std::size_t i = node.count; i > 0; --i) {
         auto& child = node.get_child(i - 1);
         pos -= child.size;
-        if (!search<true>(child, pos, first, last, value, predicate, result))
+        if (!Pools::with_internal(node.children[i - 1], [&](auto& typed_child) {
+              return search<true>(typed_child, pos, first, last, value,
+                                  predicate, result);
+            }))
           return false;
       }
     } else {
       std::size_t pos = offset;
       for (std::size_t i = 0; i < node.count; ++i) {
         auto& child = node.get_child(i);
-        if (!search<false>(child, pos, first, last, value, predicate, result))
+        if (!Pools::with_internal(node.children[i], [&](auto& typed_child) {
+              return search<false>(typed_child, pos, first, last, value,
+                                   predicate, result);
+            }))
           return false;
         pos += child.size;
       }
