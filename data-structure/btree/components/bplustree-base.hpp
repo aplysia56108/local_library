@@ -617,7 +617,8 @@ class Base {
     get_node(middle).push_reverse();
     root_ = unite(root_, middle);
     root_ = unite(root_, right);
-    Epoch::invalidate_position();
+    // 部分反転はsplit/mergeでLazy経路も再構成するため両方を無効化。
+    Epoch::invalidate_all();
   }
   void debug_node_stats() const {
     std::cerr << "leaf slots in use: " << Pools::leaves().size() << '\n';
