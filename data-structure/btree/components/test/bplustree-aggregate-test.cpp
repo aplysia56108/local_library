@@ -227,12 +227,14 @@ void iterator_epoch_lazy_tests() {
  */
 template <std::size_t Capacity>
 void iterator_split_epoch_lazy_deferral_tests() {
-  using Tree = BLazySegtree<
-      long long, long long,
-      [](long long a, long long b) { return a + b; },
-      []() { return 0LL; }, CountedAddSumMapping,
-      AddComposition, true, Capacity>;
-  using Traits = typename Tree::traits_type;
+  // 関数内ラムダによるローカル型の複数実体化を避け、
+  // テストするTraitsを明示的に同定できるようにする。
+  using LazyAction =
+      Action<long long, long long, CountedAddSumMapping, AddComposition>;
+  using Traits = Bplustree::AggregateTraits<SumMonoid, LazyAction, true,
+                                             Capacity>;
+  using Tree = Bplustree_LazySegtree<SumMonoid, LazyAction, true, Capacity>;
+  static_assert(std::same_as<typename Tree::traits_type, Traits>);
   using Epoch = Bplustree::IteratorEpoch<Traits>;
 
   std::vector<long long> values(96);
@@ -244,11 +246,6 @@ void iterator_split_epoch_lazy_deferral_tests() {
   const auto position_before_apply = Epoch::position;
   const auto value_before_apply = Epoch::value;
   tree.all_apply(7);
-  std::cerr << "DEBUG epochs: pos=" << position_before_apply << "->"
-            << Epoch::position << " val=" << value_before_apply << "->"
-            << Epoch::value << " sum=" << tree.all_prod()
-            << " type=" << typeid(Traits).name()
-            << " address=" << &Epoch::value << '\n';
   assert(Epoch::position == position_before_apply);
   assert(Epoch::value != value_before_apply);
 
