@@ -68,11 +68,22 @@ class Iterator {
   using id_type = typename Pools::id_type;
   static constexpr id_type null_id = NodePools<Traits>::null_id;
 
+  static constexpr bool HasLazy = [] {
+    if constexpr (requires { Traits::lazy; })
+      return Traits::lazy;
+    else
+      return false;
+  }();
+
+  // LazyがないTraitsでは値epochのキャッシュ自体を保持しない。
+  // [[no_unique_address]] により空のメンバに領域を割り当てない。
+  struct NoValueEpoch {};
+  using ValueEpoch = std::conditional_t<HasLazy, std::uint64_t, NoValueEpoch>;
+
   id_type leaf_id_ = null_id;
-  // 位置（反転）と値（Lazy伝搬）の経路を独立にキャッシュする。
-  // 0は未検証。移動先のLazyが残っているときは値のみ未検証になる。
+  // 0は未検証。値epochはLazyをサポートするTraitsでのみ保持する。
   mutable std::uint64_t validated_position_epoch_ = 0;
-  mutable std::uint64_t validated_value_epoch_ = 0;
+  [[no_unique_address]] mutable ValueEpoch validated_value_epoch_{};
 
   static Leaf& get_leaf(const id_type& id) {
     return Pools::leaves()[id];
@@ -110,13 +121,17 @@ class Iterator {
     }
   }
 
-  /** @brief 値が必要になった場合だけLazyとReverseを伝搬する。 */
+  /** @brief Lazyがなければ位置経路だけ、あれば必要時に値経路を確定する。 */
   void ensure_value_path() const {
     if constexpr (!VisitAll) {
-      if (validated_value_epoch_ != Epoch::value) {
-        materialize_path();
-        validated_value_epoch_ = Epoch::value;
-        validated_position_epoch_ = Epoch::position;
+      if constexpr (HasLazy) {
+        if (validated_value_epoch_ != Epoch::value) {
+          materialize_path();
+          validated_value_epoch_ = Epoch::value;
+          validated_position_epoch_ = Epoch::position;
+        }
+      } else {
+        ensure_position_path();
       }
     }
   }
@@ -135,7 +150,6 @@ class Iterator {
     assert(leaf_id_ != null_id);
     // 移動時はReverseだけ確定し、値を読まない要素のLazyは保持する。
     ensure_position_path();
-    const bool was_value_valid = validated_value_epoch_ == Epoch::value;
     auto& leaf = this_leaf();
     std::ptrdiff_t to_index =
         static_cast<std::ptrdiff_t>(leaf.position) + offset;
@@ -146,12 +160,16 @@ class Iterator {
       if (0 <= to_index && to_index < static_cast<std::ptrdiff_t>(node.size)) {
         if constexpr (VisitAll) {
           leaf_id_ = node.template locate<true>(to_index);
-        } else {
-          // 新しい下降経路に未伝搬Lazyがなければ、値キャッシュを引き継ぐ。
-          bool value_clean = was_value_valid;
+        } else if constexpr (HasLazy) {
+          // Lazyありの場合だけ、値epochと未伝搬タグを確認する。
+          bool value_clean = validated_value_epoch_ == Epoch::value;
           leaf_id_ = node.template locate<false>(to_index, &value_clean);
           validated_position_epoch_ = Epoch::position;
           validated_value_epoch_ = value_clean ? Epoch::value : 0;
+        } else {
+          // Set / Vector / Segtreeには値epochもLazy検証も不要。
+          leaf_id_ = node.template locate<false>(to_index);
+          validated_position_epoch_ = Epoch::position;
         }
         return;
       }
@@ -179,9 +197,12 @@ class Iterator {
   Iterator(const Iterator<Traits, Tree, OtherConst, OtherVisitALL>& other)
       : leaf_id_(other.leaf_id_),
         validated_position_epoch_(
-            OtherVisitALL ? 0 : other.validated_position_epoch_),
-        validated_value_epoch_(
-            OtherVisitALL ? 0 : other.validated_value_epoch_) {}
+            OtherVisitALL ? 0 : other.validated_position_epoch_) {
+    if constexpr (HasLazy) {
+      validated_value_epoch_ =
+          OtherVisitALL ? 0 : other.validated_value_epoch_;
+    }
+  }
 
   reference operator*() const {
     assert(leaf_id_ != null_id);
