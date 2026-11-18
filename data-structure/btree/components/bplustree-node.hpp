@@ -106,6 +106,13 @@ struct Internal : Traits::Node {
     assert(level > 0 && index < count);
     return Pools::internals()[children[index]];
   }
+
+  id_type& first_child_id() {
+    return children[0];
+  };
+  id_type& last_child_id() {
+    return children[count - 1];
+  };
   std::size_t child_size(pos_type index) const {
     return level == 0 ? 1 : get_child(index).size;
   }
@@ -119,7 +126,6 @@ struct Internal : Traits::Node {
     return Pools::internals().index(*static_cast<const I*>(this));
   }
 
-
   /**
    * @brief 子を配置し、count / size / parent / position を差分更新する。
    * @details FromOther=false は同一親内の位置変更（size不変）。
@@ -128,8 +134,7 @@ struct Internal : Traits::Node {
    * 一括移動中は一時的に穴を許すが、完了するまで探索しない。
    */
   template <bool FromOther = true, bool ConsiderOtherSync = true>
-  void move_child(pos_type index, id_type child_id,
-                  id_type self_id = null_id) {
+  void move_child(pos_type index, id_type child_id, id_type self_id = null_id) {
     assert(index < NodeCap && child_id != null_id);
     children[index] = child_id;
     if (index >= count) count = index + 1;
@@ -190,7 +195,6 @@ struct Internal : Traits::Node {
     static_cast<I*>(this)->apply_lazy();
   }
 
-
   /** @return 満杯になり直ちに split が必要なら true。 */
   bool insert(id_type child, pos_type index) {
     assert(child != null_id && index <= count && count < NodeCap);
@@ -203,7 +207,6 @@ struct Internal : Traits::Node {
     refresh();
     return false;
   }
-
 
   /** @return Pool に確保された右兄弟の Internal ID。 */
   id_type split(pos_type left_count = HalfNodeCap) {
@@ -226,7 +229,6 @@ struct Internal : Traits::Node {
     right.refresh();
     return right_id;
   }
-
 
   /** @return この Internal が空になった場合 true。 */
   bool erase(pos_type index) {
@@ -264,7 +266,6 @@ struct Internal : Traits::Node {
     assert(false);
     return null_id;
   }
-
 
   /** @brief index の Internal 子を隣の兄弟へ移動し、元の子を回収する。 */
   void integrate_child(pos_type index) {
