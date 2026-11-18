@@ -80,22 +80,19 @@ class Base {
     return get_leaf(end_).get_parent().children[get_leaf(end_).position];
   }
 
-  void set_bbegin_pos(id_type bb) {
-    get_leaf(bb).parent = get_leaf(bbegin_).parent;
-    get_leaf(bb).position = get_leaf(bbegin_).position;
-    bbegin_pos() = bb;
-  }
-
-  void set_end_pos(id_type e) {
-    get_leaf(e).parent = get_leaf(end_).parent;
-    get_leaf(e).position = get_leaf(end_).position;
-    end_pos() = e;
-  }
+  static void swap_end(id_type x_id, id_type y_id) {
+    auto& x = get_leaf(x_id);
+    auto& y = get_leaf(y_id);
+    swap(x.get_parent().children[x.position],
+         y.get_parent().children[y.position]);
+    swap(x.parent, y.parent);
+    swap(x.position, y.position);
+  };
 
   /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
   void init() {
-    bbegin_pos() = null_id;
-    end_pos() = null_id;
+    if (get_leaf(bbegin_).parent != null_id) bbegin_pos() = null_id;
+    if (get_leaf(end_).parent != null_id) end_pos() = null_id;
     const id_type new_root = make_new_root(bbegin_, end_);
     Pools::recycle(root_);
     root_ = new_root;
@@ -120,7 +117,7 @@ class Base {
   }
 
   void build(std::vector<T>& values) {
-    if (values.empty()) return;
+    if (values.empty()) return init();
 
     bbegin_pos() = null_id;
     end_pos() = null_id;
@@ -417,10 +414,8 @@ class Base {
   friend void swap(Base& left, Base& right) noexcept {
     using std::swap;
     swap(left.root_, right.root_);
-    left.set_bbegin_pos(right.bbegin_);
-    right.set_bbegin_pos(left.bbegin_);
-    left.set_end_pos(right.end_);
-    right.set_end_pos(left.end_);
+    swap_end(left.bbegin_, right.bbegin_);
+    swap_end(left.end_, right.end_);
     Epoch::invalidate_all();
   }
   template <std::input_iterator InputIt>
@@ -590,18 +585,17 @@ class Base {
     right.root_ = devide(root_, pos.leaf_id_);
     get_node(old_right_root).count = 0;
     Pools::recycle(old_right_root);
-
-    set_end_pos(right.end_);
     {
       const id_type end_leaf = get_node(root_).locate(get_node(root_).size - 1);
       const id_type end_parent = get_leaf(end_leaf).parent;
-      insert(end_parent, get_node(end_parent).count, end_, root_);
+      insert(end_parent, get_node(end_parent).count, right.end_, root_);
     }
     {
       const id_type bbegin_leaf = get_node(right.root_).locate(0);
       const id_type bbegin_parent = get_leaf(bbegin_leaf).parent;
       insert(bbegin_parent, 0, right.bbegin_, right.root_);
     }
+    swap_end(end_, right.end_);
     Epoch::invalidate_all();
     return right;
   }
@@ -613,25 +607,20 @@ class Base {
       swap(*this, right);
       return;
     }
-    erase(get_leaf(end_).parent, get_leaf(end_).position, root_);
-    erase(get_leaf(right.bbegin_).parent, get_leaf(right.bbegin_).position,
-          right.root_);
     root_ = unite(root_, right.root_);
-
-    right.set_end_pos(end_);
+    swap_end(end_, right.end_);
+    for (auto end : {right.end_, right.bbegin_}) {
+      auto leaf = get_leaf(end);
+      leaf.get_parent().children[leaf.position] = null_id;
+      erase(leaf.parent, leaf.position, root_);
+    }
     right.root_ = null_id;
-
     right.init();  // init()で共有epochを更新する。
   }
 
   void reverse() {
     get_node(root_).push_reverse();
-    auto end_parent = get_leaf(end_).parent;
-    auto end_position = get_leaf(end_).position;
-    set_bbegin_pos(end_);
-    get_node(end_parent).children[end_position] = bbegin_;
-    get_leaf(bbegin_).parent = end_parent;
-    get_leaf(bbegin_).position = end_position;
+    swap_end(bbegin_, end_);
     Epoch::invalidate_position();
   }
   void reverse(size_type first, size_type last) {
