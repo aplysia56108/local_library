@@ -40,11 +40,17 @@ struct Traits {
  */
 template <class Traits>
 struct Node {
-  using id_type = typename NodePools<Traits>::id_type;
-  static constexpr id_type null_id = NodePools<Traits>::null_id;
+  using Pools = NodePools<Traits>;
+  using id_type = typename Pools::id_type;
+  static constexpr id_type null_id = Pools::null_id;
 
   id_type parent = null_id;
   pos_type position = 0;
+
+  Traits::Internal& get_parent() const {
+    assert(parent != null_id);
+    return Pools::internals()[parent];
+  }
 };
 
 /** @brief 1要素1Leaf。安定した要素識別子は Leaf Pool 内の ID。 */
@@ -107,12 +113,6 @@ struct Internal : Traits::Node {
     return Pools::internals()[children[index]];
   }
 
-  id_type& first_child_id() {
-    return children[0];
-  };
-  id_type& last_child_id() {
-    return children[count - 1];
-  };
   std::size_t child_size(pos_type index) const {
     return level == 0 ? 1 : get_child(index).size;
   }

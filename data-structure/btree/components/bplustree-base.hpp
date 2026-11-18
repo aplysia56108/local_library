@@ -72,8 +72,30 @@ class Base {
     return it.leaf_id_;
   }
 
+  id_type& bbegin_pos() {
+    return get_leaf(bbegin_).get_parent().children[get_leaf(bbegin_).position];
+  }
+
+  id_type& end_pos() {
+    return get_leaf(end_).get_parent().children[get_leaf(end_).position];
+  }
+
+  void set_bbegin_pos(id_type bb) {
+    get_leaf(bb).parent = get_leaf(bbegin_).parent;
+    get_leaf(bb).position = get_leaf(bbegin_).position;
+    bbegin_pos() = bb;
+  }
+
+  void set_end_pos(id_type e) {
+    get_leaf(e).parent = get_leaf(end_).parent;
+    get_leaf(e).position = get_leaf(end_).position;
+    end_pos() = e;
+  }
+
   /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
   void init() {
+    bbegin_pos() = null_id;
+    end_pos() = null_id;
     const id_type new_root = make_new_root(bbegin_, end_);
     Pools::recycle(root_);
     root_ = new_root;
@@ -98,7 +120,12 @@ class Base {
   }
 
   void build(std::vector<T>& values) {
-    if (values.empty()) return init();
+    if (values.empty()) return;
+
+    bbegin_pos() = null_id;
+    end_pos() = null_id;
+    Pools::recycle(root_);
+
     constexpr size_type MaxCount = NodeCap - 1;
 
     std::vector<id_type> nodes;
@@ -124,7 +151,6 @@ class Base {
       ++current_level;
     }
     const id_type new_root = nodes[0];
-    Pools::recycle(root_);
     root_ = new_root;
     Epoch::invalidate_all();
   }
@@ -391,12 +417,10 @@ class Base {
   friend void swap(Base& left, Base& right) noexcept {
     using std::swap;
     swap(left.root_, right.root_);
-    swap(get_leaf(left.bbegin_).parent.first_child_id(),
-         get_leaf(right.bbegin_).parent.first_child_id());
-    swap(get_leaf(left.end_).parent.last_child_id(),
-         get_leaf(right.end_).parent.last_child_id());
-    swap(left.bbegin_, right.bbegin_);
-    swap(left.end_, right.end_);
+    left.set_bbegin_pos(right.bbegin_);
+    right.set_bbegin_pos(left.bbegin_);
+    left.set_end_pos(right.end_);
+    right.set_end_pos(left.end_);
     Epoch::invalidate_all();
   }
   template <std::input_iterator InputIt>
@@ -564,11 +588,10 @@ class Base {
     }
     const id_type old_right_root = right.root_;
     right.root_ = devide(root_, pos.leaf_id_);
+    get_node(old_right_root).count = 0;
     Pools::recycle(old_right_root);
-    const id_type right_bbegin = Pools::make_leaf(init_value());
-    const id_type right_end = Pools::make_leaf(init_value());
-    right.end_ = right_end;
-    right.bbegin_ = right_bbegin;
+
+    set_end_pos(right.end_);
     {
       const id_type end_leaf = get_node(root_).locate(get_node(root_).size - 1);
       const id_type end_parent = get_leaf(end_leaf).parent;
@@ -577,13 +600,7 @@ class Base {
     {
       const id_type bbegin_leaf = get_node(right.root_).locate(0);
       const id_type bbegin_parent = get_leaf(bbegin_leaf).parent;
-      insert(bbegin_parent, 0, right_bbegin, right.root_);
-    }
-    {
-      const id_type end_leaf =
-          get_node(right.root_).locate(get_node(right.root_).size - 1);
-      const id_type end_parent = get_leaf(end_leaf).parent;
-      get_node(end_parent).last_child_id() = right_bbegin;
+      insert(bbegin_parent, 0, right.bbegin_, right.root_);
     }
     Epoch::invalidate_all();
     return right;
@@ -601,7 +618,7 @@ class Base {
           right.root_);
     root_ = unite(root_, right.root_);
 
-    get_leaf(right.bbegin_).parent.last_child_id() = end_;
+    right.set_end_pos(end_);
     right.root_ = null_id;
 
     right.init();  // init()で共有epochを更新する。
@@ -609,10 +626,12 @@ class Base {
 
   void reverse() {
     get_node(root_).push_reverse();
-    using std::swap;
-    swap(get_leaf(bbegin_).parent.first_child_id(),
-         get_leaf(end_).parent.first_child_id());
-    swap(bbegin_, end_);
+    auto end_parent = get_leaf(end_).parent;
+    auto end_position = get_leaf(end_).position;
+    set_bbegin_pos(end_);
+    get_node(end_parent).children[end_position] = bbegin_;
+    get_leaf(bbegin_).parent = end_parent;
+    get_leaf(bbegin_).position = end_position;
     Epoch::invalidate_position();
   }
   void reverse(size_type first, size_type last) {
