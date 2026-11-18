@@ -81,6 +81,7 @@ class Base {
   }
 
   static void swap_end(id_type x_id, id_type y_id) {
+    using std::swap;
     auto& x = get_leaf(x_id);
     auto& y = get_leaf(y_id);
     swap(x.get_parent().children[x.position],
@@ -232,9 +233,9 @@ class Base {
       nodes.push_back(current_id);
       if (current.level == 0) break;
       if constexpr (Left)
-        current_id = current.first_child_id();
+        current_id = current.children[0];
       else
-        current_id = current.last_child_id();
+        current_id = current.children[current.count - 1];
     }
     return nodes;
   }
@@ -359,7 +360,7 @@ class Base {
     while (right.level + 1 < get_node(target_id).level) {
       auto& target = get_node(target_id);
       target.materialize();
-      target_id = target.last_chil_id();
+      target_id = target.children[target.count - 1];
     }
     get_node(target_id).materialize();
     insert(target_id, get_node(target_id).count, right_id, left_id);
@@ -610,9 +611,10 @@ class Base {
     root_ = unite(root_, right.root_);
     swap_end(end_, right.end_);
     for (auto end : {right.end_, right.bbegin_}) {
-      auto leaf = get_leaf(end);
+      auto& leaf = get_leaf(end);
       leaf.get_parent().children[leaf.position] = null_id;
       erase(leaf.parent, leaf.position, root_);
+      leaf.parent = null_id;
     }
     right.root_ = null_id;
     right.init();  // init()で共有epochを更新する。
