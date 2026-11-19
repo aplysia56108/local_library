@@ -88,6 +88,17 @@ class Base {
          y.get_parent().children[y.position]);
     swap(x.parent, y.parent);
     swap(x.position, y.position);
+
+    // Set が保持する先頭 Leaf ID のキャッシュを、交換した両経路で更新する。
+    // Vector / Segtree ではコンパイル時に処理を除外する。
+    if constexpr (requires { Traits::refresh_on_leaf_swap; }) {
+      if constexpr (Traits::refresh_on_leaf_swap) {
+        const id_type x_parent = x.parent;
+        const id_type y_parent = y.parent;
+        refresh_recursive(x_parent);
+        if (x_parent != y_parent) refresh_recursive(y_parent);
+      }
+    }
   };
 
   /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
