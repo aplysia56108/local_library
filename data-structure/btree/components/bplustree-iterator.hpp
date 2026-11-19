@@ -11,27 +11,15 @@
 
 #include "data-structure/btree/components/bplustree-node.hpp"
 
-/**
- * @brief B+ tree 上の要素を指すイテレータ。
- * @details Leaf の Pool ID で要素と番兵を表す。
- *
- * C++20 の `std::random_access_iterator` コンセプトを満たす。
- * ただし木構造上、任意距離の移動やイテレータ差分は厳密には O(1) ではなく
- * O(NodeCapacity log_{NodeCapacity} N) となり得る。
- * 参照時はepochが変わった場合だけ祖先から遅延更新を適用し、同一epochではO(1)。
- * 連続した ++ は、新しい部分木への下降時だけ未伝搬情報を処理する。
- */
-// Traitsが含む情報
-// T:要素の型
-// Node, Leaf, Internal:それぞれ要素の型。Leaf, InternalはNodeを継承している。
-// kNodeCapacity:Internalのmax容量
 namespace Bplustree {
 
 /**
- * @brief Iteratorの位置経路と値経路のキャッシュを別々に管理する世代。
- * @details 同一Traitsの木で共有する。split/merge/swapでLeafの所属木が変わっても、
- * IteratorはTreeへの参照を持たずに経路キャッシュを再検証できる。
- * 0はIteratorの未検証状態を表すため、世代値には使用しない。
+ * @brief 同じ Traits の iterator が共有する position / value の世代。
+ * @details
+ * position は未伝搬の反転・位置経路、value は未伝搬 Lazy の検証用。
+ * split / merge / swap で所属木が変わっても、iterator は Leaf ID と
+ * 世代を使って経路を再検証する。0 は未検証の番兵値として使用するため
+ * 有効な世代には用いない。異なる木の更新でも保守的に世代を進める。
  */
 template <class Traits>
 struct IteratorEpoch {
@@ -52,6 +40,19 @@ struct IteratorEpoch {
   }
 };
 
+/**
+ * @brief Leaf ID で要素を識別する、読み取り専用参照の B+tree iterator。
+ * @tparam Traits ノード構成と Lazy 有無を定義する Traits。
+ * @tparam Tree 所属する Base 型（実体へのポインタは保持しない）。
+ * @tparam IsConst true のときは set() を公開しない。
+ * @details
+ * C++20 の std::random_access_iterator コンセプトに対応する。
+ * ただし ++ / -- 以外も含め移動や差分は O(1) とは限らず、
+ * 最悪 O(NodeCapacity * 木の高さ) の経路走査が発生する。
+ * 実要素 Leaf の削除 / clear / assign / rebuild で当該 ID は失効する。
+ * split / merge / swap / reverse 後も、残存する実要素を指す ID は維持する。
+ * 差分・順序比較は同一の木に所属する iterator 同士に限る。
+ */
 template <class Traits, class Tree, bool IsConst>
 class Iterator {
   template <class, class, bool>
@@ -59,7 +60,6 @@ class Iterator {
   friend Tree;
 
  protected:
-  // using Traits = typename Tree::traits;
   using Leaf = typename Traits::Leaf;
   using Internal = typename Traits::Internal;
   using T = typename Traits::T;
@@ -68,6 +68,8 @@ class Iterator {
   using id_type = typename Pools::id_type;
   static constexpr id_type null_id = NodePools<Traits>::null_id;
 
+  // lazy=false を明示した Traits では value epoch をコンパイル時に省略。
+  // 未宣言の場合はカスタム Traits との互換性のため Lazy ありとして扱う。
   static constexpr bool HasLazy = [] {
     if constexpr (requires { Traits::lazy; })
       return Traits::lazy;
@@ -113,7 +115,7 @@ class Iterator {
     materialize_path(this_leaf().parent);
   }
 
-  /** @brief 位置確定ではReverseだけを伝搬し、Lazyは保持する。 */
+  /** @brief position 世代が古ければ、根からの経路にある反転のみ伝搬する。 */
   void ensure_position_path() const {
     if (validated_position_epoch_ != Epoch::position) {
       reverse_path(this_leaf().parent);
@@ -121,7 +123,7 @@ class Iterator {
     }
   }
 
-  /** @brief Lazyがなければ位置経路だけ、あれば必要時に値経路を確定する。 */
+  /** @brief 値参照前に必要な遅延作用を伝搬し、position/value 世代を確定する。 */
   void ensure_value_path() const {
     if constexpr (HasLazy) {
       if (validated_value_epoch_ != Epoch::value) {
@@ -144,6 +146,12 @@ class Iterator {
     refresh_path(this_leaf().parent);
   }
 
+  /**
+   * @brief 現在の Leaf から offset 個だけ移動する。
+   * @details Lazy を値に反映せず、位置情報だけ確定する。
+   * Lazy なしの同一最下層 Internal 内移動は O(1)。
+   * 範囲外への移動は未定義（assert による部分的な検出のみ）。
+   */
   void advance(std::ptrdiff_t offset) {
     assert(leaf_id_ != null_id);
     // 移動時はReverseだけ確定し、値を読まない要素のLazyは保持する。
@@ -197,10 +205,15 @@ class Iterator {
   using reference = const T&;
   using pointer = const T*;
 
-  /** @brief 探索時に確定済みの経路をepochキャッシュへ引き継ぐ。 */
+  /** @brief コンテナ側の locate が既に検証した経路の種類を示す。 */
   enum class Validation { None, Position, Value };
 
+  /** @brief null_id の未検証 iterator を構築する。 */
   Iterator() = default;
+  /**
+   * @brief Leaf ID を受け取り、任意で検証済みの世代を記録する。
+   * @details Position なら位置経路、Value なら位置と値経路が確定済み。
+   */
   explicit Iterator(id_type leaf_id,
                     Validation validation = Validation::None)
       : leaf_id_(leaf_id) {
@@ -221,6 +234,10 @@ class Iterator {
       validated_value_epoch_ = other.validated_value_epoch_;
   }
 
+  /**
+   * @brief 参照の前に必要な反転と遅延作用を確定し、値を読み取る。
+   * @details 返す const 参照は Pool の再確保でも無効化され得る。
+   */
   reference operator*() const {
     assert(leaf_id_ != null_id);
     ensure_value_path();
@@ -231,6 +248,7 @@ class Iterator {
     return std::addressof(operator*());
   }
 
+  /** @brief 1要素を更新して、内部ノードの集約メタデータを祖先へ反映する。 */
   void set(const T& value) const
     requires(!IsConst)
   {
@@ -282,6 +300,10 @@ class Iterator {
     return it -= offset;
   }
 
+  /**
+   * @brief 同じ木に所属する2つの iterator の位置差を求める。
+   * @details 違う木の iterator 同士の差分はサポートしない。
+   */
   friend std::ptrdiff_t operator-(const Iterator& lhs, const Iterator& rhs) {
     lhs.ensure_position_path();
     rhs.ensure_position_path();
@@ -315,7 +337,7 @@ class Iterator {
     return (lhs - rhs) <=> 0;
   }
 
-  // epochはキャッシュ状態であり、iteratorの指す要素の同一性には含めない。
+  // 同一性は Leaf ID のみで判定する。epoch はキャッシュ状態であり等値性に含めない。
   friend bool operator==(const Iterator& lhs, const Iterator& rhs) {
     return lhs.leaf_id_ == rhs.leaf_id_;
   }

@@ -13,7 +13,11 @@
 
 namespace Bplustree {
 
-/** @brief Set 用 Traits。Leaf はキー1個のみ保持する。 */
+/**
+ * @brief Set / Multiset 用 Traits。Leaf はキー1個を保持する。
+ * @details refresh_on_leaf_swap は、固定番兵を入れ替えた際の
+ * Internal::min_leaf_id 更新を Base に要求する。
+ */
 template <class Key, std::size_t Capacity>
 struct SetTraits {
   using T = Key;
@@ -25,7 +29,11 @@ struct SetTraits {
   struct Internal;
 };
 
-/** @brief 子部分木の最小キーを Internal だけに保持する。 */
+/**
+ * @brief 各 Internal に最左 Leaf の Pool ID をキャッシュする。
+ * @details Key のポインタや参照ではなく Leaf ID を保持するため、
+ * Pool の再確保による参照の失効を避けられる。キー比較には Leaf の値を用いる。
+ */
 template <class Key, std::size_t Capacity>
 struct SetTraits<Key, Capacity>::Internal
     : Bplustree::Internal<SetTraits<Key, Capacity>> {
@@ -37,13 +45,14 @@ struct SetTraits<Key, Capacity>::Internal
   using Pools = Bplustree::NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
-  // A Leaf ID is stable across vector reallocations, unlike a Key pointer.
+  // 実要素・番兵の Leaf ID は Pool の再確保で変わらない。
   id_type min_leaf_id = Pools::null_id;
 
   const Key& min_key() const {
     return Pools::leaves()[min_leaf_id].get();
   }
 
+  /** @brief 子の先頭 Leaf ID から最小キーのメタデータを再計算する。 */
   void refresh_metadata() {
     min_leaf_id = this->count == 0 ? Pools::null_id
                   : this->level    ? this->get_child(0).min_leaf_id
@@ -56,14 +65,18 @@ struct SetTraits<Key, Capacity>::Internal
 enum class SetType { Set, MultiSet };
 
 /**
- * @brief ソート済みのキーを保持する B+ tree set / multiset。
- * @details Base の位置変更・反転・点更新を公開しない。
- * Iterator は読み取り専用。キーの重複可否は Type で決まる。
+ * @brief 比較器の順序でキーを保持する B+tree Set / Multiset。
+ * @tparam Key キー型。
+ * @tparam Type Set（等価キーを重複排除）または MultiSet（重複を保持）。
+ * @tparam Compare 厳密弱順序を与える比較器。
+ * @tparam NodeCapacity Internal の子 ID 配列の容量。
+ * @details Base を protected 継承して位置による更新・反転を隠す。
+ * iterator は const、添字参照も読み取り専用。境界探索は Internal の
+ * min_leaf_id を使って1本の探索経路を降りる。
  *
- * 境界探索では Internal の最小キー情報を使い1経路だけを降りる。
  * ### 計算量
- * lower_bound / upper_bound: O(NodeCapacity * 木の高さ)
- * 挿入・削除: 上記探索 + Base の構造変更
+ * lower_bound / upper_bound: O(NodeCapacity * 木の高さ)。
+ * insert / erase: 上記探索と Base の構造変更。
  */
 template <class Key = long long, SetType Type = SetType::Set,
           class Compare = std::less<Key>, std::size_t NodeCapacity = 64>
@@ -77,6 +90,12 @@ class Bplustree_Set
   using Pools = typename Parent::Pools;
   using id_type = typename Pools::id_type;
 
+  /**
+   * @brief 番兵を含む Leaf ID とキー b を Compare の順序で比較する。
+   * @details bbegin は全キーより前、end は全キーより後と扱う。
+   * Reversed は比較器の引数を逆にする（降順キー専用の指定ではない）。
+   * 番兵に一致する分岐は通常の検索では稀なので unlikely とする。
+   */
   template <bool Reversed = false>
   bool inner_comp(const id_type& id, const Key& b) const {
     if (id == this->bbegin_) [[unlikely]]
@@ -101,6 +120,11 @@ class Bplustree_Set
   using Leaf = typename Parent::Leaf;
   using Internal = typename Parent::Internal;
 
+  /**
+   * @brief 最右の「key より小さい／以下」の Leaf ID を探索する。
+   * @details Equal=false では <、true では <=。先頭番兵を下限として
+   * 各 Internal の子の先頭キーを比較し、1経路を下降する。
+   */
   template <bool Equal>
   id_type max_l(id_type node_id, const Key& key) const {
     const auto& node = Pools::internals()[node_id];
@@ -149,11 +173,19 @@ class Bplustree_Set
     assign(first, last);
   }
 
+  /** @brief 要素を複製して構築する。比較器もコピーされる。 */
   Bplustree_Set(const Bplustree_Set&) = default;
+  /** @brief Base の木を空の新規オブジェクトへ移す。比較器もムーブする。 */
   Bplustree_Set(Bplustree_Set&&) = default;
   Bplustree_Set& operator=(const Bplustree_Set&) = default;
+  /**
+   * @brief Base 部分は swap ベースでムーブ代入する。
+   * @details 移動元は必ずしも空にならず、代入先の旧要素を保持する。
+   * 比較器は Compare 自身のムーブ代入の意味論に従う。
+   */
   Bplustree_Set& operator=(Bplustree_Set&&) = default;
 
+  /** @brief 比較器と要素木を交換する。各オブジェクトの番兵 ID は固定。 */
   friend void swap(Bplustree_Set& a, Bplustree_Set& b) noexcept(
       std::is_nothrow_swappable_v<Compare>)
     requires std::swappable<Compare>
@@ -172,6 +204,7 @@ class Bplustree_Set
   bool empty() const {
     return Parent::empty();
   }
+  /** @brief 最小キーの直前にある固定番兵。値を読み取らないこと。 */
   iterator bbegin() const {
     return Parent::bbegin();
   }
@@ -202,6 +235,7 @@ class Bplustree_Set
   const Key& operator[](size_type index) const {
     return Parent::get(index);
   }
+  /** @brief 0-indexed の index 番目（index==size() は end）を返す。 */
   iterator nth(size_type index) const {
     return Parent::nth(index);
   }
@@ -213,6 +247,12 @@ class Bplustree_Set
     Parent::rebuild();
   }
 
+  /**
+   * @brief 比較器に従って範囲をソートし、Set なら等価キーを除去して再構築。
+   * @details 旧実要素の iterator は失効し、固定番兵 ID は変わらない。
+   * ### 計算量
+   * ソート済み入力は O(N)、その他は O(N log N)。
+   */
   template <std::input_iterator It>
   void assign(It first, It last) {
     std::vector<Key> values;
@@ -233,7 +273,7 @@ class Bplustree_Set
    * @brief pos 以降の要素を新しい Set / Multiset に分離する。
    * @details
    * 自身には [begin(), pos)、返り値には [pos, end()) を残す。
-   * 要素 Leaf とその iterator の同一性を維持する。
+   * 固定番兵 ID はそれぞれの木に残り、実要素 Leaf と iterator は維持する。
    * 返り値には比較器をコピーするため、Compare のコピー構築が必要。
    * ### 計算量
    * O(NodeCapacity * log N)
@@ -275,6 +315,8 @@ class Bplustree_Set
    * @details
    * std::set::merge と異なり、一般の要素を再配置する操作ではない。
    * 両側が同じ順序関係でソートされていることを前提とする。
+   * Compare の状態が異なり順序関係も異なる場合は呼び出せない。
+   * 境界の大小は assert で確認するが、比較器全体の一致は検証しない。
    * Set は max(left) < min(right)、Multiset は
    * max(left) <= min(right) を要する (compare_ による順序)。
    * 実要素の Leaf ID と iterator の同一性は維持する。
@@ -294,9 +336,11 @@ class Bplustree_Set
     Parent::merge(static_cast<Parent&>(right));
   }
 
+  /** @brief 比較器順で key 以上の最初の要素。なければ end()。 */
   iterator lower_bound(const Key& key) const {
     return max_lt(key) + 1;
   }
+  /** @brief 比較器順で key より後の最初の要素。なければ end()。 */
   iterator upper_bound(const Key& key) const {
     return max_le(key) + 1;
   }
@@ -309,9 +353,11 @@ class Bplustree_Set
   iterator min_gt(const Key& key) const {
     return upper_bound(key);
   }
+  /** @brief 比較器順で key より前の最大要素。なければ bbegin()。 */
   iterator max_lt(const Key& key) const {
     return iterator{max_l<false>(this->root_, key)};
   }
+  /** @brief 比較器順で key 以下の最大要素。なければ bbegin()。 */
   iterator max_le(const Key& key) const {
     return iterator{max_l<true>(this->root_, key)};
   }
@@ -327,6 +373,7 @@ class Bplustree_Set
     return upper_bound(key) - lower_bound(key);
   }
 
+  /** @brief キーを挿入する。Set の既存等価キーなら false、Multiset は常に true。 */
   std::pair<iterator, bool> insert(const Key& key) {
     auto it = this->mutable_iterator(lower_bound(key));
     if constexpr (Type == SetType::Set) {
@@ -338,6 +385,10 @@ class Bplustree_Set
   void insert(It first, It last) {
     for (; first != last; ++first) insert(*first);
   }
+  /**
+   * @brief key と等価なキーを削除し、削除個数を返す。
+   * @details MultiSet では通常すべて削除し、single_erase=true は1個だけ削除。
+   */
   size_type erase(const Key& key, bool single_erase = false) {
     const base_iterator first = this->mutable_iterator(lower_bound(key));
     if (!equivalent(Parent::get_id(first), key)) return 0;

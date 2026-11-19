@@ -7,15 +7,19 @@
 #include "data-structure/btree/components/bplustree-base.hpp"
 
 /**
- * @brief 1要素1Leafの B+ tree を使う動的配列。
+ * @brief 1要素1Leaf の B+tree による、位置指定の動的配列。
  * @tparam T 要素型。
- * @tparam NodeCapacity Internal の子配列容量。
+ * @tparam NodeCapacity Internal の子 ID 配列容量。
  * @details
- * Base と共通の Node / Iterator を使う。要素の変更は set() または
- * operator() の Setter を使用する。イテレータの直接書き換えは行わない。
+ * get / operator[] / iterator は読み取り専用。要素の更新は
+ * set(index,value) または operator()(index) の Setter を利用する。
+ * insert / erase / reverse / split / merge に対応し、実要素が削除されない限り
+ * 既存 iterator の Leaf ID は維持される（clear / assign / rebuild は例外）。
+ * bbegin と end はオブジェクト固有の固定番兵。
  *
- * 旧実装の「1 Leaf に複数要素」方式とは異なるため、メモリ使用量や
- * 定数倍の性能特性は変化する。
+ * ### 計算量
+ * 位置操作・分割・結合は概ね O(NodeCapacity * 木の高さ)。
+ * 全体 reverse は O(1)。
  */
 template <class T = long long, std::size_t NodeCapacity = 64>
 class Bplustree_Vector
@@ -32,18 +36,23 @@ class Bplustree_Vector
   using Parent::assign;
   using Parent::resize;
 
-  /** @brief 分割した右半分を同じ公開型で返す。 */
+  /**
+   * @brief index 以降の要素を分離して同じ Bplustree_Vector 型で返す。
+   * @details 左右の木の番兵 ID は固定のままで、実要素 Leaf ID も維持する。
+   */
   Bplustree_Vector split(size_type index) {
     Bplustree_Vector right;
     static_cast<Parent&>(right) = Parent::split(index);
     return right;
   }
+  /** @brief position 以降を分離する（位置は自身の [begin(),end()]）。 */
   Bplustree_Vector split(iterator position) {
     Bplustree_Vector right;
     static_cast<Parent&>(right) = Parent::split(position);
     return right;
   }
-  /** @brief right の要素を末尾へ結合して right を空にする。 */
+  /** @brief right の全実要素を末尾へ連結し、right を空にする。 */
+  
   void merge(Bplustree_Vector& right) {
     Parent::merge(static_cast<Parent&>(right));
   }
