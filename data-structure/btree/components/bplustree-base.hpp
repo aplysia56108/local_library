@@ -38,7 +38,7 @@ class Base {
   using Epoch = IteratorEpoch<Traits>;
   using id_type = typename Pools::id_type;
   using leaf_pool_type = ObjectPool<typename Traits::Leaf>;
-  using internal_pool_type = ObjectPool<typename Traits::Internal>;
+  using internal_pool_type = ObjectPool<UpperInternal<Traits>>;
   static constexpr id_type null_id = Pools::null_id;
 
  protected:
