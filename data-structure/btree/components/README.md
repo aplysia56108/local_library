@@ -1,34 +1,137 @@
-# B+ tree共通部品
+# B+tree ライブラリ（共通部品と公開 API）
 
-`Bplustree::Base<Traits>` は位置で操作する木の基盤です。
-node・iteratorの実装を再利用し、rootのみを所有します。sizeとlevelはrootの
-metadataを参照します。公開 `Bplustree_Set` / `Bplustree_Segtree` /
-`Bplustree_LazySegtree` はこのBaseを使います。`Bplustree_Vector` も共通Baseを使います。旧Vectorの複数要素Leafは廃止し、
-1要素1Leafへ変更したため、メモリ使用量・定数倍の性能は変わります。
+このディレクトリの `Base<Traits>` / `Iterator` / `Setter` / `NodePools` / `Internal` は、
+位置によって操作する B+tree の共通実装です。公開コンテナは親ディレクトリの
+`Bplustree_Vector`、`Bplustree_Set` / `Bplustree_MultiSet`、
+`Bplustree_Segtree`、`Bplustree_LazySegtree` です。
+
+## データ構造と所有権
+
+- **1要素1Leaf**：Leaf は実要素1個を持ち、内部ノード（Internal）が子ID・部分木サイズ・必要な集約情報を保持します。旧 Vector の複数要素 Leaf は使用しません。
+- **Pool**：同じ Traits を使う木は `NodePools<Traits>` の Leaf / Internal Pool を共有します。両者の ID 空間は別です。`id_type` は `std::uint32_t`、`position` / `level` は `std::uint8_t`。基本 Traits の NodeCapacity は 3～255 を想定します。
+- **所有者**：各 Base は `root_` が指すノード木を所有し、さらに **木ごとに固有な2個の番兵 Leaf ID**（`bbegin_` / `end_`）を保持します。`size()` は番兵2個を除いた実要素数です。
+- **固定番兵**：`bbegin()` は先頭要素の直前、`end()` は末尾の直後。`swap`、`reverse`、`split`、`merge` でも各オブジェクトの番兵 ID は変わりません。内部では番兵の **位置** を交換して整合させます。
+- **安定 ID**：実要素の Leaf ID は木の構造変更で移動せず、iterator はその ID を保持します。`split` / `merge` / `swap` で要素が別の木へ移った場合も、その要素を指す iterator は同じ ID を追跡します。
+- **失効**：要素自身を削除するとその iterator は無効です。`clear` / `assign` / `rebuild` などで作り直した旧要素の iterator も無効になります。Pool は消去済み ID を再利用するため、失効後に使ってはいけません。
+
+Pool は `inline static constinit ObjectPool` で管理し、関数内 static の初期化ガードを避けています。
+Pool 内部の `std::vector` 拡張で **Leaf / Internal への C++ 参照・ポインタ** は無効になり得ます。
+一方で、まだ解放されていない Leaf / Internal の **ID** は変わりません。
+ノード参照を保持したまま追加確保をする処理は、再取得または事前確保が必要です。
+
+## 主な公開 API
+
+### Vector（位置指定の動的配列）
 
 ```cpp
-using Sequence = Bplustree::Base<Bplustree::Traits<long long, 32>>;
-Sequence sequence{1, 2, 3};
-sequence(1) += 4;
-sequence.reverse(0, 3);
+Bplustree_Vector<long long, 32> v{1, 2, 3};
+v(1) += 4;              // 1番目を 6 に更新
+v.reverse();            // 全要素を反転
+auto suffix = v.split(1);
+v.merge(suffix);        // suffix は空になる
 ```
 
-Baseのiteratorの参照と添字参照は読み取り専用です。集約値やソート順を壊す
-直接代入を防ぎ、更新はsetまたはsetterを通します。Base自体は位置指定の
-insert/setを公開するので、setを作る場合はprotected継承して、安全なAPIだけを
-usingで公開してください。比較器やキーの重複規則は派生クラスが管理します。
+`get(i)`、`operator[](i)`、iterator の参照は **読み取り専用** です。
+更新には `set(i, value)`、`operator()(i)` の Setter、`insert`、`erase` を使用します。
+`split(index)` / `split(iterator)` は index / iterator 以降を新しい木として返し、
+`merge(right)` は right の全要素を末尾につなぎ、right を空にします。
+`reverse(first, last)` は半開区間を反転します。全体 `reverse()` はフラグと番兵位置の交換で O(1) です。
 
-## Traitsと継承
+### Set / Multiset（比較器順序の集合）
 
-Traitsは `T`, `kNodeCapacity`, `Node`, `Leaf`, `Internal` を持ちます。
-基本形は `Bplustree::Traits<T, Capacity>`、拡張形は次の構造です。
+```cpp
+BSet<long long> s{ };        // 必要なキーは insert で追加
+s.insert(3);
+s.insert(7);
+s.insert(10);
+auto ge = s.lower_bound(7);
+auto right = s.split_by_key(7);  // s={3}, right={7,10}
+s.merge(right);                 // s={3,7,10}, right={}
+```
+
+`Bplustree_Set<Key, Type, Compare, NodeCapacity>` は protected 継承で位置指定の書換え・
+反転を公開せず、iterator も const です。`SetType::Set` は等価キーを重複排除し、
+`SetType::MultiSet` は重複を保持します。順序は `Compare` が定義する厳密弱順序です。
+
+- `lower_bound(key)` / `upper_bound(key)`、`find`、`contains`、`count` を提供。`max_lt` / `max_le` で該当キーがなければ `bbegin()` を返し、`min_ge` / `min_gt` でなければ `end()` を返します。
+- `split(iterator)`：その位置以降、`split_by_index(k)`：最初の k 個より後、`split_by_key(key)`：比較器順で key 以上（等価キーを含む）を右側に分離します。右側には比較器を **コピー** するため `Compare` はコピー構築可能である必要があります。
+- **`merge(right)` は `std::set::merge` と異なる「順序付き連結」** です。左右が同じ順序関係を持ち、Set では `compare_(max(left), min(right))`、Multiset では `!compare_(min(right), max(left))` を満たすことが前提です。right は空になります。要素ごとの再検索・重複解決は行いません。
+- Set の Internal は最小キーの参照ではなく **最左 Leaf ID `min_leaf_id`** をキャッシュします。構造変更時の `refresh_metadata()` と、番兵位置交換時の `refresh_on_leaf_swap` フックでキャッシュを保ちます。
+- 通常のコピーは要素をコピーします。ムーブ構築は空のオブジェクトとの交換で、元の木を空にします。**ムーブ代入は Base の swap ベース**なので、移動元には代入先の旧要素が残ります。比較器の移動後の状態については、その比較器型の要件に従います。
+
+異なる状態の比較器（順序関係が異なるもの）を持つ Set を `merge` してはいけません。
+境界の値だけでは比較器全体の整合性を証明できないため、呼び出し側が保証します。
+
+### Segtree / LazySegtree（集約・遅延更新）
+
+```cpp
+SumSegtree seg{1, 2, 3};
+auto total = seg.prod(0, 3);  // [0,3) のモノイド積
+seg(1).prod_right(5);        // a[1] = op(a[1], 5)
+seg.reverse(0, 3);
+auto back = seg.reverse_prod(0, 3);
+
+AddSumLazySegtree lazy{1, 2, 3};
+lazy.apply(0, 2, 10);        // [0,2) に作用
+lazy(2).apply(4);            // 1点に作用
+lazy.all_apply(1);
+```
+
+`AggregateTree` は順方向・逆方向の区間積を Internal に保持し、Leaf 自身には集約値を持ちません。
+`prod(l,r)` / `reverse_prod(l,r)` は半開区間の積、`all_prod()` / `all_reverse_prod()` は全体積です。
+`max_right(l, pred)` と `min_left(r, pred)` は境界探索です。
+`right_bound` / `left_bound` はその別名です。
+単位元だけを渡したときの `pred(e()) == true` は要求しません。実際に判定する非空区間について、区間を広げたときに
+`true` から `false` へのみ遷移する述語を使ってください。
+
+LazySegtree の `Action::mapping(f, x, size)` は長さ size の区間積への作用、
+`Action::composition(f, g)` は **先に g、次に f** を適用する合成です。
+Leaf では未伝搬作用を持たず、作用が届いた時点で実要素を書き換えます。
+Internal は `pending` と積を管理します。作用の単位元や等価比較の実装は必須ではありません。
+反転後の区間積も正しくなるよう mapping が定義されている必要があります。
+`ReverseInvariant = true` は、区間積が要素の並び順の反転に対して不変である場合だけ指定してください。
+
+## Setter と iterator
+
+`Bplustree::Setter<Tree>` は **Iterator を保持する点更新 Proxy** です。
+`operator=(value)`、`+=` などの複合代入、前置 `++` / `--` は要素を更新して Setter を返します。
+後置 `++` / `--` は **更新前の値** を返します。
+`val()` は現在値を値として返し、`prod(value)` / `prod_right(value)` / `prod_left(value)` は
+モノイド演算を右・左から適用する **void の更新操作** です。
+Action に対応する木では `.apply(f)` が1要素への作用を行います。
+Setter の演算子・メソッドは、要素型・Monoid・Action が対応する場合だけ利用できます。
+
+iterator は Leaf Pool ID によって要素を識別し、コンテナへのポインタは持ちません。
+C++20 の `std::random_access_iterator` コンセプトを満たしますが、**任意距離移動や差分が O(1) とは限りません**。
+`++` / `--` は同じ最下層 Internal 内であれば直接 Leaf ID を移動できます（Lazy なしの場合）。
+異なる部分木へ移るときは祖先をたどり、必要な反転・遅延情報を処理します。
+**別々の木に所属する iterator 同士の引き算・順序比較は行わないでください**。
+
+### position / value epoch
+
+`IteratorEpoch<Traits>` の `position` と `value` は Traits 単位で共有されます。
+`reverse()` は position だけ、区間 `apply()` は value だけを失効させます。
+構造操作（`insert`、`erase`、`split`、`merge`、`swap`、`assign` 等）は両方を失効させます。
+iterator の参照や移動時に世代が合わなければ経路を再検証し、
+未伝搬の反転（position）と作用（value）を必要に応じて実体化します。
+
+`Traits::lazy = false` を明示すれば、値 epoch の追跡・確認を `if constexpr` で除外します。
+未指定のカスタム Traits は互換性のため Lazy ありとして扱います。
+世代は **キャッシュの妥当性** の管理であり、iterator の等値性は Leaf ID で判断します。
+同じ Traits の無関係な木の更新でも、保守的にキャッシュが失効する場合があります。
+
+## 独自 Traits と内部実装
+
+Traits は `T`、`kNodeCapacity`、`Node` / `Leaf` / `Internal` を定義します。
+遅延作用がない拡張では `lazy = false`、反転により特殊なメタデータ更新が必要な場合は派生ノードの
+`push_reverse_impl()`、メタデータ再計算には `refresh_metadata()` を使います。
+**旧 `IsReversible` / `IsMergable` フラグは現在のインターフェースでは使いません。**
 
 ```cpp
 struct MyTraits {
   using T = long long;
   static constexpr std::size_t kNodeCapacity = 32;
-  static constexpr bool IsReversible = true;
-  static constexpr bool IsMergable = true;
+  static constexpr bool lazy = false;
   using Node = Bplustree::Node<MyTraits>;
   using Leaf = Bplustree::Leaf<MyTraits>;
   struct Internal;
@@ -36,173 +139,45 @@ struct MyTraits {
 struct MyTraits::Internal : Bplustree::Internal<MyTraits> {
   using Bplustree::Internal<MyTraits>::Internal;
   long long aggregate = 0;
-  void refresh_metadata(); // level==0ならLeafの値、その他は子Internalの積
+  void refresh_metadata();  // 子の値・集約を読み取って再計算
 };
 ```
 
-派生コンテナはprotectedのroot_、Node/Leaf/Internal型、buildなどを利用できます。
-集約値を持つ場合はInternalのrefresh_metadataを実装します。通常状態はcount < NodeCapで、
-insertがtrueを返した場合は直ちにsplitします。
+`Internal::move_child<FromOther, ConsiderOtherSync>` は子ID・count・size・親ID・親内位置を
+差分更新します。`refresh()` は派生側 `refresh_metadata()` の再計算だけを行い、
+祖先へのサイズ差分は構造操作側が伝搬します。旧 `sync()` はありません。
 
-BaseのsplitはBase型を返します。派生型はBaseのムーブコンストラクタへ渡す
-引数を受けるコンストラクタを用意すると、追加の全要素コピーなしで結果を
-引き継げます。状態を持つ比較器などは派生型側で引き継ぎを管理してください。
+- `move_child<false>`：同一親内の位置更新。size を変更しません。
+- `move_child<true, false>`：新しい子や別木の根などを追加し、移動元の count/size は触りません。
+- `move_child<true, true>`：移動元の suffix を切り離しながら追加します。移動元の末尾側から処理します。
 
-## Poolの初期化とアクセスコスト
+`children[0, count)` が論理的な子の範囲で、それ以降の内容は未規定です。
+ノード分割・統合の途中では一時的に穴ができるため、その途中で検索・積計算をしてはいけません。
+`push_reverse()` はフラグの反転と派生 hook、`apply_reverse()` は実際の順序反転と子への伝搬、
+`materialize()` は反転と遅延作用の伝搬を行います。
+`NodePools::recycle()` は指定部分木を走査して Pool の ID を再利用可能にします。
 
-`NodePools<Traits>` はLeafとInternalを、Traitsごとに共有する2つのPoolで保持します。
-Poolの実体は `inline static constinit ObjectPool<...>` とし、
-`leaves()` / `internals()` はその参照を返します。
+## 計算量・検証方針
 
-関数内の `static ObjectPool` は、初回アクセス時の初期化・デストラクタ登録を
-管理するガードがGCC 15.2の最適化後にも残り、ノード探索で繰り返し評価されます。
-`constinit` と `ObjectPool` の `constexpr` デフォルトコンストラクタを
-組み合わせることで、プールの初期化を静的初期化として保証し、
-ホットパス上のガード判定を除きます。
+NodeCapacity を B、木の高さを h（通常 O(log_B N)）とした目安です。
 
-`NodePools` のPoolは引き続きTraits単位で共有され、Leaf/Node IDの意味や
-構造操作の振る舞いは変わりません。グローバルなTreeの構築・破棄もテスト対象です。
+| 操作 | 計算量（概ね） |
+| --- | --- |
+| `size`、`empty`、`all_prod`、`all_reverse_prod` | O(1) |
+| 全体 `reverse()`（Vector / Segtree / LazySegtree） | O(1) |
+| `get`、`nth`、`set`、位置指定 `insert` / `erase` | O(Bh) |
+| `split` / 順序付き `merge`、部分 `reverse` | O(Bh) |
+| `prod`、`reverse_prod`、区間 `apply`、境界探索 | O(Bh)（演算・述語 O(1) を仮定） |
+| `assign` / 一括構築、`rebuild` | O(N)（入力順が確定している場合） |
+| Set / Multiset の範囲 `assign` | ソート済み O(N)、その他 O(N log N) |
 
-## 子の差分移動と不変条件
+`resize` の増加は単点挿入を繰り返します（空の木に対する一括 `assign` の場合を除く）。
+`clear` / `assign` は旧要素の再利用可能 ID を回収します。
+現在の実装は一般的な例外安全性の強い保証を目的としていません。
 
-`Internal::move_child` で `children` / `count` / `size` / 子の `parent` /
-`position` を差分更新します。`sync()` は廃止し、`refresh()` は
-派生側の `refresh_metadata()` だけを実行します。祖先への `size` 変化は
-挿入・削除・splitの処理側が伝搬します。
+軽量な機能・回帰テストは `data-structure/btree/components/test/` および
+`data-structure/btree/test/` に置きます。重い乱択・ストレス・性能比較は
+`verify/` またはベンチマーク側で実施します。
 
-`children[0, count)` のみ有効です。`count` 以降の値は未規定で、
-末尾の `null_id` クリアは不要です。移動途中は一時的に穴ができる場合が
-ありますが、構造変更を完了するまで検索・集約を呼びません。
-
-- `move_child<false>`: 同一親で位置変更。要素数は変えない。
-- `move_child<true, false>`: 新規子や親のない部分木を配置する。
-- `move_child<true, true>`: 元の親から suffix を切り離して移す。
-
-最後の操作では元の親の `count` が縮むため、右端から順に移します。
-`count` の退避が必要な移動ループには、理由をコメントで残します。
-子ノードを元の親の途中から単独で取り除く操作には使えません。
-
-## 遅延更新と反転のフック
-
-push_reverseはフラグを付け、apply_reverseが並び替えと子へのフラグ伝播を行います。
-基本Leaf/Internalは反転を実装済みです。遅延作用は派生ノードのapply_lazyなどで
-実装してください。Baseは構造変更前に対象経路の反転・遅延作用を実体化します。
-
-遅延タグを付けるときは、そのInternalの集約値を直ちに論理上の値へ更新してください。
-Leafは遅延タグを持たず、作用を受けた時点で要素の値を書き換えます。
-非可換モノイドでの反転では順方向・逆方向の集約値を保持し、派生push_reverseで
-基本フラグを反転するとともに両集約値を交換します。refresh_metadataは残っている
-遅延タグも考慮し、子の論理上の集約値から計算してください。
-
-## Setter
-
-`Bplustree::Setter<Tree>` はIteratorを保持する点更新Proxyです。
-代入と複合代入はIterator::set、prod系とapply系はMonoid/Actionを用いて更新します。各操作はTreeが対応する場合だけ利用可能です。
-applyの作用型はValueと異なっていても構いません。
-
-派生クラスはoperator()を次のように定義して、派生先の更新処理へ委譲します。
-
-```cpp
-Bplustree::Setter<MyTree> operator()(std::size_t index) {
-  assert(index < size());
-  return {this->nth(index)};
-}
-```
-
-setterをさらに継承する場合は、コンストラクタとoperator=をusingで引き継ぎます。
-既存ライブラリのglobalなSegtreeSetterとの衝突を避け、新部品は名前空間内で
-定義しています。
-
-## 計算量と検証
-
-位置探索・点更新・挿入削除・split/mergeは通常 O(NodeCap × 木の高さ)、
-全体反転はO(1)、部分反転はsplit/mergeを使います。一括構築はO(N)、
-resizeによる追加は点挿入を繰り返します。連続した削除で疎なノードが残るため、
-メモリを詰め直す場合はrebuildを使います。既存のiteratorは、指しているLeafが
-消えない限り、反転・挿入・split/merge後もLeaf IDを追跡できます。iteratorの
-キャッシュは世代更新時に自動的に再検証されます。例外を投げる要素型に対する
-強い例外保証は提供しません。
-
-test/にはvectorとの操作列比較、Setの安全なAPI公開例、加算・区間和の遅延拡張、
-文字列連結の非可換集約と反転、setterの作用型・制約の回帰テストがあります。
-
-## 公開コンテナ
-
-従来のヘッダ、テンプレート引数、`BSet` / `BMultiSet` / `BSegtree` /
-`BLazySegtree` などのエイリアスとfactoryはそのまま利用できます。
-
-`Bplustree_Set<Key, Type, Compare, NodeCapacity>` はprotected継承し、位置指定の
-書き込みや反転を公開しません。派生Traitsが部分木の最小キーへの参照を保持し、
-`lower_bound` / `upper_bound` は比較器を使って1経路だけを探索します。
-`SetType::MultiSet` は重複を保持し、`erase(key, true)` は1要素だけ削除します。
-`min_ge` / `min_gt` の該当要素がない場合は `end()`、`max_lt` / `max_le` は
-`bbegin()` を返します。範囲構築はソート済みならO(N)、それ以外はO(N log N)です。
-コピー・move・swapでは比較器も引き継ぎます。move元の比較器について保証する
-操作は従来どおり破棄と再代入です。
-
-`components/bplustree-aggregate.hpp` の `AggregateTraits` / `AggregateTree` は
-SegtreeとLazySegtreeで共用します。公開コンテナはCRTPの派生型として、setterと
-`split` の戻り値に自身の型を保ちます。順方向と逆方向の集約を持つため、非可換
-モノイドでも `reverse` / `reverse_prod` / 境界探索が使えます。
-
-```cpp
-SumSegtree seg{1, 2, 3};
-seg(1).prod(5);          // Monoid::op(2, 5)
-seg.reverse(0, 3);
-auto suffix = seg.split(1);
-seg.merge(suffix);      // suffixは空になる
-auto sum = seg.prod(0, seg.size());
-
-AddSumLazySegtree lazy{1, 2, 3};
-lazy.apply(0, 2, 10);   // 区間作用
-lazy(2).apply(4);       // 点作用
-lazy.all_apply(1);      // 全体作用
-```
-
-サイズだけを指定する構築・`assign`・`resize` は `Monoid::e()` を補充します。
-点のモノイド更新は `prod_right` / `prod_left` を利用できます。
-setterの `.prod()` は右積、
-LazySegtreeの `.apply()` は `Action::action_type` による作用です。
-
-LazySegtreeでは `Action::mapping(f, x, size)` がモノイドの区間積に作用し、
-`Action::composition(f, g)` はgの後にfを適用します。mappingは区間の結合と
-整合し、反転した積にも適用できる必要があります。`ReverseInvariant = true` は
-区間積が反転で変わらない場合に指定します。作用は任意の型を使用でき、単位作用や
-等価比較は不要です。空区間の更新は何もしません。
-
-`prod` / `reverse_prod` / `max_right` / `min_left` / 区間作用は、モノイド演算と
-mapping・composition・述語がO(1)ならO(NodeCapacity × 木の高さ)です。
-`all_prod` / `all_reverse_prod` はO(1)です。境界探索の述語は区間を拡張するとtrueから
-falseへ高々1回変わるものとし、空区間の単位元には呼び出しません。
-`right_bound` / `left_bound` は `max_right` / `min_left` の別名です。
-
-公開APIの新規テストは `data-structure/btree/test/` に配置します。旧テストは廃止し、
-重い乱択・パフォーマンス検証はverifyに委ねます。
-
-### iteratorの位置・値epochキャッシュ
-
-`IteratorEpoch<Traits>::position` と `IteratorEpoch<Traits>::value` は
-同じTraitsの木で共有する独立した世代です。iteratorはLeaf IDのほかに、
-位置経路（Reverse）と値経路（Lazy）の検証済み世代を保持します。
-
-- `reverse()` は位置世代だけ、`apply()` は値世代だけ進めます。
-  部分反転の分割・統合や、insert/erase/split/merge/assign/swapなどの
-  構造変更は両方の世代を保守的に進めます。
-- `++` / `--` / `+=` / イテレータ差分はReverseのみ伝搬し、
-  値を読まない場合の高価なLazy適用を回避します。
-- `Traits::lazy == false` の場合、`if constexpr` で値epochの
-  検証と更新を生成しません。値epochメンバも空型で置き換え、
-  `[[no_unique_address]]` によりメモリを使わず、位置epochのみで判定します。
-  LazySegtreeと、`lazy`フラグ未宣言の拡張Traitsだけが2種類のepochを追跡します。
-  カスタムTraitsがLazyを持たないことを確約できる場合にだけ`lazy = false`を
-  宣言してください（互換性のため未宣言はLazyありとして扱います）。
-- `operator*()` は必要な場合だけLazyを含め経路をmaterializeします。
-  連続走査では、新しい下降経路に未伝搬Lazyがなければ値キャッシュも
-  引き継ぎ、毎回の根への走査を避けます。
-- 一度値を確定したLeafから移動した際、下降経路に未伝搬Lazyが
-  あれば値キャッシュだけを無効化します。
-  位置キャッシュはそのまま有効です。
-- 木の所属はsplit/merge/swapで変わるため、`Tree*`ではなくTraits単位で
-  共有します。無関係な木の変更でも保守的な失効があり得ます。
-  epochはキャッシュにのみ使い、iteratorの等価性はLeaf IDで判定します。
-  Leafをeraseした場合のiteratorは無効です。
+ライブラリを変更するときは **通常の操作列だけでなく、保持済み iterator、固定番兵、
+split / merge 後の木の再利用、Set の min_leaf_id、反転と Lazy の混在** も確認してください。
