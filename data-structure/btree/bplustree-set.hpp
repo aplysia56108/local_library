@@ -18,6 +18,7 @@ template <class Key, std::size_t Capacity>
 struct SetTraits {
   using T = Key;
   static constexpr bool lazy = false;
+  static constexpr bool refresh_on_leaf_swap = true;
   static constexpr std::size_t kNodeCapacity = Capacity;
   using Node = Bplustree::Node<SetTraits>;
   using Leaf = Bplustree::Leaf<SetTraits>;
@@ -160,10 +161,6 @@ class Bplustree_Set
     using std::swap;
     swap(a.compare_, b.compare_);
     swap(static_cast<Parent&>(a), static_cast<Parent&>(b));
-    Parent::refresh_recursive(Parent::get_leaf(a.bbegin_).parent);
-    Parent::refresh_recursive(Parent::get_leaf(a.end_).parent);
-    Parent::refresh_recursive(Parent::get_leaf(b.bbegin_).parent);
-    Parent::refresh_recursive(Parent::get_leaf(b.end_).parent);
   }
 
   const Compare& key_comp() const {
@@ -230,6 +227,71 @@ class Bplustree_Set
                    values.end());
     }
     this->build(values);
+  }
+
+  /**
+   * @brief pos 以降の要素を新しい Set / Multiset に分離する。
+   * @details
+   * 自身には [begin(), pos)、返り値には [pos, end()) を残す。
+   * 要素 Leaf とその iterator の同一性を維持する。
+   * 返り値には比較器をコピーするため、Compare のコピー構築が必要。
+   * ### 計算量
+   * O(NodeCapacity * log N)
+   */
+  Bplustree_Set split(iterator pos)
+    requires std::copy_constructible<Compare>
+  {
+    Bplustree_Set right(compare_);
+    static_cast<Parent&>(right) =
+        Parent::split(this->mutable_iterator(pos));
+    return right;
+  }
+
+  /**
+   * @brief 先頭 index 要素を自身に残し、残りを返す。
+   * ### 計算量
+   * O(NodeCapacity * log N)
+   */
+  Bplustree_Set split_by_index(size_type index)
+    requires std::copy_constructible<Compare>
+  {
+    return split(nth(index));
+  }
+
+  /**
+   * @brief key 未満を自身に残し、key 以上を返す。
+   * @details 比較器の順序に従う。Multiset の等価キーはすべて右側に入る。
+   * ### 計算量
+   * O(NodeCapacity * log N)
+   */
+  Bplustree_Set split_by_key(const Key& key)
+    requires std::copy_constructible<Compare>
+  {
+    return split(lower_bound(key));
+  }
+
+  /**
+   * @brief right の全要素を自身の末尾へ連結し、right を空にする。
+   * @details
+   * std::set::merge と異なり、一般の要素を再配置する操作ではない。
+   * 両側が同じ順序関係でソートされていることを前提とする。
+   * Set は max(left) < min(right)、Multiset は
+   * max(left) <= min(right) を要する (compare_ による順序)。
+   * 実要素の Leaf ID と iterator の同一性は維持する。
+   * ### 計算量
+   * O(NodeCapacity * log(N + M))
+   */
+  void merge(Bplustree_Set& right) {
+    assert(this != &right);
+    if (!empty() && !right.empty()) {
+      const Key& left_last = *std::prev(end());
+      const Key& right_first = *right.begin();
+      if constexpr (Type == SetType::Set)
+        assert(compare_(left_last, right_first));
+      else
+        assert(!compare_(right_first, left_last));
+    }
+    Parent::merge(static_cast<Parent&>(right));
   }
 
   iterator lower_bound(const Key& key) const {
