@@ -18,10 +18,19 @@
 
 namespace Bplustree {
 
-// Traitsが含む情報
-// T:要素の型
-// Node, Leaf, Internal:それぞれ要素の型。Leaf, InternalはNodeを継承している。
-// kNodeCapacity:Internalのmax容量
+/**
+ * @brief 位置指定の B+tree 共通基盤。1要素を1 Leaf として保持する。
+ * @tparam Traits 要素型、ノード型、Internal 容量、追加メタデータを定義する型。
+ * @details
+ * root_ が指す ID 木と、オブジェクト固有の前後2個の番兵 Leaf を所有する。
+ * 番兵 ID は構造変更・swap・reverse 後も固定される。実要素の Leaf ID は
+ * 要素自体が erase / clear / assign / rebuild されるまで維持される。
+ * Iterator は読み取り専用で、要素の更新は set / Setter を介して行う。
+ *
+ * ### 計算量
+ * 位置探索・点更新・構造操作は概ね O(NodeCapacity * 木の高さ)。
+ * 全体反転は通常 O(1)（番兵交換時にメタデータを更新する Traits は別）。
+ */
 template <class Traits>
 class Base {
  public:
@@ -49,8 +58,8 @@ class Base {
   static constexpr size_type NodeCap = Traits::kNodeCapacity;
   static_assert(NodeCap >= 3);
 
-  // root_ が指す ID 木はこの Base が所有する。各 ID は同じ Traits の Pool
-  // で共有する。 番兵も Leaf Pool 上にあり、Iterator は所有権を持たない。
+  // root_ の木と自身の2個の番兵 Leaf ID を所有する。
+  // Pool 自体は同じ Traits の木で共有し、Iterator は所有権を持たない。
   id_type root_ = null_id;
   const id_type bbegin_, end_;
 
@@ -80,6 +89,12 @@ class Base {
     return get_leaf(end_).get_parent().children[get_leaf(end_).position];
   }
 
+  /**
+   * @brief 2個の Leaf の所属位置を交換する。Leaf ID 自体は変えない。
+   * @details 親の children と各 Leaf の parent / position を同時に交換する。
+   * Traits::refresh_on_leaf_swap が true なら、交換した両経路の
+   * refresh_metadata を祖先まで再計算する（Set の min_leaf_id など）。
+   */
   static void swap_end(id_type x_id, id_type y_id) {
     using std::swap;
     auto& x = get_leaf(x_id);
@@ -101,7 +116,7 @@ class Base {
     }
   };
 
-  /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
+  /** @brief 自身の固定番兵 ID を再利用し、実要素を全て破棄して空の木にする。 */
   void init() {
     if (get_leaf(bbegin_).parent != null_id) bbegin_pos() = null_id;
     if (get_leaf(end_).parent != null_id) end_pos() = null_id;
@@ -128,6 +143,12 @@ class Base {
     }
   }
 
+  /**
+   * @brief 固定番兵を残し、values をコピーした新しい木を一括構築する。
+   * @details 旧要素の Leaf ID は回収する。values は内部の一時バッファ。
+   * ### 計算量
+   * O(values.size())（ノード容量を定数とみなす）。
+   */
   void build(std::vector<T>& values) {
     if (values.empty()) return init();
 
@@ -196,6 +217,10 @@ class Base {
                            : -static_cast<difference_type>(before - after);
   }
 
+  /**
+   * @brief node_id から根までサイズ差分と派生メタデータを反映する。
+   * @details delta==0 ならサイズは変えず refresh_metadata のみ再計算する。
+   */
   static void refresh_recursive(id_type node_id, difference_type delta = 0) {
     auto& node = get_node(node_id);
     add_size_delta(node, delta);
@@ -232,7 +257,7 @@ class Base {
     return null_id;
   }
 
-  /** @brief 境界経路を取得する。子ノードを統合する前に lazy も伝搬する。 */
+  /** @brief 左端 / 右端の Internal 経路を取得し、反転・Lazy を伝搬する。 */
   template <bool Left>
   static std::vector<id_type> end_nodes(id_type root) {
     std::vector<id_type> nodes;
@@ -386,7 +411,7 @@ class Base {
     return get_node(root_).template locate<WithLazy>(index);
   }
 
-  /** @brief locateが保証した経路の検証状態をiteratorへ引き継ぐ。 */
+  /** @brief locate で検証した position / value epoch を iterator に引き継ぐ。 */
   template <bool WithLazy = false>
   iterator locate_iterator(size_type index) const {
     return iterator{
@@ -418,6 +443,7 @@ class Base {
   }
   Base(std::initializer_list<T> values) : Base(values.begin(), values.end()) {}
   Base(const Base& other) : Base(other.begin(), other.end()) {}
+  /** @brief 空の Base と交換して構築する。移動元は空になる。 */
   Base(Base&& other) : Base() {
     swap(*this, other);
   }
@@ -428,10 +454,19 @@ class Base {
     }
     return *this;
   }
+  /**
+   * @brief 木の内容を other と交換してムーブ代入する。
+   * @details 移動元 other は空になるとは限らず、代入先の旧要素を持つ。
+   * 番兵 ID は各オブジェクトに固定されたまま保持される。
+   */
   Base& operator=(Base&& other) noexcept {
     if (this != &other) swap(*this, other);
     return *this;
   }
+  /**
+   * @brief 実要素の木を交換し、各オブジェクトの固定番兵を移動先へ配置する。
+   * @details 旧要素の iterator は Leaf ID を維持し、交換先の木に所属する。
+   */
   friend void swap(Base& left, Base& right) noexcept {
     using std::swap;
     swap(left.root_, right.root_);
@@ -455,15 +490,18 @@ class Base {
   bool empty() const noexcept {
     return size() == 0;
   }
+  /** @brief index 番目の実要素（index==size() の場合は end）への iterator。 */
   iterator nth(size_type index) const {
     return locate_iterator(index);
   }
+  /** @brief 先頭の直前にある固定番兵の iterator。逆方向への移動は範囲外。 */
   iterator bbegin() const {
     return iterator{bbegin_};
   }
   iterator begin() const {
     return ++bbegin();
   }
+  /** @brief 末尾の直後にある固定番兵の iterator。 */
   iterator end() const {
     return iterator{end_};
   }
@@ -485,6 +523,12 @@ class Base {
   const_reverse_iterator crend() const {
     return rend();
   }
+  /**
+   * @brief index 番目の値を読み取る。必要な反転 / 遅延作用を先に確定する。
+   * @details 返した参照は Pool の再確保や当該 Leaf の解放により無効になり得る。
+   * ### 計算量
+   * O(NodeCapacity * 木の高さ)。
+   */
   const T& get(size_type index) const {
     // 探索中に未伝搬のreverse/lazyを実体化し、そのLeafを直接参照する。
     // 一時Iteratorの生成と参照時の根への再走査を省略する。
@@ -499,6 +543,7 @@ class Base {
   const T& back() const {
     return get(size() - 1);
   }
+  /** @brief index 番目を更新する Setter を返す（読み取り用参照とは異なる）。 */
   setter_type operator()(size_type index) {
     return {locate_iterator(index)};
   }
@@ -510,6 +555,10 @@ class Base {
   iterator insert(size_type index, const T& value) {
     return insert(locate_iterator<true>(index), value);
   }
+  /**
+   * @brief pos の直前に1要素挿入し、新 Leaf を指す iterator を返す。
+   * @details 構造変更後も既存の実要素 iterator は Leaf ID を追跡する。
+   */
   iterator insert(iterator pos, const T& value) {
     auto& leaf = get_leaf(pos.leaf_id_);
     materialize_path(leaf.parent);
@@ -533,6 +582,10 @@ class Base {
     return erase(locate_iterator(index));
   }
 
+  /**
+   * @brief pos の実要素を削除し、その次の iterator を返す。
+   * @details 削除した Leaf ID を指す iterator は失効する。
+   */
   iterator erase(iterator pos) {
     iterator res = pos + 1;
     auto& leaf = get_leaf(pos.leaf_id_);
@@ -548,6 +601,7 @@ class Base {
     assert(first <= last && last <= size());
     return erase(nth(first), nth(last));
   }
+  /** @brief 半開区間 [first,last) を削除し、削除直後の iterator を返す。 */
   iterator erase(iterator first, iterator last) {
     if (first == last) return last;
     const id_type right = devide(root_, last.leaf_id_);
@@ -564,6 +618,7 @@ class Base {
   void pop_front() {
     erase(0);
   }
+  /** @brief 全実要素を削除する。番兵は再利用し、旧要素の iterator は失効する。 */
   void clear() {
     init();
   }
@@ -572,6 +627,10 @@ class Base {
     if (count < size()) erase(count, size());
     while (size() < count) push_back(value);
   }
+  /**
+   * @brief 現在の要素を一括構築し直す。
+   * @details 実要素 Leaf ID を作り直すため、保持済み実要素 iterator は失効する。
+   */
   void rebuild() {
     assign(begin(), end());
   }
@@ -585,15 +644,18 @@ class Base {
     return find(value) != end();
   }
   /**
-   * @brief index 番目の実要素の直前で分割し、右側の木を返す。
-   * @details 位置は番兵を除いた
-   * 0-indexed。左右の木は分割後もそれぞれ番兵を持つ。 分割境界の既存 Leaf
-   * は移動させ、要素をコピーしない。
-   * @return 右側の木。自身には左側を残す。
+   * @brief index 以降の実要素を新しい木に移し、右側の木を返す。
+   * @param index 番兵を除いた0-indexedの分割位置（0 <= index <= size()）。
+   * @details 自身には [0,index)、返り値には [index,size()) が残る。
+   * 実要素の Leaf はコピーせず、ID と既存 iterator の同一性を維持する。
+   * 各オブジェクトの番兵 ID は分割前後で変わらない。
+   * ### 計算量
+   * O(NodeCapacity * 木の高さ)。
    */
   Base split(size_type index) {
     return split(nth(index));
   }
+  /** @brief pos 以降の実要素を分割する。pos は自身の [begin(),end()]。 */
   Base split(iterator pos) {
     Base right;
     if (pos == end()) return right;
@@ -620,6 +682,13 @@ class Base {
     return right;
   }
 
+  /**
+   * @brief right の実要素を自身の末尾に連結し、right を空にする。
+   * @details 重複判定・ソートは行わない。両木の各番兵 Leaf ID を固定したまま
+   * 実要素をつなぎ替える。Set の場合は順序関係の前提を派生側で確認する。
+   * ### 計算量
+   * O(NodeCapacity * 木の高さ)。
+   */
   void merge(Base& right) {
     assert(this != &right);
     if (right.empty()) return;
@@ -639,17 +708,24 @@ class Base {
     right.init();  // init()で共有epochを更新する。
   }
 
+  /**
+   * @brief 全実要素を反転する。番兵 ID は固定したまま位置だけ交換する。
+   * @details 通常は O(1)。Traits::refresh_on_leaf_swap が有効なら
+   * 番兵の祖先のメタデータ更新で O(木の高さ) が加わる。
+   */
   void reverse() {
     get_node(root_).push_reverse();
     swap_end(bbegin_, end_);
     Epoch::invalidate_position();
   }
+  /** @brief 半開区間 [first,last) を反転する。通常 O(NodeCapacity * 木の高さ)。 */
   void reverse(size_type first, size_type last) {
     assert(first <= last && last <= size());
     if (last - first < 2) return;
     if (first == 0 && last == size()) return reverse();
     reverse(nth(first), nth(last));
   }
+  /** @brief iterator で指定した半開区間 [first,last) を反転する。 */
   void reverse(iterator first, iterator last) {
     if (first == last) return;
     auto right = devide(root_, last.leaf_id_);
