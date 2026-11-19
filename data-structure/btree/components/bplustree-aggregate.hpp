@@ -12,10 +12,18 @@
 
 namespace Bplustree {
 
+/** @brief 遅延作用を使わない Segtree 用のタグ型。 */
 struct NoAction {
   using action_type = long long;
 };
 
+/**
+ * @brief 集約モノイドと任意の遅延作用を追加する Traits。
+ * @tparam M モノイド（value_type、op、e を提供）。
+ * @tparam A 作用（action_type、mapping、composition を提供）または NoAction。
+ * @tparam R 反転で積が不変なら true。
+ * @tparam C Internal の子 ID 配列容量。
+ */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits {
   using T = typename M::value_type;
@@ -30,7 +38,7 @@ struct AggregateTraits {
   struct Internal;
 };
 
-/** @brief Leaf と Internal に共通する親・位置情報だけを持つ Node。 */
+/** @brief 親 ID と親内位置のみを共通保持する Node。 */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits<M, A, R, C>::Node
     : Bplustree::Node<AggregateTraits<M, A, R, C>> {
@@ -38,8 +46,9 @@ struct AggregateTraits<M, A, R, C>::Node
 };
 
 /**
- * @brief 1要素だけを保持する Leaf。
- * @details 集約値や遅延タグは持たず、作用を受けた時点で値を更新する。
+ * @brief 1個の実要素（または番兵値）を保持する Leaf。
+ * @details 自身では区間積・遅延タグを保持しない。作用の伝搬を受けたら
+ * mapping(f, value, 1) により値を更新する。
  */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits<M, A, R, C>::Leaf
@@ -59,9 +68,10 @@ struct AggregateTraits<M, A, R, C>::Leaf
 };
 
 /**
- * @brief 順方向・逆方向の積と未伝搬の作用を持つ Internal。
+ * @brief 順方向・逆方向の積と未伝搬の作用を保持する Internal。
  * @details level==0 の子は Leaf、それ以外は Internal。
- * Leaf に集約値・遅延タグを設けないため、Leaf の作用は即時反映する。
+ * R=true では逆方向積が順方向積と等しい前提で演算を省略する。
+ * 反転フラグ・pending が残っていても積は論理状態と一致させる。
  */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits<M, A, R, C>::Internal
@@ -79,9 +89,9 @@ struct AggregateTraits<M, A, R, C>::Internal
   std::optional<F> pending;
 
   /**
-   * @brief 構造や子の値から積を再計算する。
-   * @details is_reversed / pending が残っていれば、再計算した物理状態の積に
-   * それらを適用して論理状態の積を維持する。
+   * @brief 子の値・区間積を順方向 / 逆方向に畳み込んで再計算する。
+   * @details 未伝搬の is_reversed / pending が残る場合も、
+   * それらを反映した論理状態の積を更新する。size は変更しない。
    */
   void refresh_metadata() {
     forward = backward = M::e();
@@ -119,7 +129,10 @@ struct AggregateTraits<M, A, R, C>::Internal
     }
   }
 
-  /** @brief ノード全体への作用を遅延登録し、積だけ即時更新する。 */
+  /**
+   * @brief ノード全体の作用を pending に合成し、集約値だけ即時更新する。
+   * @details pending は既存作用の後に f を適用するため composition(f, old)。
+   */
   void push_lazy(const F& f)
     requires(Traits::lazy)
   {
@@ -131,12 +144,15 @@ struct AggregateTraits<M, A, R, C>::Internal
     pending = pending ? A::composition(f, *pending) : f;
   }
 
-  /** @brief 反転フラグの変更に合わせて順・逆方向の積を交換する。 */
+  /** @brief 反転時に順方向積と逆方向積を交換する（R=true なら不要）。 */
   void push_reverse_impl() {
     if constexpr (!R) std::swap(forward, backward);
   }
 
-  /** @brief 未伝搬の作用を子へ渡す。Leaf には直接適用する。 */
+  /**
+   * @brief pending を子へ渡し、Leaf なら値を直接更新する。
+   * @details 作用は合成順序を維持して伝搬し、伝搬後 pending を解除する。
+   */
   void apply_lazy() {
     if constexpr (Traits::lazy) {
       if (!pending) return;
@@ -154,9 +170,18 @@ struct AggregateTraits<M, A, R, C>::Internal
 };
 
 /**
- * @brief 1要素1Leafの B+ tree にモノイド積と遅延作用を追加する。
- * @details 番兵の値はモノイド単位元。Leaf の集約値を持たず、
- * level==0 で Leaf を読み、その他のレベルでは Internal の積を使う。
+ * @brief 1要素1Leaf の Base に区間積・境界探索・任意の遅延作用を追加する。
+ * @tparam Derived 公開派生コンテナの型（split の返り値と Setter に使用）。
+ * @tparam M モノイド型。
+ * @tparam A 作用型、または NoAction。
+ * @tparam R true なら逆順の積も順方向積と一致することを仮定する。
+ * @tparam C Internal の子 ID 配列容量。
+ * @details 前後番兵の値は M::e()。集約値は Internal のみが保持する。
+ * Leaf は作用を伝搬された時点で値を書き換える。
+ *
+ * ### 計算量
+ * 区間積・区間作用・境界探索: O(C * 木の高さ)（演算は O(1)）。
+ * all_prod / all_reverse_prod: O(1)。
  */
 template <class Derived, class M, class A, bool R, std::size_t C>
 class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
@@ -249,7 +274,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     node.refresh_metadata();
   }
 
-  // predicate が破れた部分木だけを再帰的に探索する。
+  // predicate が初めて偽になる部分木だけを深掘りして境界を探す。
   template <bool Leftward, class Predicate>
   static bool search(Internal& node, std::size_t offset, std::size_t first,
                      std::size_t last, T& value, Predicate& predicate,
@@ -309,46 +334,48 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using typename Parent::size_type;
 
   AggregateTree() = default;
-  /** @brief モノイド単位元で count 要素を初期化する。 */
+  /** @brief count 個の実要素をモノイド単位元 M::e() で初期化する。 */
   explicit AggregateTree(size_type count) : Parent(count, M::e()) {}
 
-  /** @brief 全要素の積。O(1)。 */
+  /** @brief 全実要素の順方向の積を取得する。O(1)。番兵は単位元。 */
   T all_prod() const {
     return Parent::get_node(this->root_).forward;
   }
 
-  /** @brief 半開区間 [first,last) の順方向の積。 */
+  /** @brief 半開区間 [first,last) の順方向のモノイド積。空区間は M::e()。 */
   T prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
     return prod_recursive(Parent::get_node(this->root_), first + 1, last + 1);
   }
 
-  /** @brief 全要素の逆方向の積。O(1)。 */
+  /** @brief 全実要素の逆方向の積。O(1)。非可換モノイドにも対応。 */
   T all_reverse_prod() const {
     return Parent::get_node(this->root_).backward;
   }
 
-  /** @brief 半開区間 [first,last) の逆方向の積。 */
+  /** @brief 半開区間 [first,last) を逆方向に畳み込んだ積。 */
   T reverse_prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
     return prod_recursive<true>(Parent::get_node(this->root_), first + 1,
                                 last + 1);
   }
 
+  /** @brief 要素 index を op(現在値, value) に点更新する。 */
   void prod_right(size_type index, const T& value) {
     this->set(index, M::op(this->get(index), value));
   }
+  /** @brief 要素 index を op(value, 現在値) に点更新する。 */
   void prod_left(size_type index, const T& value) {
     this->set(index, M::op(value, this->get(index)));
   }
 
-  /** @brief 1要素への作用。 */
+  /** @brief index の1要素に作用を適用する（Lazy 対応時のみ）。 */
   void apply(size_type index, const F& f)
     requires(Traits::lazy)
   {
     apply(index, index + 1, f);
   }
-  /** @brief 半開区間 [first,last) への作用。 */
+  /** @brief 半開区間 [first,last) への作用。空区間なら何もしない。 */
   void apply(size_type first, size_type last, const F& f)
     requires(Traits::lazy)
   {
@@ -357,6 +384,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     apply_recursive(Parent::get_node(this->root_), first + 1, last + 1, f);
     Epoch::invalidate_value();
   }
+  /** @brief 全実要素へ作用を適用する（Lazy 対応時のみ）。 */
   void all_apply(const F& f)
     requires(Traits::lazy)
   {
@@ -365,8 +393,10 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   /**
    * @brief predicate(prod(left,r)) が真である最大の r。
-   * @details 非空区間の積に対して、区間を伸ばしたときに真から偽へのみ
-   * 変化することを要求する。predicate(M::e()) は真でなくてもよい。
+   * @details 非空区間の積に対して、区間を伸ばすと真から偽へのみ
+   * 変化する述語を要求する。predicate(M::e()) は呼び出さない。
+   * ### 計算量
+   * O(C * 木の高さ)（モノイドと述語は O(1)）。
    */
   template <class Predicate>
   size_type max_right(size_type left, Predicate&& predicate) const {
@@ -412,19 +442,22 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   }
   using Parent::assign;
 
+  /** @brief index 以降を分離して Derived 型で返す。実要素 Leaf ID は維持。 */
   Derived split(size_type index) {
     Derived right;
     static_cast<Parent&>(right) = Parent::split(index);
     return right;
   }
+  /** @brief position 以降を分離して Derived 型で返す。 */
   Derived split(iterator position) {
     return split(static_cast<size_type>(position - this->begin()));
   }
+  /** @brief right を末尾へ連結して空にする。要素のコピーや再集約はしない。 */
   void merge(Derived& right) {
     Parent::merge(right);
   }
 
-  /** @brief Monoid対応の Setter を返す。 */
+  /** @brief index 番目の要素用の Monoid / Action 対応 Setter を返す。 */
   Setter<Derived> operator()(size_type index) {
     assert(index < size());
     return {this->nth(index)};
