@@ -641,9 +641,5 @@ class Base {
     // 部分反転はsplit/mergeでLazy経路も再構成するため両方を無効化。
     Epoch::invalidate_all();
   }
-  void debug_node_stats() const {
-    std::cerr << "leaf slots in use: " << Pools::leaves().size() << '\n';
-    std::cerr << "internal slots in use: " << Pools::internals().size() << '\n';
-  }
 };
 }  // namespace Bplustree

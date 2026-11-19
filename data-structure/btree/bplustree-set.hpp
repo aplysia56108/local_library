@@ -295,9 +295,6 @@ class Bplustree_Set
   iterator erase(iterator pos) {
     return Parent::erase(this->mutable_iterator(pos));
   }
-  void debug_node_stats() {
-    Parent::debug_node_stats();
-  };
 };
 template <class T = long long>
 using BSet = Bplustree_Set<T>;
