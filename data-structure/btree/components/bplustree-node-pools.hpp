@@ -12,6 +12,8 @@ namespace Bplustree {
 
 template <class Traits>
 struct BottomInternal;
+template <class Traits>
+struct UpperInternal;
 
 /**
  * @brief Upper/Internal と BottomInternal を異なるサイズの Pool に格納する。
@@ -27,6 +29,7 @@ struct NodePools {
   using id_type = std::uint32_t;
   using L = typename Traits::Leaf;
   using I = typename Traits::Internal;
+  using U = UpperInternal<Traits>;
   using B = BottomInternal<Traits>;
   static constexpr id_type null_id = ObjectPool<L>::null_id;
   static constexpr id_type bottom_mask = id_type{1} << 31;
@@ -37,7 +40,7 @@ struct NodePools {
  private:
   // Two separate vector allocations allow upper internals to omit links.
   inline static constinit ObjectPool<L> leaf_pool_{};
-  inline static constinit ObjectPool<I> internal_pool_{};
+  inline static constinit ObjectPool<U> internal_pool_{};
   inline static constinit ObjectPool<B> bottom_pool_{};
 
   static constexpr bool is_bottom_id(id_type id) {
@@ -58,7 +61,7 @@ struct NodePools {
       assert(id < bottom_mask - 1);
       return bottom_mask | id;
     }
-    const id_type id = internal_pool_.index(node);
+    const id_type id = internal_pool_.index(static_cast<const U&>(node));
     assert(id < bottom_mask);
     return id;
   }
@@ -121,9 +124,13 @@ struct NodePools {
     return bottom_pool_;
   }
 
+  static ObjectPool<U>& uppers() {
+    return internal_pool_;
+  }
+
   /**
    * @brief ID から最下層/上層の実際の型へ一度だけ振り分ける。
-   * @details Callback の引数型は BottomInternal& または Internal&。
+   * @details Callback の引数型は BottomInternal& または UpperInternal&。
    * Callback 内では if constexpr により子の型を固定できる。
    * ### 計算量
    * O(1)。
