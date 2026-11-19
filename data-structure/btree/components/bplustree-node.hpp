@@ -73,13 +73,77 @@ struct Leaf : Traits::Node {
 };
 
 /**
+ * @brief Internal / BottomInternal の共通操作を派生型の静的型で選ぶ CRTP。
+ * @details
+ * Derived が持つ *_typed<IsBottom>() を呼び、Leaf 子と Internal 子で
+ * 異なる処理を compile-time に確定する。フィールドを持たない mixin。
+ * 既存の Internal& API から呼ぶ場合だけ、level による境界 dispatch を残す。
+ *
+ * これは実験版: BottomInternal は既存 Traits::Internal を継承し、
+ * メタデータ・ObjectPool の共通ビューを引き続き利用する。
+ */
+template <class Traits, class Derived, bool IsBottom>
+struct InternalCRTP {
+  using Pools = NodePools<Traits>;
+  using id_type = typename Pools::id_type;
+  static constexpr bool is_bottom = IsBottom;
+
+ private:
+  Derived& derived() {
+    return static_cast<Derived&>(*this);
+  }
+  const Derived& derived() const {
+    return static_cast<const Derived&>(*this);
+  }
+
+ public:
+  std::size_t child_size(pos_type index) const {
+    return derived().template child_size_typed<IsBottom>(index);
+  }
+  pos_type child_count(pos_type index) const {
+    return derived().template child_count_typed<IsBottom>(index);
+  }
+  template <bool FromOther = true, bool ConsiderOtherSync = true>
+  void move_child(pos_type index, id_type child_id,
+                  id_type self_id = Pools::null_id) {
+    derived().template move_child_typed<IsBottom, FromOther, ConsiderOtherSync>(
+        index, child_id, self_id);
+  }
+  void refresh() {
+    derived().template refresh_typed<IsBottom>();
+  }
+  void apply_reverse() {
+    derived().template apply_reverse_typed<IsBottom>();
+  }
+  void materialize() {
+    derived().template materialize_typed<IsBottom>();
+  }
+  bool insert(id_type child, pos_type index) {
+    return derived().template insert_typed<IsBottom>(child, index);
+  }
+  id_type split(pos_type left_count = Traits::kNodeCapacity / 2) {
+    return derived().template split_typed<IsBottom>(left_count);
+  }
+  bool erase(pos_type index) {
+    return derived().template erase_typed<IsBottom>(index);
+  }
+  template <bool WithLazy = false>
+  id_type locate(std::size_t index, bool* value_clean = nullptr) {
+    return derived().template locate_typed<IsBottom, WithLazy>(
+        index, value_clean);
+  }
+};
+
+/**
  * @brief children は level==0 なら Leaf ID、それ以外は Internal ID。
  * @details children[0, count) のみ有効で、count 以降の内容は未規定。
  * 通常 count < NodeCap。挿入直後のみ count == NodeCap があり得る。
  * 所有権は Pool の ID 木にあり、子 ID の移動は実体を移動しない。
  */
 template <class Traits>
-struct Internal : Traits::Node {
+struct Internal : Traits::Node,
+                  InternalCRTP<Traits, Internal<Traits>, false> {
+  using UpperOps = InternalCRTP<Traits, Internal<Traits>, false>;
   using pos_type = std::uint8_t;
 
   static constexpr pos_type NodeCap = Traits::kNodeCapacity;
@@ -137,12 +201,12 @@ struct Internal : Traits::Node {
     return get_child(index).count;
   }
   std::size_t child_size(pos_type index) const {
-    return level == 0 ? child_size_typed<true>(index)
-                      : child_size_typed<false>(index);
+    if (level == 0) return bottom().child_size(index);
+    return UpperOps::child_size(index);
   }
   pos_type child_count(pos_type index) const {
-    return level == 0 ? child_count_typed<true>(index)
-                      : child_count_typed<false>(index);
+    if (level == 0) return bottom().child_count(index);
+    return UpperOps::child_count(index);
   }
 
   /** @brief この Internal の Pool ID を取得する。Pool
@@ -228,10 +292,10 @@ struct Internal : Traits::Node {
   void move_child(pos_type index, id_type child_id,
                   id_type self_id = null_id) {
     if (level == 0)
-      move_child_typed<true, FromOther, ConsiderOtherSync>(
+      bottom().template move_child<FromOther, ConsiderOtherSync>(
           index, child_id, self_id);
     else
-      move_child_typed<false, FromOther, ConsiderOtherSync>(
+      UpperOps::template move_child<FromOther, ConsiderOtherSync>(
           index, child_id, self_id);
   }
 
@@ -252,9 +316,9 @@ struct Internal : Traits::Node {
   }
   void refresh() {
     if (level == 0)
-      refresh_typed<true>();
+      bottom().refresh();
     else
-      refresh_typed<false>();
+      UpperOps::refresh();
   }
 
   template <bool IsBottom>
@@ -282,9 +346,9 @@ struct Internal : Traits::Node {
   }
   void apply_reverse() {
     if (level == 0)
-      apply_reverse_typed<true>();
+      bottom().apply_reverse();
     else
-      apply_reverse_typed<false>();
+      UpperOps::apply_reverse();
   }
   void push_reverse() {
     is_reversed = !is_reversed;
@@ -306,9 +370,9 @@ struct Internal : Traits::Node {
   }
   void materialize() {
     if (level == 0)
-      materialize_typed<true>();
+      bottom().materialize();
     else
-      materialize_typed<false>();
+      UpperOps::materialize();
   }
 
   /** @return 満杯になり直ちに split が必要なら true。 */
@@ -324,8 +388,8 @@ struct Internal : Traits::Node {
     return false;
   }
   bool insert(id_type child, pos_type index) {
-    if (level == 0) return insert_typed<true>(child, index);
-    return insert_typed<false>(child, index);
+    if (level == 0) return bottom().insert(child, index);
+    return UpperOps::insert(child, index);
   }
 
   /** @return Pool に確保された右兄弟の Internal ID。 */
@@ -351,8 +415,8 @@ struct Internal : Traits::Node {
     return right_id;
   }
   id_type split(pos_type left_count = HalfNodeCap) {
-    if (level == 0) return split_typed<true>(left_count);
-    return split_typed<false>(left_count);
+    if (level == 0) return bottom().split(left_count);
+    return UpperOps::split(left_count);
   }
 
   /** @return この Internal が空になった場合 true。 */
@@ -368,8 +432,8 @@ struct Internal : Traits::Node {
     return count == 0;
   }
   bool erase(pos_type index) {
-    if (level == 0) return erase_typed<true>(index);
-    return erase_typed<false>(index);
+    if (level == 0) return bottom().erase(index);
+    return UpperOps::erase(index);
   }
 
   template <bool IsBottom, bool WithLazy = false>
@@ -414,8 +478,8 @@ struct Internal : Traits::Node {
   template <bool WithLazy = false>
   id_type locate(std::size_t index, bool* value_clean = nullptr) {
     if (level == 0)
-      return locate_typed<true, WithLazy>(index, value_clean);
-    return locate_typed<false, WithLazy>(index, value_clean);
+      return bottom().template locate<WithLazy>(index, value_clean);
+    return UpperOps::template locate<WithLazy>(index, value_clean);
   }
 
   /** @brief 同じ高さの子の型を固定して統合する。 */
@@ -495,9 +559,23 @@ struct Internal : Traits::Node {
  * @details Traits::Internal を継承するので Set/Aggregate の metadata も保持する。
  */
 template <class Traits>
-struct BottomInternal : Traits::Internal {
+struct BottomInternal : Traits::Internal,
+                        InternalCRTP<Traits, BottomInternal<Traits>, true> {
   using Parent = typename Traits::Internal;
+  using BottomOps = InternalCRTP<Traits, BottomInternal<Traits>, true>;
   using Link = typename Bplustree::Internal<Traits>::Link;
+
+  // Traits::Internal にある level dispatch を隠し、静的 Bottom 操作を優先する。
+  using BottomOps::child_size;
+  using BottomOps::child_count;
+  using BottomOps::move_child;
+  using BottomOps::refresh;
+  using BottomOps::apply_reverse;
+  using BottomOps::materialize;
+  using BottomOps::insert;
+  using BottomOps::split;
+  using BottomOps::erase;
+  using BottomOps::locate;
   std::array<Link, 2> links{};
   bool ports_swapped = false;
 
