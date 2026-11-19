@@ -7,8 +7,10 @@ struct IdentityValue {
   using io_via_val = void;
   using unwrap_via_val = void;
 
+ private:
   std::optional<T> value;
 
+ public:
   IdentityValue() = default;
   IdentityValue(const T& value) : value(value) {}
 

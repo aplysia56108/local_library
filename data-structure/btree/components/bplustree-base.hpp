@@ -52,7 +52,7 @@ class Base {
   // root_ が指す ID 木はこの Base が所有する。各 ID は同じ Traits の Pool
   // で共有する。 番兵も Leaf Pool 上にあり、Iterator は所有権を持たない。
   id_type root_ = null_id;
-  iterator bbegin_, end_;
+  const id_type bbegin_, end_;
 
   static Leaf& get_leaf(const id_type& id) {
     return Pools::leaves()[id];
@@ -72,15 +72,42 @@ class Base {
     return it.leaf_id_;
   }
 
+  id_type& bbegin_pos() {
+    return get_leaf(bbegin_).get_parent().children[get_leaf(bbegin_).position];
+  }
+
+  id_type& end_pos() {
+    return get_leaf(end_).get_parent().children[get_leaf(end_).position];
+  }
+
+  static void swap_end(id_type x_id, id_type y_id) {
+    using std::swap;
+    auto& x = get_leaf(x_id);
+    auto& y = get_leaf(y_id);
+    swap(x.get_parent().children[x.position],
+         y.get_parent().children[y.position]);
+    swap(x.parent, y.parent);
+    swap(x.position, y.position);
+
+    // Set が保持する先頭 Leaf ID のキャッシュを、交換した両経路で更新する。
+    // Vector / Segtree ではコンパイル時に処理を除外する。
+    if constexpr (requires { Traits::refresh_on_leaf_swap; }) {
+      if constexpr (Traits::refresh_on_leaf_swap) {
+        const id_type x_parent = x.parent;
+        const id_type y_parent = y.parent;
+        refresh_recursive(x_parent);
+        if (x_parent != y_parent) refresh_recursive(y_parent);
+      }
+    }
+  };
+
   /** @brief 前後に番兵 Leaf を1つずつ持つ空の木を構築する。 */
   void init() {
-    const id_type bbegin = Pools::make_leaf(init_value());
-    const id_type end = Pools::make_leaf(init_value());
-    const id_type new_root = make_new_root(bbegin, end);
+    if (get_leaf(bbegin_).parent != null_id) bbegin_pos() = null_id;
+    if (get_leaf(end_).parent != null_id) end_pos() = null_id;
+    const id_type new_root = make_new_root(bbegin_, end_);
     Pools::recycle(root_);
     root_ = new_root;
-    bbegin_ = iterator{bbegin};
-    end_ = iterator{end};
     Epoch::invalidate_all();
   }
 
@@ -103,15 +130,18 @@ class Base {
 
   void build(std::vector<T>& values) {
     if (values.empty()) return init();
+
+    bbegin_pos() = null_id;
+    end_pos() = null_id;
+    Pools::recycle(root_);
+
     constexpr size_type MaxCount = NodeCap - 1;
 
     std::vector<id_type> nodes;
     nodes.reserve(values.size() + 2);
-    const id_type bbegin = Pools::make_leaf(init_value());
-    nodes.push_back(bbegin);
+    nodes.push_back(bbegin_);
     for (const auto& value : values) nodes.push_back(Pools::make_leaf(value));
-    const id_type end = Pools::make_leaf(init_value());
-    nodes.push_back(end);
+    nodes.push_back(end_);
 
     pos_type current_level = 0;
     while (nodes.size() > 1) {
@@ -121,7 +151,8 @@ class Base {
         const id_type parent_id = Pools::make_internal(current_level);
         auto& parent = get_node(parent_id);
         while (parent.count < MaxCount && i < nodes.size())
-          parent.template move_child<true, false>(parent.count, nodes[i++], parent_id);
+          parent.template move_child<true, false>(parent.count, nodes[i++],
+                                                  parent_id);
         parent.refresh();
         next.push_back(parent_id);
       }
@@ -129,10 +160,7 @@ class Base {
       ++current_level;
     }
     const id_type new_root = nodes[0];
-    Pools::recycle(root_);
     root_ = new_root;
-    bbegin_ = iterator{bbegin};
-    end_ = iterator{end};
     Epoch::invalidate_all();
   }
 
@@ -151,7 +179,6 @@ class Base {
     if (node.parent != null_id) materialize_path(node.parent);
     node.materialize();
   }
-
 
   /** @brief 下位の構造変更に伴う要素数の増減を祖先へ伝える。 */
   static void add_size_delta(Internal& node, difference_type delta) {
@@ -191,8 +218,9 @@ class Base {
         const id_type right_id = parent.split();
         if (upper_id != null_id) {
           // 左子の変化量と新しい右子の挿入量を足して祖先へ伝える。
-          return insert_recursive(upper_id, upper_pos + 1, right_id,
-                                  size_delta(old_size, get_node(parent_id).size));
+          return insert_recursive(
+              upper_id, upper_pos + 1, right_id,
+              size_delta(old_size, get_node(parent_id).size));
         }
         return right_id;
       }
@@ -248,7 +276,6 @@ class Base {
       root = make_new_root(root, right_id, level);
     }
   }
-
 
   static void erase_recursive(id_type parent_id, pos_type index,
                               difference_type delta = 0) {
@@ -373,18 +400,20 @@ class Base {
   }
 
  public:
-  Base() {
+  Base()
+      : bbegin_(Pools::make_leaf(init_value())),
+        end_(Pools::make_leaf(init_value())) {
     init();
   }
   ~Base() {
     Pools::recycle(root_);
   }
   template <std::input_iterator InputIt>
-  Base(InputIt first, InputIt last) {
+  Base(InputIt first, InputIt last) : Base() {
     assign(first, last);
   }
   explicit Base(size_type count) : Base(count, T{}) {}
-  Base(size_type count, const T& value) {
+  Base(size_type count, const T& value) : Base() {
     assign(count, value);
   }
   Base(std::initializer_list<T> values) : Base(values.begin(), values.end()) {}
@@ -406,8 +435,8 @@ class Base {
   friend void swap(Base& left, Base& right) noexcept {
     using std::swap;
     swap(left.root_, right.root_);
-    swap(left.bbegin_, right.bbegin_);
-    swap(left.end_, right.end_);
+    swap_end(left.bbegin_, right.bbegin_);
+    swap_end(left.end_, right.end_);
     Epoch::invalidate_all();
   }
   template <std::input_iterator InputIt>
@@ -430,13 +459,13 @@ class Base {
     return locate_iterator(index);
   }
   iterator bbegin() const {
-    return bbegin_;
+    return iterator{bbegin_};
   }
   iterator begin() const {
-    return bbegin_ + 1;
+    return ++bbegin();
   }
   iterator end() const {
-    return end_;
+    return iterator{end_};
   }
   const_iterator cbegin() const {
     return begin();
@@ -539,6 +568,7 @@ class Base {
     init();
   }
   void resize(size_type count, const T& value = T{}) {
+    if (empty()) return assign(count, value);
     if (count < size()) erase(count, size());
     while (size() < count) push_back(value);
   }
@@ -573,18 +603,19 @@ class Base {
     }
     const id_type old_right_root = right.root_;
     right.root_ = devide(root_, pos.leaf_id_);
+    get_node(old_right_root).count = 0;
     Pools::recycle(old_right_root);
-    const id_type bbegin = Pools::make_leaf(init_value());
-    const id_type end = Pools::make_leaf(init_value());
-    right.end_ = end_;
-    right.bbegin_ = iterator{bbegin};
-    end_ = iterator{end};
-    const id_type end_leaf = get_node(root_).locate(get_node(root_).size - 1);
-    const id_type end_parent = get_leaf(end_leaf).parent;
-    insert(end_parent, get_node(end_parent).count, end, root_);
-    const id_type bbegin_leaf = get_node(right.root_).locate(0);
-    const id_type bbegin_parent = get_leaf(bbegin_leaf).parent;
-    insert(bbegin_parent, 0, bbegin, right.root_);
+    {
+      const id_type end_leaf = get_node(root_).locate(get_node(root_).size - 1);
+      const id_type end_parent = get_leaf(end_leaf).parent;
+      insert(end_parent, get_node(end_parent).count, right.end_, root_);
+    }
+    {
+      const id_type bbegin_leaf = get_node(right.root_).locate(0);
+      const id_type bbegin_parent = get_leaf(bbegin_leaf).parent;
+      insert(bbegin_parent, 0, right.bbegin_, right.root_);
+    }
+    swap_end(end_, right.end_);
     Epoch::invalidate_all();
     return right;
   }
@@ -596,20 +627,21 @@ class Base {
       swap(*this, right);
       return;
     }
-    erase(get_leaf(end_.leaf_id_).parent, get_leaf(end_.leaf_id_).position,
-          root_);
-    erase(get_leaf(right.bbegin_.leaf_id_).parent,
-          get_leaf(right.bbegin_.leaf_id_).position, right.root_);
     root_ = unite(root_, right.root_);
-    end_ = right.end_;
+    swap_end(end_, right.end_);
+    for (auto end : {right.end_, right.bbegin_}) {
+      auto& leaf = get_leaf(end);
+      leaf.get_parent().children[leaf.position] = null_id;
+      erase(leaf.parent, leaf.position, root_);
+      leaf.parent = null_id;
+    }
     right.root_ = null_id;
     right.init();  // init()で共有epochを更新する。
   }
 
   void reverse() {
     get_node(root_).push_reverse();
-    using std::swap;
-    swap(bbegin_, end_);
+    swap_end(bbegin_, end_);
     Epoch::invalidate_position();
   }
   void reverse(size_type first, size_type last) {
@@ -627,10 +659,6 @@ class Base {
     root_ = unite(root_, right);
     // 部分反転はsplit/mergeでLazy経路も再構成するため両方を無効化。
     Epoch::invalidate_all();
-  }
-  void debug_node_stats() const {
-    std::cerr << "leaf slots in use: " << Pools::leaves().size() << '\n';
-    std::cerr << "internal slots in use: " << Pools::internals().size() << '\n';
   }
 };
 }  // namespace Bplustree
