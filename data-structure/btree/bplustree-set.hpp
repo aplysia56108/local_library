@@ -160,6 +160,10 @@ class Bplustree_Set
     using std::swap;
     swap(a.compare_, b.compare_);
     swap(static_cast<Parent&>(a), static_cast<Parent&>(b));
+    Parent::refresh_recursive(Parent::get_leaf(a.bbegin_).parent);
+    Parent::refresh_recursive(Parent::get_leaf(a.end_).parent);
+    Parent::refresh_recursive(Parent::get_leaf(b.bbegin_).parent);
+    Parent::refresh_recursive(Parent::get_leaf(b.end_).parent);
   }
 
   const Compare& key_comp() const {
