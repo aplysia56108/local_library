@@ -20,6 +20,10 @@ template <class Traits>
 struct Leaf;
 template <class Traits>
 struct Internal;
+template <class Traits>
+struct UpperInternal;
+template <class Traits>
+struct BottomInternal;
 
 /**
  * @brief 位置操作だけを行う基本 Traits。遅延作用・独自集約値を持たない。
@@ -86,6 +90,66 @@ struct Leaf : Traits::Node {
 };
 
 /**
+ * @brief Internal / BottomInternal の共通操作を派生型の静的型で選ぶ CRTP。
+ * @details
+ * Derived が持つ *_typed<IsBottom>() を呼び、Leaf 子と Internal 子で
+ * 異なる処理を compile-time に確定する。フィールドを持たない mixin。
+ * 既存の Internal& API から呼ぶ場合だけ、level による境界 dispatch を残す。
+ *
+ * これは実験版: 上層と最下層の具体型は兄弟クラスとし、
+ * Traits::Internal を共通基底にして metadata・既存 API を共有する。
+ */
+template <class Traits, class Derived>
+struct InternalCRTP {
+  using Pools = NodePools<Traits>;
+  using id_type = typename Pools::id_type;
+
+ private:
+  Derived& derived() {
+    return static_cast<Derived&>(*this);
+  }
+  const Derived& derived() const {
+    return static_cast<const Derived&>(*this);
+  }
+
+ public:
+  std::size_t child_size(pos_type index) const {
+    return derived().child_size(index);
+  }
+  pos_type child_count(pos_type index) const {
+    return derived().child_count(index);
+  }
+  template <bool FromOther = true, bool ConsiderOtherSync = true>
+  void move_child(pos_type index, id_type child_id,
+                  id_type self_id = Pools::null_id) {
+    derived().template move_child<FromOther, ConsiderOtherSync>(index, child_id,
+                                                                self_id);
+  }
+  void refresh() {
+    derived().refresh();
+  }
+  void apply_reverse() {
+    derived().apply_reverse();
+  }
+  void materialize() {
+    derived().materialize();
+  }
+  bool insert(id_type child, pos_type index) {
+    return derived().insert(child, index);
+  }
+  id_type split(pos_type left_count = Traits::kNodeCapacity / 2) {
+    return derived().split(left_count);
+  }
+  bool erase(pos_type index) {
+    return derived().erase(index);
+  }
+  template <bool WithLazy = false>
+  id_type locate(std::size_t index, bool* value_clean = nullptr) {
+    return derived().template locate<WithLazy>(index, value_clean);
+  }
+};
+
+/**
  * @brief 子 ID・部分木サイズ・反転フラグを保持する内部ノード。
  * @details level==0 では Leaf ID、level>0 では Internal ID を子とする。
  * 論理的に有効な子は children[0,count) だけで、残りは未規定。
@@ -97,10 +161,6 @@ struct Internal : Traits::Node {
   using pos_type = std::uint8_t;
 
   static constexpr pos_type NodeCap = Traits::kNodeCapacity;
-  static constexpr pos_type HalfNodeCap = NodeCap / 2;
-  using N = typename Traits::Node;
-  using L = typename Traits::Leaf;
-  using I = typename Traits::Internal;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
@@ -113,23 +173,41 @@ struct Internal : Traits::Node {
   // children[count,NodeCap) は未規定。null_id 終端は管理しない。
   std::array<id_type, NodeCap> children{};
 
-  explicit Internal(pos_type lvl = 0) : N(), level(lvl) {}
+  explicit Internal(pos_type lvl = 0) : Traits::Node(), level(lvl) {}
+};
 
-  L& get_leaf(pos_type index) const {
-    assert(level == 0 && index < count);
-    return Pools::leaves()[children[index]];
-  }
+template <class Traits>
+struct UpperInternal : Traits::Internal,
+                       InternalCRTP<Traits, UpperInternal<Traits>> {
+  using pos_type = std::uint8_t;
+  static constexpr pos_type NodeCap = Traits::kNodeCapacity;
+  static constexpr pos_type HalfNodeCap = NodeCap / 2;
+  using N = typename Traits::Node;
+  using L = typename Traits::Leaf;
+  using I = typename Traits::Internal;
+  using U = typename Traits::UpperInternal;
+  using B = typename Traits::BottomInternal;
+  using Pools = NodePools<Traits>;
+  using id_type = typename Pools::id_type;
+
+  static constexpr id_type null_id = Pools::null_id;
+
+  std::array<id_type, NodeCap> sizes{};
+  std::array<pos_type, NodeCap> counts{};
+
+  explicit UpperInternal(pos_type lvl) : I(lvl) {};
+
   I& get_child(pos_type index) const {
-    assert(level > 0 && index < count);
-    return Pools::internals()[children[index]];
+    assert(this->level > 0 && index < this->count);
+    return Pools::internals()[this->children[index]];
   }
 
   /** @brief 子の要素数（level==0 なら常に1、その他は子 Internal の size）。 */
   std::size_t child_size(pos_type index) const {
-    return level == 0 ? 1 : get_child(index).size;
+    return sizes[index];
   }
   pos_type child_count(pos_type index) const {
-    return level == 0 ? 1 : get_child(index).count;
+    return counts[index];
   }
 
   /**
@@ -151,37 +229,24 @@ struct Internal : Traits::Node {
   template <bool FromOther = true, bool ConsiderOtherSync = true>
   void move_child(pos_type index, id_type child_id, id_type self_id = null_id) {
     assert(index < NodeCap && child_id != null_id);
-    children[index] = child_id;
-    if (index >= count) count = index + 1;
-    if (level) {
-      auto& child = Pools::internals()[child_id];
-      if constexpr (FromOther) {
-        size += child.size;
-        if constexpr (ConsiderOtherSync) {
-          assert(child.parent != null_id);
-          auto& other = Pools::internals()[child.parent];
-          assert(&other != this && other.size >= child.size);
-          other.size -= child.size;
-          if (child.position < other.count) other.count = child.position;
-        }
-        child.parent = self_id == null_id ? id() : self_id;
+    this->children[index] = child_id;
+    if (index >= this->count) this->count = index + 1;
+
+    auto& child = Pools::internals()[child_id];
+    sizes[index] = child.size;
+    counts[index] = child.count;
+    if constexpr (FromOther) {
+      this->size += child.size;
+      if constexpr (ConsiderOtherSync) {
+        assert(child.parent != null_id);
+        auto& other = Pools::internals()[child.parent];
+        assert(&other != this && other.size >= child.size);
+        other.size -= child.size;
+        if (child.position < other.count) other.count = child.position;
       }
-      child.position = index;
-    } else {
-      auto& child = Pools::leaves()[child_id];
-      if constexpr (FromOther) {
-        ++size;
-        if constexpr (ConsiderOtherSync) {
-          assert(child.parent != null_id);
-          auto& other = Pools::internals()[child.parent];
-          assert(&other != this && other.size > 0);
-          --other.size;
-          if (child.position < other.count) other.count = child.position;
-        }
-        child.parent = self_id == null_id ? id() : self_id;
-      }
-      child.position = index;
+      child.parent = self_id == null_id ? id() : self_id;
     }
+    child.position = index;
   }
 
   /**
@@ -191,7 +256,7 @@ struct Internal : Traits::Node {
   void refresh_metadata() {}
   /** @brief 派生 refresh_metadata() を呼ぶ。size の再集計は行わない。 */
   void refresh() {
-    static_cast<I*>(this)->refresh_metadata();
+    static_cast<U*>(this)->refresh_metadata();
   }
 
   /**
@@ -199,12 +264,12 @@ struct Internal : Traits::Node {
    * @details is_reversed が false なら何もしない。O(count)。
    */
   void apply_reverse() {
-    if (!is_reversed) return;
-    std::reverse(children.begin(), children.begin() + count);
-    is_reversed = false;
-    for (pos_type i = 0; i < count; ++i) {
-      this->template move_child<false>(i, children[i]);
-      if (level) get_child(i).push_reverse();
+    if (!this->is_reversed) return;
+    std::reverse(this->children.begin(), this->children.begin() + this->count);
+    this->is_reversed = false;
+    for (pos_type i = 0; i < this->count; ++i) {
+      move_child<false>(i, this->children[i]);
+      get_child(i).push_reverse();
     }
   }
   /**
@@ -212,15 +277,15 @@ struct Internal : Traits::Node {
    * @details children の並べ替え自体は apply_reverse() まで遅延する。
    */
   void push_reverse() {
-    is_reversed = !is_reversed;
-    static_cast<I*>(this)->push_reverse_impl();
+    this->is_reversed ^= true;
+    static_cast<U*>(this)->push_reverse_impl();
   }
   void push_reverse_impl() {}
   void apply_lazy() {}
   /** @brief 保留中の反転を確定し、続いて派生 Lazy 作用を子へ伝搬する。 */
   void materialize() {
     apply_reverse();
-    static_cast<I*>(this)->apply_lazy();
+    static_cast<U*>(this)->apply_lazy();
   }
 
   /**
@@ -228,13 +293,13 @@ struct Internal : Traits::Node {
    * @return count==NodeCap となり即座のノード分割が必要なら true。
    */
   bool insert(id_type child, pos_type index) {
-    assert(child != null_id && index <= count && count < NodeCap);
+    assert(child != null_id && index <= this->count && this->count < NodeCap);
     // move_child により count が増えるので、ループ上限を退避する。
-    const pos_type old_count = count;
+    const pos_type old_count = this->count;
     for (pos_type i = old_count; i > index; --i)
-      this->template move_child<false>(i, children[i - 1]);
-    this->template move_child<true, false>(index, child);
-    if (count == NodeCap) return true;
+      move_child<false>(i, this->children[i - 1]);
+    move_child<true, false>(index, child);
+    if (this->count == NodeCap) return true;
     refresh();
     return false;
   }
@@ -244,13 +309,13 @@ struct Internal : Traits::Node {
    * @return 新しい右 Internal の Pool ID（同じ level）。
    */
   id_type split(pos_type left_count = HalfNodeCap) {
-    assert(count <= NodeCap && left_count <= count);
-    assert(left_count < NodeCap && count - left_count < NodeCap);
+    assert(this->count <= NodeCap && left_count <= this->count);
+    assert(left_count < NodeCap && this->count - left_count < NodeCap);
     // 移動元のcountが縮むので、先に移動数を保存する。
-    const pos_type right_count = count - left_count;
+    const pos_type right_count = this->count - left_count;
     // Pool 再確保で this が無効化されるため、ID と level を先に保存する。
     const id_type left_id = id();
-    const pos_type current_level = level;
+    const pos_type current_level = this->level;
     const id_type right_id = Pools::make_internal(current_level);
     auto& left = Pools::internals()[left_id];
     auto& right = Pools::internals()[right_id];
@@ -269,14 +334,14 @@ struct Internal : Traits::Node {
    * @return 自身の count が 0 になった場合 true。
    */
   bool erase(pos_type index) {
-    assert(count < NodeCap && index < count);
-    size -= child_size(index);
-    Pools::recycle(children[index], level == 0);
-    for (pos_type i = index + 1; i < count; ++i)
-      this->template move_child<false>(i - 1, children[i]);
-    --count;
+    assert(this->count < NodeCap && index < this->count);
+    this->size -= child_size(index);
+    Pools::recycle(this->children[index], false);
+    for (pos_type i = index + 1; i < this->count; ++i)
+      this->template move_child<false>(i - 1, this->children[i]);
+    --this->count;
     refresh();
-    return count == 0;
+    return this->count == 0;
   }
 
   /**
@@ -296,41 +361,37 @@ struct Internal : Traits::Node {
           *value_clean = false;
       }
     }
-    if (level == 0) {
-      assert(index < count);
-      return children[index];
-    }
-    for (pos_type i = 0; i < count; ++i) {
-      auto& child = get_child(i);
-      if (index < child.size)
-        return child.template locate<WithLazy>(index, value_clean);
-      index -= child.size;
+    for (pos_type i = 0; i < this->count; ++i) {
+      if (index < child_size(i))
+        return get_child(i).template locate<WithLazy>(index, value_clean);
+      index -= child_size(i);
     }
     assert(false);
     return null_id;
   }
 
   /**
-   * @brief 隣の兄弟と1ノードに統合できる場合、子を付け替えて余剰 ID を回収する。
+   * @brief 隣の兄弟と1ノードに統合できる場合、子を付け替えて余剰 ID
+   * を回収する。
    * @details 統合できない場合は何もしない。対象は level>0 の Internal 子。
    */
   void integrate_child(pos_type index) {
-    assert(level > 0 && index < count);
+    assert(this->level > 0 && index < this->count);
     if (index && child_count(index - 1) + child_count(index) < NodeCap) {
       auto& left = get_child(index - 1);
       auto& right = get_child(index);
       left.materialize();
       right.materialize();
       // 右側のcountが移動ごとに縮むので、開始時の個数を保存する。
-      const pos_type left_count = left.count;
-      const pos_type right_count = right.count;
+      const pos_type left_count = child_count(index - 1);
+      const pos_type right_count = child_count(index);
       const id_type left_id = left.id();
       for (pos_type i = right_count; i > 0;) {
         --i;
         left.move_child(left_count + i, right.children[i], left_id);
       }
       left.refresh();
-    } else if (index + 1 < count &&
+    } else if (index + 1 < this->count &&
                child_count(index + 1) + child_count(index) < NodeCap) {
       auto& left = get_child(index);
       auto& right = get_child(index + 1);
@@ -338,8 +399,8 @@ struct Internal : Traits::Node {
       right.materialize();
       // shiftで右側のcountが増え、移動で左側のcountが縮む。
       // 両方の移動前の個数を保存する。
-      const pos_type left_count = left.count;
-      const pos_type right_count = right.count;
+      const pos_type left_count = child_count(index);
+      const pos_type right_count = child_count(index + 1);
       const id_type right_id = right.id();
       for (pos_type i = right_count; i > 0;) {
         --i;
@@ -362,10 +423,11 @@ struct Internal : Traits::Node {
    */
   void integrate() {
     if (this->parent == null_id) return;
-    const auto parent_id = this->parent;
-    const auto position = this->position;
-    Pools::internals()[parent_id].integrate_child(position);
+    Pools::internals()[this->parent].integrate_child(this->position);
   }
 };
+
+template <class Traits>
+struct BottomInternal : Traits::Internal {};
 
 }  // namespace Bplustree
