@@ -110,6 +110,10 @@ void split_merge_tests() {
     assigned.insert(300);
     assigned = std::move(moved);
     check_content_and_lookup(assigned, values);
+    // Base のムーブ代入は swap による交換。移動元には旧 assigned が残る。
+    check_content_and_lookup(moved, {300});
+    // 移動元も引き続き操作可能なことを確認する。
+    assert(moved.erase(300) == 1);
     assert(moved.empty());
   }
 
