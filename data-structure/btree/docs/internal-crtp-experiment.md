@@ -2,22 +2,30 @@
 
 ベース: `experiment/bplustree-internal-constexpr-dispatch`（#49）
 
-## 現在のクラス構成（試作）
+## 実際のクラス構成
 
 ```text
-Node<Traits>
-    |
-Internal<Traits> ─── InternalCRTP<Traits, Internal<Traits>, false>
-    |
-Traits::Internal (Set/Aggregate の metadata)
-    |
-BottomInternal<Traits> ─── InternalCRTP<Traits, BottomInternal<Traits>, true>
-                              + links / ports_swapped
+                  Traits::Node
+                      |
+               Internal<Traits>         ← 共通の構造・旧API
+                      |
+               Traits::Internal         ← Set/Aggregate の metadata
+                  /       \
+                 /         \
+        UpperInternal    BottomInternal       ← 2つの具体型（兄弟）
+               |               |
+        InternalCRTP       InternalCRTP
+        <...,false>        <...,true>          ← 型に応じた静的処理
+               |               |
+        ObjectPool<Upper> ObjectPool<Bottom>   ← 別プール
 ```
 
-実際には二つの `InternalCRTP` は空のミックスインであり、ノード実体のデータを保持しない。既存の
-`Traits::Internal` を継承しているのは `NodePools::internals()[id]` が引き続き
-`Traits::Internal&` を返せるようにするため。上層と最下層は従来どおり別 Pool に格納する。
+`Internal<Traits>` は旧API用の基底で、**実際に生成するオブジェクトは
+`UpperInternal<Traits>` または `BottomInternal<Traits>`** になる。
+別の `ObjectPool` を持ち、共通の `Traits::Internal` を通して
+Set/Aggregate のメタデータを引き続き利用できる。
+
+## CRTP の役割
 
 ```cpp
 template <class Traits, class Derived, bool IsBottom>
@@ -25,42 +33,48 @@ struct InternalCRTP {
   void refresh() {
     static_cast<Derived&>(*this).template refresh_typed<IsBottom>();
   }
+  // move_child, locate, split, erase なども同様
 };
 
-// 上層: 子は Internal
-struct Internal : InternalCRTP<Traits, Internal, false> { /* ... */ };
+template <class Traits>
+struct UpperInternal : Traits::Internal,
+    InternalCRTP<Traits, UpperInternal<Traits>, false> {
+  using UpperOps = InternalCRTP<Traits, UpperInternal<Traits>, false>;
+  using UpperOps::refresh;
+  // ...
+};
 
-// 最下層: 子は Leaf（型がわかっている）
+template <class Traits>
 struct BottomInternal : Traits::Internal,
-                        InternalCRTP<Traits, BottomInternal, true> {
-  using BottomOps = InternalCRTP<Traits, BottomInternal, true>;
+    InternalCRTP<Traits, BottomInternal<Traits>, true> {
+  using BottomOps = InternalCRTP<Traits, BottomInternal<Traits>, true>;
   using BottomOps::refresh;
+  // ...
 };
 ```
 
-## 呼び出し経路
+具体型 `BottomInternal&` から呼べば `refresh_typed<true>()` が使われ、
+子を Leaf として扱う処理がコンパイル時に確定する。
+`UpperInternal&` では `refresh_typed<false>()` が呼ばれる。
 
-- 具体型 `BottomInternal&` から `refresh()` を呼ぶと
-  `InternalCRTP<..., true>::refresh()` → `refresh_typed<true>()` となり、
-  子が Leaf である分岐がコンパイル時に確定する。
-- 具体型 `Internal&` の上層ノードでは `InternalCRTP<..., false>` を経由する。
-- 従来の `Traits::Internal&` 互換 API で最下層が来た場合だけ
-  `level == 0` をチェックして `bottom().refresh()` に委譲する。
-- `NodePools::with_internal(id, callback)` は具体型を持つ参照でコールバックするため、
-  互換 API のチェックを省ける。
+## 既存 API との接続
 
-## 現時点の制約
+`NodePools::internals()[id]` は共通の `Traits::Internal&` を返す
+互換ビューとして残す。ここで `level` による分岐が必要になる。
+`NodePools::with_internal(id, callback)` では ID のタグで一度だけ振り分け、
+具体型 `UpperInternal&` または `BottomInternal&` を渡す。
 
-これは**完全な兄弟型への分離ではない**。#49 の `*_typed<IsBottom>` 実装を CRTP が
-呼び出すところまでが今回の実験で、処理本体を `InternalCRTP` に移動したわけではない。
+現在の `InternalCRTP` は既存の `*_typed<IsBottom>` に委譲する薄い層。
+処理本体の完全な移設や、旧 `Internal&` 経路の削除は今後の課題。
+したがってこの実験段階で性能改善が保証されるわけではない。
 
-本来の兄弟型へ進めるには、Set/Aggregate の共通 metadata を切り出すとともに
-`NodePools::internals()` が `Traits::Internal&` を返す互換 API を廃止・置換する必要がある。
-この段階では速度・メモリ節約を保証せず、main へマージしない。
+## テストと注意
 
-## 動作確認
+`data-structure/btree/test/bplustree-internal-crtp-test.cpp` が
+兄弟型、プール選択、動的・静的な操作経路を確認する。
+PR #53 は #49 をベースとする積み重ね PR であり、
+`linux-tests.yml` の pull_request トリガーは `main` 限定なので
+この状態では Actions が自動起動しない。Actions の `Run workflow` で
+`experiment/bplustree-internal-crtp-dispatch` を選んで検証する。
 
-`data-structure/btree/test/bplustree-internal-crtp-test.cpp` は
-上層/最下層の静的型、ノード操作、従来 `Internal&` 経由の反転・探索を検証する。
-`linux-tests.yml` は PR のベースが `main` の場合にのみ起動するため、
-この積み重ね PR（ベース #49）では GitHub Actions を手動実行する。
+バグや性能悪化を許容する試作であり、main への直接マージは推奨しない。
