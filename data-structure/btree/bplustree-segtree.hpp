@@ -4,17 +4,21 @@
 #include "common/monoid.hpp"
 
 /**
- * @brief 1要素1Leafの B+ tree 上に構築した動的セグメント木。
- * @tparam Monoid 結合則と単位元を提供するモノイド。
- * @tparam NodeCapacity Internal の子配列容量。
+ * @brief 1要素1Leaf の B+tree による動的セグメント木。
+ * @tparam Monoid value_type、op(a,b)、e() を持つモノイド。
+ * @tparam NodeCapacity Internal の子 ID 配列容量。
  * @details
- * 要素の更新は set() または operator() の Setter を使用する。
- * prod / reverse_prod / all_prod / all_reverse_prod、
- * 境界探索、挿入削除、split / merge、反転を利用できる。
+ * 区間積 prod / reverse_prod、全体積 all_prod / all_reverse_prod、
+ * 境界探索 max_right / min_left、位置指定の insert / erase、
+ * split / merge / reverse に対応する。
+ * 非可換モノイドでも逆方向積を別に保持するため区間反転に対応する。
+ * get / operator[] / iterator は読み取り専用。set と
+ * operator()(index) の Setter を通して更新する。
  *
  * ### 計算量
- * 区間積・点更新・境界探索は O(NodeCapacity log_{NodeCapacity} N)。
- * all_prod / all_reverse_prod は O(1)。
+ * 区間積・境界探索・点更新は O(NodeCapacity * 木の高さ)
+ * （モノイド演算・述語は O(1) を仮定）。
+ * 全体積と全体 reverse は O(1)。
  */
 template <class Monoid, std::size_t NodeCapacity = 64>
 class Bplustree_Segtree
@@ -35,16 +39,14 @@ using GcdSegtree = Bplustree_Segtree<GcdMonoid>;
 template <class mint>
 using AffineSegtree = Bplustree_Segtree<AffineMonoid<mint>>;
 
-/**
- * @brief `Op` と `E` を直接指定して構築する B+ tree セグメント木。
- */
+/** @brief 関数 Op（結合演算）と E（単位元生成）から構築する別名。 */
 template <class T, auto Op, auto E, std::size_t NodeCapacity = 64>
 using BSegtree = Bplustree_Segtree<Monoid<T, Op, E>, NodeCapacity>;
 
 /**
- * @brief 単位元を指定せずに構築する B+ tree セグメント木。
- * @details
- * 各要素を通常の `T` として扱いつつ、内部では人工的な単位元を使用する。
+ * @brief 単位元 E を指定しないモノイドの B+tree Segtree。
+ * @details MonoidWithoutE によって内部で人工的な単位元を扱う。
+ * 実要素の公開値型は T。
  */
 template <class T, auto Op, std::size_t NodeCapacity = 64>
 using BSegtreeWithoutE = Bplustree_Segtree<MonoidWithoutE<T, Op>, NodeCapacity>;
