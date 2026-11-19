@@ -12,12 +12,16 @@ using namespace std;
  */
 signed main() {
   using Traits = Bplustree::Traits<long long, 4>;
-  using Upper = Bplustree::Internal<Traits>;
+  using Upper = Bplustree::UpperInternal<Traits>;
   using Bottom = Bplustree::BottomInternal<Traits>;
   using Pools = Bplustree::NodePools<Traits>;
 
   static_assert(!Upper::UpperOps::is_bottom);
   static_assert(Bottom::BottomOps::is_bottom);
+  static_assert(!is_base_of_v<Upper, Bottom>);
+  static_assert(!is_base_of_v<Bottom, Upper>);
+  static_assert(is_base_of_v<typename Traits::Internal, Upper>);
+  static_assert(is_base_of_v<typename Traits::Internal, Bottom>);
   static_assert(is_base_of_v<
                 Bplustree::InternalCRTP<Traits, Upper, false>, Upper>);
   static_assert(is_base_of_v<
@@ -37,13 +41,26 @@ signed main() {
   assert(bottom.locate(1) == y);
 
   const auto root_id = Pools::make_internal(1);
-  auto& root = Pools::internals()[root_id];
+  auto& root = Pools::uppers()[root_id];
   root.template move_child<true, false>(0, bottom_id, root_id);
   root.refresh();
   assert(root.size == 2);
   assert(root.child_size(0) == 2);
   assert(root.locate(0) == x);
   assert(root.locate(1) == y);
+  assert(Pools::internals()[root_id].locate(1) == y);
+
+  bool seen_upper = false;
+  bool seen_bottom = false;
+  Pools::with_internal(root_id, [&](auto& node) {
+    if constexpr (is_same_v<remove_cvref_t<decltype(node)>, Upper>)
+      seen_upper = true;
+  });
+  Pools::with_internal(bottom_id, [&](auto& node) {
+    if constexpr (is_same_v<remove_cvref_t<decltype(node)>, Bottom>)
+      seen_bottom = true;
+  });
+  assert(seen_upper && seen_bottom);
 
   // 従来の Internal& 経由でも level == 0 の互換 dispatch が動作する。
   auto& bottom_as_internal = Pools::internals()[bottom_id];
