@@ -295,9 +295,9 @@ void iterator_epoch_tests() {
 
 
 /**
- * @brief 全体反転時に、保持済みの番兵iteratorのepochを無効化できることを検証する。
- * @details reverse()はbbegin_/end_を交換するが、古い番兵iteratorのコピーも
- * 同じLeaf IDを追跡する。反転後の++/--は未伝搬の反転を必ず反映する必要がある。
+ * @brief 全体反転後も保持済みの固定番兵 iterator が有効なことを検証する。
+ * @details reverse() は番兵 Leaf ID を交換せず、木中の物理位置だけ交換する。
+ * 反転前の epoch を持つ iterator の ++/-- は、新しい論理順序に従う。
  */
 template <std::size_t Capacity>
 void iterator_epoch_reverse_sentinels_test() {
@@ -309,7 +309,7 @@ void iterator_epoch_reverse_sentinels_test() {
 
   auto old_bbegin = tree.bbegin();
   auto old_end = tree.end();
-  // 両番兵を一度移動して戻し、逆転前のepochがキャッシュされた状態にする。
+  // 両番兵を一度移動して戻し、反転前の epoch をキャッシュした状態にする。
   ++old_bbegin;
   --old_bbegin;
   --old_end;
@@ -323,34 +323,46 @@ void iterator_epoch_reverse_sentinels_test() {
   assert(Epoch::position != old_epoch);
   assert(Epoch::value == old_value_epoch);
 
-  // 反転後、旧左番兵が右番兵に、旧右番兵が左番兵になる。
-  assert(old_bbegin == tree.end());
-  assert(old_end == tree.bbegin());
-  auto last = old_bbegin;
-  --last;
-  assert(*last == 1);
-  auto first = old_end;
+  // 固定番兵は反転後も同じ ID を指し、論理的な左右端も変わらない。
+  assert(old_bbegin == tree.bbegin());
+  assert(old_end == tree.end());
+  auto first = old_bbegin;
   ++first;
-  assert(*first == 96);
   assert(first == tree.begin());
+  assert(*first == 96);
+  auto last = old_end;
+  --last;
+  assert(last == tree.nth(values.size() - 1));
+  assert(*last == 1);
   assert(tree.end() - tree.bbegin() == 97);
   assert(std::equal(tree.begin(), tree.end(),
                     values.rbegin(), values.rend()));
 
-  // 反転後に取得したコピーについても、2度目の全体反転で失効する。
+  // 反転後に取得したコピーも、2度目の全体反転後にそのまま使える。
   auto second_bbegin = tree.bbegin();
   auto second_end = tree.end();
   ++second_bbegin;
   --second_bbegin;
   --second_end;
   ++second_end;
+  const auto second_epoch = Epoch::position;
+  const auto second_value_epoch = Epoch::value;
   tree.reverse();
-  assert(second_bbegin == tree.end());
-  assert(second_end == tree.bbegin());
-  ++second_end;
-  --second_bbegin;
-  assert(*second_end == 1);
-  assert(*second_bbegin == 96);
+  assert(Epoch::position != second_epoch);
+  assert(Epoch::value == second_value_epoch);
+  assert(second_bbegin == tree.bbegin());
+  assert(second_end == tree.end());
+  assert(old_bbegin == tree.bbegin());
+  assert(old_end == tree.end());
+
+  auto first_again = second_bbegin;
+  ++first_again;
+  assert(first_again == tree.begin());
+  assert(*first_again == 1);
+  auto last_again = second_end;
+  --last_again;
+  assert(last_again == tree.nth(values.size() - 1));
+  assert(*last_again == 96);
   assert(std::equal(tree.begin(), tree.end(),
                     values.begin(), values.end()));
 
