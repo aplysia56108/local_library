@@ -21,6 +21,11 @@ struct Leaf;
 template <class Traits>
 struct Internal;
 
+/**
+ * @brief 位置操作だけを行う基本 Traits。遅延作用・独自集約値を持たない。
+ * @tparam value_type 実要素の型。
+ * @tparam Capacity Internal の子 ID 配列容量（3～255）。
+ */
 template <class value_type, std::size_t Capacity = 32>
 struct Traits {
   static_assert(3 <= Capacity && Capacity <= 255);
@@ -34,9 +39,10 @@ struct Traits {
 };
 
 /**
- * @brief 共通の親 ID と親内位置を保持する。
- * @details ID は各型の Pool 内で有効。自身の ID は Pool::index() で逆引きする。
- * Pool の拡張は参照を無効化するため、確保を伴う外部操作前に reserve する。
+ * @brief Leaf / Internal に共通の親 Internal ID と親内の位置。
+ * @details Leaf / Internal は異なる Pool の ID 空間を使用する。
+ * Pool の再確保では ID は変わらないが、ノードへの参照・ポインタは
+ * 無効になり得る。id() / Pool::index() による逆引きは生存中の参照だけに使う。
  */
 template <class Traits>
 struct Node {
@@ -53,7 +59,11 @@ struct Node {
   }
 };
 
-/** @brief 1要素1Leaf。安定した要素識別子は Leaf Pool 内の ID。 */
+/**
+ * @brief 1実要素、または前後番兵を表す Leaf。
+ * @details 位置や親が変わっても Leaf の Pool ID は変わらない。
+ * ただし削除された ID は再利用され得るため、削除後の iterator は無効。
+ */
 template <class Traits>
 struct Leaf : Traits::Node {
   using T = typename Traits::T;
@@ -76,10 +86,11 @@ struct Leaf : Traits::Node {
 };
 
 /**
- * @brief children は level==0 なら Leaf ID、それ以外は Internal ID。
- * @details children[0, count) のみ有効で、count 以降の内容は未規定。
- * 通常 count < NodeCap。挿入直後のみ count == NodeCap があり得る。
- * 所有権は Pool の ID 木にあり、子 ID の移動は実体を移動しない。
+ * @brief 子 ID・部分木サイズ・反転フラグを保持する内部ノード。
+ * @details level==0 では Leaf ID、level>0 では Internal ID を子とする。
+ * 論理的に有効な子は children[0,count) だけで、残りは未規定。
+ * 通常 count<NodeCap。挿入直後のみ count==NodeCap が一時的に許される。
+ * 子の移動は ID を付け替えるだけで、Leaf の実体はコピーしない。
  */
 template <class Traits>
 struct Internal : Traits::Node {
@@ -99,7 +110,7 @@ struct Internal : Traits::Node {
   std::size_t size = 0;
   pos_type level = 0;
   bool is_reversed = false;
-  // count 以降は参照しない。null_id 終端の管理は不要。
+  // children[count,NodeCap) は未規定。null_id 終端は管理しない。
   std::array<id_type, NodeCap> children{};
 
   explicit Internal(pos_type lvl = 0) : N(), level(lvl) {}
@@ -113,6 +124,7 @@ struct Internal : Traits::Node {
     return Pools::internals()[children[index]];
   }
 
+  /** @brief 子の要素数（level==0 なら常に1、その他は子 Internal の size）。 */
   std::size_t child_size(pos_type index) const {
     return level == 0 ? 1 : get_child(index).size;
   }
@@ -120,18 +132,21 @@ struct Internal : Traits::Node {
     return level == 0 ? 1 : get_child(index).count;
   }
 
-  /** @brief この Internal の Pool ID を取得する。Pool
-   * 再確保前の参照だけが有効。 */
+  /**
+   * @brief 自身の Internal Pool ID を、現在のオブジェクト参照から逆引きする。
+   * @details Pool の再確保前に取得した古い参照に対して呼んではいけない。
+   */
   id_type id() const {
     return Pools::internals().index(*static_cast<const I*>(this));
   }
 
   /**
-   * @brief 子を配置し、count / size / parent / position を差分更新する。
-   * @details FromOther=false は同一親内の位置変更（size不変）。
-   * ConsiderOtherSync=true は移動元のsuffixを切り離す操作に限定する。
-   * 新しい子や別木の根は ConsiderOtherSync=false で配置する。
-   * 一括移動中は一時的に穴を許すが、完了するまで探索しない。
+   * @brief 子 ID を配置し、子の親・位置と必要な count / size を更新する。
+   * @tparam FromOther false は同じ親内での位置変更（size 不変）。
+   * @tparam ConsiderOtherSync true は元の親の suffix の切り離しを同期する。
+   * @details FromOther=true, ConsiderOtherSync=false は新しい子や
+   * 別木の根の配置に使う。途中では children に一時的な穴を許す。
+   * 構造が完成するまで、未確定の配列に対して検索・集約を行わない。
    */
   template <bool FromOther = true, bool ConsiderOtherSync = true>
   void move_child(pos_type index, id_type child_id, id_type self_id = null_id) {
@@ -169,12 +184,20 @@ struct Internal : Traits::Node {
     }
   }
 
-  /** @brief 構造情報を再走査せず、派生クラスの集約情報を更新する。 */
+  /**
+   * @brief 派生 Internal が保持する追加情報の再計算フック。
+   * @details 基本 Internal は何も保持しないため空実装。
+   */
   void refresh_metadata() {}
+  /** @brief 派生 refresh_metadata() を呼ぶ。size の再集計は行わない。 */
   void refresh() {
     static_cast<I*>(this)->refresh_metadata();
   }
 
+  /**
+   * @brief 保留中の反転を children に反映し、必要なら子へ反転を伝搬する。
+   * @details is_reversed が false なら何もしない。O(count)。
+   */
   void apply_reverse() {
     if (!is_reversed) return;
     std::reverse(children.begin(), children.begin() + count);
@@ -184,18 +207,26 @@ struct Internal : Traits::Node {
       if (level) get_child(i).push_reverse();
     }
   }
+  /**
+   * @brief 自身の論理順序を反転するフラグと派生の集約情報を更新する。
+   * @details children の並べ替え自体は apply_reverse() まで遅延する。
+   */
   void push_reverse() {
     is_reversed = !is_reversed;
     static_cast<I*>(this)->push_reverse_impl();
   }
   void push_reverse_impl() {}
   void apply_lazy() {}
+  /** @brief 保留中の反転を確定し、続いて派生 Lazy 作用を子へ伝搬する。 */
   void materialize() {
     apply_reverse();
     static_cast<I*>(this)->apply_lazy();
   }
 
-  /** @return 満杯になり直ちに split が必要なら true。 */
+  /**
+   * @brief index に子を挿入する。
+   * @return count==NodeCap となり即座のノード分割が必要なら true。
+   */
   bool insert(id_type child, pos_type index) {
     assert(child != null_id && index <= count && count < NodeCap);
     // move_child により count が増えるので、ループ上限を退避する。
@@ -208,7 +239,10 @@ struct Internal : Traits::Node {
     return false;
   }
 
-  /** @return Pool に確保された右兄弟の Internal ID。 */
+  /**
+   * @brief left_count 個の子を自身に残し、残りを新しい右兄弟へ移す。
+   * @return 新しい右 Internal の Pool ID（同じ level）。
+   */
   id_type split(pos_type left_count = HalfNodeCap) {
     assert(count <= NodeCap && left_count <= count);
     assert(left_count < NodeCap && count - left_count < NodeCap);
@@ -230,7 +264,10 @@ struct Internal : Traits::Node {
     return right_id;
   }
 
-  /** @return この Internal が空になった場合 true。 */
+  /**
+   * @brief index 番目の子とその部分木を Pool に回収し、後続を詰める。
+   * @return 自身の count が 0 になった場合 true。
+   */
   bool erase(pos_type index) {
     assert(count < NodeCap && index < count);
     size -= child_size(index);
@@ -242,6 +279,12 @@ struct Internal : Traits::Node {
     return count == 0;
   }
 
+  /**
+   * @brief この部分木の index 番目の Leaf ID を探す（番兵を含む位置）。
+   * @tparam WithLazy true なら経路上の Lazy 作用を Leaf まで確定する。
+   * @param value_clean WithLazy=false 時、未伝搬の作用があれば false にする。
+   * @details 反転は探索に必要なため常に確定する。
+   */
   template <bool WithLazy = false>
   id_type locate(std::size_t index, bool* value_clean = nullptr) {
     apply_reverse();
@@ -267,7 +310,10 @@ struct Internal : Traits::Node {
     return null_id;
   }
 
-  /** @brief index の Internal 子を隣の兄弟へ移動し、元の子を回収する。 */
+  /**
+   * @brief 隣の兄弟と1ノードに統合できる場合、子を付け替えて余剰 ID を回収する。
+   * @details 統合できない場合は何もしない。対象は level>0 の Internal 子。
+   */
   void integrate_child(pos_type index) {
     assert(level > 0 && index < count);
     if (index && child_count(index - 1) + child_count(index) < NodeCap) {
@@ -310,7 +356,10 @@ struct Internal : Traits::Node {
     erase(index);
   }
 
-  /** @brief 統合成功時は自身の ID が無効になる。 */
+  /**
+   * @brief 自身を隣の兄弟と統合できる場合に親へ委譲する。
+   * @details 成功時にはこの Internal ID が回収され、自身の参照が失効し得る。
+   */
   void integrate() {
     if (this->parent == null_id) return;
     const auto parent_id = this->parent;
