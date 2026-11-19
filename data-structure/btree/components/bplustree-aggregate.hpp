@@ -411,8 +411,10 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   /**
    * @brief predicate(prod(l,right)) が真である最小の l。
-   * @details 非空区間の積に対して、区間を伸ばしたときに真から偽へのみ
-   * 変化することを要求する。predicate(M::e()) は真でなくてもよい。
+   * @details 非空区間の積に対して、区間を左へ伸ばすと真から偽へのみ
+   * 変化する述語を要求する。predicate(M::e()) は呼び出さない。
+   * ### 計算量
+   * O(C * 木の高さ)（モノイドと述語は O(1)）。
    */
   template <class Predicate>
   size_type min_left(size_type right, Predicate&& predicate) const {
@@ -452,7 +454,11 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   Derived split(iterator position) {
     return split(static_cast<size_type>(position - this->begin()));
   }
-  /** @brief right を末尾へ連結して空にする。要素のコピーや再集約はしない。 */
+  /**
+   * @brief right の実要素を末尾へ連結して空にする。
+   * @details 実要素 Leaf をコピー・再挿入しない。構造変更された内部ノードの
+   * 集約値は必要に応じて再計算される。
+   */
   void merge(Derived& right) {
     Parent::merge(right);
   }
