@@ -13,7 +13,6 @@
 #include "data-structure/btree/components/bplustree-node.hpp"
 #include "data-structure/btree/components/bplustree-iterator.hpp"
 #include "data-structure/btree/components/bplustree-setter.hpp"
-
 #include "data-structure/btree/components/bplustree-node-pools.hpp"
 
 namespace Bplustree {
