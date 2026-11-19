@@ -78,8 +78,10 @@ class Bplustree_Set
 
   template <bool Reversed = false>
   bool inner_comp(const id_type& id, const Key& b) const {
-    if (id == this->bbegin_) return true ^ Reversed;
-    if (id == this->end_) return false ^ Reversed;
+    if (id == this->bbegin_) [[unlikely]]
+      return true ^ Reversed;
+    if (id == this->end_) [[unlikely]]
+      return false ^ Reversed;
 
     if constexpr (Reversed) return compare_(b, Parent::get_leaf(id).get());
     return compare_(Parent::get_leaf(id).get(), b);
