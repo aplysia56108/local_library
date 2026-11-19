@@ -23,6 +23,8 @@ template <class Traits>
 struct Internal;
 template <class Traits>
 struct BottomInternal;
+template <class Traits>
+struct UpperInternal;
 
 template <class value_type, std::size_t Capacity = 32>
 struct Traits {
@@ -79,8 +81,8 @@ struct Leaf : Traits::Node {
  * 異なる処理を compile-time に確定する。フィールドを持たない mixin。
  * 既存の Internal& API から呼ぶ場合だけ、level による境界 dispatch を残す。
  *
- * これは実験版: BottomInternal は既存 Traits::Internal を継承し、
- * メタデータ・ObjectPool の共通ビューを引き続き利用する。
+ * これは実験版: 上層と最下層の具体型は兄弟クラスとし、
+ * Traits::Internal を共通基底にして metadata・既存 API を共有する。
  */
 template <class Traits, class Derived, bool IsBottom>
 struct InternalCRTP {
@@ -551,6 +553,33 @@ struct Internal : Traits::Node,
     const auto parent_id = this->parent;
     const auto position = this->position;
     Pools::internals()[parent_id].integrate_child(position);
+  }
+};
+
+/**
+ * @brief level>0 の内部ノード実体。BottomInternal と兄弟型。
+ * @details Traits::Internal を共通基底として Set/Aggregate の metadata を共有。
+ * 子ノードは Internal 系であり、CRTP による静的な操作経路を使う。
+ */
+template <class Traits>
+struct UpperInternal : Traits::Internal,
+                       InternalCRTP<Traits, UpperInternal<Traits>, false> {
+  using Parent = typename Traits::Internal;
+  using UpperOps = InternalCRTP<Traits, UpperInternal<Traits>, false>;
+
+  using UpperOps::child_size;
+  using UpperOps::child_count;
+  using UpperOps::move_child;
+  using UpperOps::refresh;
+  using UpperOps::apply_reverse;
+  using UpperOps::materialize;
+  using UpperOps::insert;
+  using UpperOps::split;
+  using UpperOps::erase;
+  using UpperOps::locate;
+
+  explicit UpperInternal(pos_type level) : Parent(level) {
+    assert(level > 0);
   }
 };
 
