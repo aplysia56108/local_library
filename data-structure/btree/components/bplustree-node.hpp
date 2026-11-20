@@ -14,32 +14,44 @@ namespace Bplustree {
 
 using pos_type = std::uint8_t;
 
-template <class Traits>
-struct Node;
-template <class Traits>
+// template <class Traits>
+struct NodeBase;
+// template <class Traits>
 struct Leaf;
-template <class Traits>
-struct Internal;
-template <class Traits>
-struct UpperInternal;
-template <class Traits>
-struct BottomInternal;
+// template <class Traits>
+struct Node;
+// template <class Traits>
+struct UpperNode;
+// template <class Traits>
+struct BottomNode;
+// template <class Traits>
+struct NodeCRTP;
 
 /**
  * @brief 位置操作だけを行う基本 Traits。遅延作用・独自集約値を持たない。
  * @tparam value_type 実要素の型。
  * @tparam Capacity Internal の子 ID 配列容量（3～255）。
  */
-template <class value_type, std::size_t Capacity = 32>
+using value_type = long long;
+constexpr std::size_t Capacity = 32;
+// template <class value_type, std::size_t Capacity = 32>
 struct Traits {
   static_assert(3 <= Capacity && Capacity <= 255);
   using T = value_type;
   static constexpr bool lazy = false;
   static constexpr pos_type kNodeCapacity = Capacity;
   static constexpr pos_type kNodeHalf = Capacity / 2;
-  using Node = Bplustree::Node<Traits>;
-  using Leaf = Bplustree::Leaf<Traits>;
-  using Internal = Bplustree::Internal<Traits>;
+  using NodeBase = Bplustree::NodeBase;
+  using Leaf = Bplustree::Leaf;
+  using Node = Bplustree::Node;
+  using UpperNode = Bplustree::UpperNode;
+  using BottomNode = Bplustree::BottomNode;
+  using NodeCRTP = Bplustree::NodeCRTP;
+  // using NodeBase = Bplustree::NodeBase<Traits>;
+  // using Leaf = Bplustree::Leaf<Traits>;
+  // using Node = Bplustree::Node<Traits>;
+  // using UpperNode = Bplustree::UpperNode<Traits>;
+  // using BottomNode = Bplustree::BottomNode<Traits>;
 };
 
 /**
@@ -48,19 +60,14 @@ struct Traits {
  * Pool の再確保では ID は変わらないが、ノードへの参照・ポインタは
  * 無効になり得る。id() / Pool::index() による逆引きは生存中の参照だけに使う。
  */
-template <class Traits>
-struct Node {
+// template <class Traits>
+struct NodeBase {
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
   static constexpr id_type null_id = Pools::null_id;
 
   id_type parent = null_id;
   pos_type position = 0;
-
-  Traits::Internal& get_parent() const {
-    assert(parent != null_id);
-    return Pools::internals()[parent];
-  }
 };
 
 /**
@@ -68,16 +75,18 @@ struct Node {
  * @details 位置や親が変わっても Leaf の Pool ID は変わらない。
  * ただし削除された ID は再利用され得るため、削除後の iterator は無効。
  */
-template <class Traits>
-struct Leaf : Traits::Node {
+// template <class Traits>
+struct Leaf : Traits::NodeBase {
   using T = typename Traits::T;
-  using N = typename Traits::Node;
+  using NB = typename Traits::NodeBase;
+  using Parent = Traits::BottomNode;
+  using Pools = NodePools<Traits>;
 
  private:
   T value;
 
  public:
-  explicit Leaf(const T& v) : N(), value(v) {}
+  explicit Leaf(const T& v) : NB(), value(v) {}
   void set(const T& v) {
     value = v;
   }
@@ -86,6 +95,41 @@ struct Leaf : Traits::Node {
   }
   T& get() {
     return value;
+  }
+  Parent& get_parent() {
+    return Pools::bottoms()[this->parent];
+  }
+};
+
+/**
+ * @brief 子 ID・部分木サイズ・反転フラグを保持する内部ノード。
+ * @details level==0 では Leaf ID、level>0 では Internal ID を子とする。
+ * 論理的に有効な子は children[0,count) だけで、残りは未規定。
+ * 通常 count<NodeCap。挿入直後のみ count==NodeCap が一時的に許される。
+ * 子の移動は ID を付け替えるだけで、Leaf の実体はコピーしない。
+ */
+// template <class Traits>
+struct Node : Traits::NodeBase {
+  using pos_type = std::uint8_t;
+  using U = typename Traits::UpperNode;
+
+  static constexpr pos_type NodeCap = Traits::kNodeCapacity;
+  using Pools = NodePools<Traits>;
+  using id_type = typename Pools::id_type;
+
+  static constexpr id_type null_id = Pools::null_id;
+
+  pos_type count = 0;
+  std::size_t size = 0;
+  pos_type level = 0;
+  bool is_reversed = false;
+  // children[count,NodeCap) は未規定。null_id 終端は管理しない。
+  std::array<id_type, NodeCap> children{};
+
+  explicit Node(pos_type lvl = 0) : Traits::NodeBase(), level(lvl) {}
+
+  U& get_parent() const {
+    return Pools::uppers()[this->parent];
   }
 };
 
@@ -99,37 +143,33 @@ struct Leaf : Traits::Node {
  * これは実験版: 上層と最下層の具体型は兄弟クラスとし、
  * Traits::Internal を共通基底にして metadata・既存 API を共有する。
  */
-template <class Traits, class Derived>
-struct InternalCRTP {
+using Derived = Traits::UpperNode;
+constexpr bool IsBottom = false;
+// template <class Traits, class Derived, bool IsBottom>
+struct NodeCRTP {
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
  private:
-  Derived& derived() {
-    return static_cast<Derived&>(*this);
-  }
-  const Derived& derived() const {
-    return static_cast<const Derived&>(*this);
-  }
+  Derived& self();
+  const Derived& self() const;
 
  public:
-  std::size_t child_size(pos_type index) const {
-    return derived().child_size(index);
-  }
-  pos_type child_count(pos_type index) const {
-    return derived().child_count(index);
-  }
+  std::size_t child_size(pos_type index) const;
+  pos_type child_count(pos_type index) const;
   template <bool FromOther = true, bool ConsiderOtherSync = true>
   void move_child(pos_type index, id_type child_id,
-                  id_type self_id = Pools::null_id) {
-    derived().template move_child<FromOther, ConsiderOtherSync>(index, child_id,
-                                                                self_id);
-  }
-  void refresh() {
-    derived().refresh();
-  }
+                  id_type self_id = Pools::null_id);
+  void refresh();
   void apply_reverse() {
-    derived().apply_reverse();
+    if (!this->is_reversed) return;
+    std::reverse(this->children.begin(), this->children.begin() + this->count);
+    this->is_reversed = false;
+
+    for (pos_type i = 0; i < this->count; ++i) {
+      move_child<false>(i, this->children[i]);
+      if constexpr (!IsBottom) get_child(i).push_reverse();
+    }
   }
   void materialize() {
     derived().materialize();
@@ -149,44 +189,20 @@ struct InternalCRTP {
   }
 };
 
-/**
- * @brief 子 ID・部分木サイズ・反転フラグを保持する内部ノード。
- * @details level==0 では Leaf ID、level>0 では Internal ID を子とする。
- * 論理的に有効な子は children[0,count) だけで、残りは未規定。
- * 通常 count<NodeCap。挿入直後のみ count==NodeCap が一時的に許される。
- * 子の移動は ID を付け替えるだけで、Leaf の実体はコピーしない。
- */
-template <class Traits>
-struct Internal : Traits::Node {
-  using pos_type = std::uint8_t;
+// template <class Traits>
+struct BottomNode : Traits::Node {};
 
-  static constexpr pos_type NodeCap = Traits::kNodeCapacity;
-  using Pools = NodePools<Traits>;
-  using id_type = typename Pools::id_type;
-
-  static constexpr id_type null_id = Pools::null_id;
-
-  pos_type count = 0;
-  std::size_t size = 0;
-  pos_type level = 0;
-  bool is_reversed = false;
-  // children[count,NodeCap) は未規定。null_id 終端は管理しない。
-  std::array<id_type, NodeCap> children{};
-
-  explicit Internal(pos_type lvl = 0) : Traits::Node(), level(lvl) {}
-};
-
-template <class Traits>
-struct UpperInternal : Traits::Internal,
-                       InternalCRTP<Traits, UpperInternal<Traits>> {
+// template <class Traits>
+struct UpperNode : Traits::Node, Traits::NodeCRTP {
   using pos_type = std::uint8_t;
   static constexpr pos_type NodeCap = Traits::kNodeCapacity;
   static constexpr pos_type HalfNodeCap = NodeCap / 2;
-  using N = typename Traits::Node;
+  using NB = typename Traits::NodeBase;
   using L = typename Traits::Leaf;
-  using I = typename Traits::Internal;
-  using U = typename Traits::UpperInternal;
-  using B = typename Traits::BottomInternal;
+  using N = typename Traits::Node;
+  using U = typename Traits::UpperNode;
+  using B = typename Traits::BottomNode;
+  using Parent = U;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
@@ -195,19 +211,21 @@ struct UpperInternal : Traits::Internal,
   std::array<id_type, NodeCap> sizes{};
   std::array<pos_type, NodeCap> counts{};
 
-  explicit UpperInternal(pos_type lvl) : I(lvl) {};
+  explicit UpperNode(pos_type lvl) : N(lvl) {};
 
-  I& get_child(pos_type index) const {
+  N& get_child(pos_type index) const {
     assert(this->level > 0 && index < this->count);
-    return Pools::internals()[this->children[index]];
+    if (level == 1) return Pools::bottoms()[this->children[index]];
+    return Pools::uppers()[this->children[index]];
   }
 
+  // TODO:一旦時nodeのキャッシュは使わない。今後キャッシュを使う予定
   /** @brief 子の要素数（level==0 なら常に1、その他は子 Internal の size）。 */
   std::size_t child_size(pos_type index) const {
-    return sizes[index];
+    return get_child(index).size;
   }
   pos_type child_count(pos_type index) const {
-    return counts[index];
+    return get_child(index).count;
   }
 
   /**
@@ -215,7 +233,7 @@ struct UpperInternal : Traits::Internal,
    * @details Pool の再確保前に取得した古い参照に対して呼んではいけない。
    */
   id_type id() const {
-    return Pools::internals().index(*static_cast<const I*>(this));
+    return Pools::uppers().index(*static_cast<const U*>(this));
   }
 
   /**
@@ -227,27 +245,7 @@ struct UpperInternal : Traits::Internal,
    * 構造が完成するまで、未確定の配列に対して検索・集約を行わない。
    */
   template <bool FromOther = true, bool ConsiderOtherSync = true>
-  void move_child(pos_type index, id_type child_id, id_type self_id = null_id) {
-    assert(index < NodeCap && child_id != null_id);
-    this->children[index] = child_id;
-    if (index >= this->count) this->count = index + 1;
-
-    auto& child = Pools::internals()[child_id];
-    sizes[index] = child.size;
-    counts[index] = child.count;
-    if constexpr (FromOther) {
-      this->size += child.size;
-      if constexpr (ConsiderOtherSync) {
-        assert(child.parent != null_id);
-        auto& other = Pools::internals()[child.parent];
-        assert(&other != this && other.size >= child.size);
-        other.size -= child.size;
-        if (child.position < other.count) other.count = child.position;
-      }
-      child.parent = self_id == null_id ? id() : self_id;
-    }
-    child.position = index;
-  }
+  void move_child(pos_type index, id_type child_id, id_type self_id = null_id);
 
   /**
    * @brief 派生 Internal が保持する追加情報の再計算フック。
@@ -427,7 +425,56 @@ struct UpperInternal : Traits::Internal,
   }
 };
 
-template <class Traits>
-struct BottomInternal : Traits::Internal {};
+inline Derived& NodeCRTP::self() {
+  return static_cast<Derived&>(*this);
+}
+
+inline const Derived& NodeCRTP::self() const {
+  return static_cast<const Derived&>(*this);
+}
+
+inline std::size_t NodeCRTP::child_size(pos_type index) const {
+  if constexpr (IsBottom) {
+    return 1;
+  } else {
+    return self().get_child(index).size;
+  }
+}
+
+template <bool FromOther = true, bool ConsiderOtherSync = true>
+inline void NodeCRTP::move_child(pos_type index, id_type child_id,
+                                 id_type self_id = Pools::null_id) {
+  assert(index < NodeCap && child_id != null_id);
+  this->children[index] = child_id;
+  if (index >= this->count) this->count = index + 1;
+  auto* child;
+  if constexpr (IsBottom)
+    child = &Pools::get<Pools::NodeType::Leaf>(child_id);
+  else if (level == 1)
+    child = &Pools::get<Pools::NodeType::Bottom>(child_id);
+  else
+    child = &Pools::get<Pools::NodeType::Upper>(child_id);
+  if constexpr (!IsBottom) {
+    sizes[index] = child->size;
+    counts[index] = child->count;
+  }
+
+  if constexpr (FromOther) {
+    this->size += child->size;
+    if constexpr (ConsiderOtherSync) {
+      assert(child->parent != null_id);
+      auto& other = child->get_parent();
+      assert(&other != this && other.size >= child->size);
+      other.size -= child->size;
+      if (child->position < other.count) other.count = child->position;
+    }
+    child->parent = self_id == null_id ? id() : self_id;
+  }
+  child->position = index;
+}
+
+inline void NodeCRTP::refresh() {
+  self().refresh_metadata();
+}
 
 }  // namespace Bplustree
