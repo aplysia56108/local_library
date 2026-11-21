@@ -195,54 +195,56 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using Pools = NodePools<Traits>;
   using Epoch = IteratorEpoch<Traits>;
 
+  using Access = NodeAccess<Traits>;
+
+  /** @brief 具象型へ1回分岐して区間積を再帰計算する。 */
   template <bool Reversed = false>
-  static T prod_recursive(Internal& node, std::size_t first, std::size_t last) {
+  static T prod_recursive(id_type node_id, std::size_t first, std::size_t last) {
     if (first == last) return M::e();
-    if (first == 0 && last == node.size) {
-      if constexpr (Reversed) return node.backward;
-      return node.forward;
-    }
-
-    node.materialize();
-    T result = M::e();
-
-    if (node.level == 0) {
+    return Access::with(node_id, [&](auto& node) -> T {
+      if (first == 0 && last == node.size) {
+        if constexpr (Reversed) return node.backward;
+        return node.forward;
+      }
+      node.materialize();
+      T result = M::e();
+      if (node.level == 0) {
+        if constexpr (Reversed) {
+          for (std::size_t i = last; i > first; --i)
+            result = M::op(result, Pools::leaves()[node.children[i - 1]].get());
+        } else {
+          for (std::size_t i = first; i < last; ++i)
+            result = M::op(result, Pools::leaves()[node.children[i]].get());
+        }
+        return result;
+      }
       if constexpr (Reversed) {
-        for (std::size_t i = last; i > first; --i)
-          result = M::op(result, node.get_leaf(i - 1).get());
+        std::size_t offset = node.size;
+        for (std::size_t i = node.count; i > 0; --i) {
+          const id_type child_id = node.children[i - 1];
+          const std::size_t length = Access::get(child_id).size;
+          offset -= length;
+          if (first < offset + length && offset < last)
+            result = M::op(result, prod_recursive<true>(
+                child_id, first > offset ? first - offset : 0,
+                std::min(last - offset, length)));
+          if (offset <= first) break;
+        }
       } else {
-        for (std::size_t i = first; i < last; ++i)
-          result = M::op(result, node.get_leaf(i).get());
+        std::size_t offset = 0;
+        for (std::size_t i = 0; i < node.count; ++i) {
+          const id_type child_id = node.children[i];
+          const std::size_t length = Access::get(child_id).size;
+          if (first < offset + length && offset < last)
+            result = M::op(result, prod_recursive(
+                child_id, first > offset ? first - offset : 0,
+                std::min(last - offset, length)));
+          offset += length;
+          if (offset >= last) break;
+        }
       }
       return result;
-    }
-
-    if constexpr (Reversed) {
-      std::size_t offset = node.size;
-      for (std::size_t i = node.count; i > 0; --i) {
-        auto& child = node.get_child(i - 1);
-        const std::size_t length = child.size;
-        offset -= length;
-        if (first < offset + length && offset < last)
-          result = M::op(result, prod_recursive<true>(
-                                     child, first > offset ? first - offset : 0,
-                                     std::min(last - offset, length)));
-        if (offset <= first) break;
-      }
-    } else {
-      std::size_t offset = 0;
-      for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        const std::size_t length = child.size;
-        if (first < offset + length && offset < last)
-          result = M::op(
-              result, prod_recursive(child, first > offset ? first - offset : 0,
-                                     std::min(last - offset, length)));
-        offset += length;
-        if (offset >= last) break;
-      }
-    }
-    return result;
+    });
   }
 
   static void apply_recursive(Internal& node, std::size_t first,
