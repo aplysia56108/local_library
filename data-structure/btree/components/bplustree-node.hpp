@@ -317,10 +317,8 @@ struct NodeCRTP : Traits::Node {
   bool erase(pos_type index) {
     assert(this->count < NodeCap && index < this->count);
     this->size -= child_size(index);
-    if (IsBottom)
+    if constexpr (IsBottom)
       Pools::template recycle<false>(this->children[index]);
-    else if (this->level == 1)
-      Pools::template recycle<Recursive>(this->children[index]);
     else
       Pools::template recycle<Recursive>(this->children[index]);
 
