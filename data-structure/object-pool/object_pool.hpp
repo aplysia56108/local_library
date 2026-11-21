@@ -8,6 +8,14 @@
 #include <utility>
 #include <vector>
 
+/**
+ * @brief 安定した整数 ID で要素を管理する再利用型 Object Pool。
+ * @tparam T 格納する要素型。
+ * @tparam MaxId Pool が発行できる最大 ID（この値を含む）。
+ * @tparam NullId 有効な ID と重複しない番兵値。
+ * @details erase() した ID は後続の emplace() で再利用され得る。Pool の
+ * vector が再確保されると参照・ポインタは失効するが、生存中要素の ID は保つ。
+ */
 template <class T,
           std::uint32_t MaxId = std::numeric_limits<std::uint32_t>::max() - 1,
           std::uint32_t NullId = std::numeric_limits<std::uint32_t>::max()>
@@ -26,8 +34,11 @@ class ObjectPool {
   // std::vectorのconstexprデフォルト構築により静的Poolをconstinit可能にする。
   constexpr ObjectPool() = default;
 
-  /** @brief 少なくとも n
-   * スロット分の容量を事前に確保する。参照は無効化され得る。 */
+  /**
+   * @brief 少なくとも n スロット分の容量を事前に確保する。
+   * @details n は max_id + 1 以下でなければならない。再確保時には
+   * 既存要素への参照・ポインタが失効し得る。
+   */
   void reserve(std::size_t n) {
     assert(n <= max_id + 1);
     pool_.reserve(n);
@@ -52,6 +63,11 @@ class ObjectPool {
     return static_cast<id_type>(offset);
   }
 
+  /**
+   * @brief 要素を構築し、その安定 ID を返す。
+   * @details 解放済み ID があれば優先して再利用する。発行される ID は
+   * 0 以上 max_id 以下で、null_id とは異なる。
+   */
   template <class... Args>
   id_type emplace(Args&&... args) {
     if (!free_ids_.empty()) {
@@ -69,6 +85,11 @@ class ObjectPool {
     return id;
   }
 
+  /**
+   * @brief 指定 ID を再利用可能にする。
+   * @details 要素のデストラクタは直ちには呼ばれない。以後 emplace() により
+   * 同じ ID が別の要素へ再割当てされ得る。
+   */
   void erase(id_type id) {
     assert(id < pool_.size());
     free_ids_.push_back(id);

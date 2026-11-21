@@ -8,10 +8,14 @@ namespace Bplustree {
 enum class NodeType { Leaf, Bottom, Upper };
 
 /**
- * @brief Traits ごとに共有する Leaf / Internal の2つの ObjectPool。
- * @details ID は型ごとの Pool 内のスロット番号で、Leaf ID と Internal ID
- * は別空間。 同じ Traits の複数の木が Pool を共有する。recycle 後の ID
- * は再利用され得る。
+ * @brief Traits ごとに共有する Leaf / BottomNode / UpperNode の ObjectPool。
+ * @details
+ * 各 Pool 内の ID を一つの id_type に符号化する。最上位 bit が 0 の ID は
+ * Leaf（31 bit の Pool ID）、`10` で始まる ID は BottomNode（30 bit）、
+ * `11` で始まる ID は UpperNode（30 bit）である。`null_id` は
+ * `0xffffffff` とし、UpperNode の Pool ID は衝突を避けて
+ * `0x3ffffffe` 以下に制限する。同じ Traits の複数の木は Pool を共有し、
+ * recycle() 後の ID は再利用され得る。
  */
 template <class Traits>
 class NodePools {
@@ -76,9 +80,9 @@ class NodePools {
   };
 
   /**
-   * @brief 追加確保に備えて Leaf / Internal Pool の容量を増やす。
-   * @details Pool の vector
-   * が再確保されると生存中ノードへの参照は失効するが、 ID は変わらない。
+   * @brief 追加確保に備えて Leaf / BottomNode / UpperNode Pool の容量を増やす。
+   * @details Pool の vector が再確保されると生存中ノードへの参照は失効するが、
+   * ID は変わらない。
    */
   static void reserve_buffer(std::size_t leaf_buffer = 8,
                              std::size_t node_buffer = 8) {
@@ -92,23 +96,23 @@ class NodePools {
     auto id = leaf_pool_.emplace(std::forward<Args>(args)...);
     return id;
   }
-  /** @brief 指定 level の Internal を確保し、その ID を返す。 */
+  /** @brief UpperNode を確保し、タグ付き ID を返す。 */
   template <class... Args>
   static id_type make_upper(Args&&... args) {
     auto id = upper_pool_.emplace(std::forward<Args>(args)...);
     return id | upper_tag;
   }
+  /** @brief BottomNode を確保し、タグ付き ID を返す。 */
   template <class... Args>
   static id_type make_bottom(Args&&... args) {
     auto id = bottom_pool_.emplace(std::forward<Args>(args)...);
     return id | bottom_tag;
   }
   /**
-   * @brief 指定 ID が表す Leaf または Internal 部分木を再利用可能にする。
-   * @param is_leaf true なら Leaf Pool を解放。false なら Internal
-   * 部分木を走査。
-   * @details ID 自体を解放 ID 列へ戻す処理であり、各要素のデストラクタは
-   * 直ちには呼び出されない。回収した ID を持つ iterator は失効する。
+   * @brief 指定 ID が表す Leaf またはノード部分木を再利用可能にする。
+   * @tparam Recursive false なら対象ノードのみ、true なら子孫も回収する。
+   * @details ID は型タグから対応する Pool を選んで回収する。各要素の
+   * デストラクタは直ちには呼ばれず、回収した ID を持つ iterator は失効する。
    * ### 計算量
    * O(回収するノード数)。
    */
