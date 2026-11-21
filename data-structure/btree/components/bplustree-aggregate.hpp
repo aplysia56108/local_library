@@ -33,16 +33,12 @@ struct AggregateTraits {
   static T identity() {
     return M::e();
   }
+  using NodeBase = Bplustree::NodeBase<AggregateTraits>;
   struct Node;
   struct Leaf;
-  struct Internal;
-};
-
-/** @brief 親 ID と親内位置のみを共通保持する Node。 */
-template <class M, class A, bool R, std::size_t C>
-struct AggregateTraits<M, A, R, C>::Node
-    : Bplustree::Node<AggregateTraits<M, A, R, C>> {
-  using Bplustree::Node<AggregateTraits<M, A, R, C>>::Node;
+  struct UpperNode;
+  struct BottomNode;
+  using Internal = Node;  // 旧 API が想定する共通メタデータの型
 };
 
 /**
@@ -74,10 +70,11 @@ struct AggregateTraits<M, A, R, C>::Leaf
  * 反転フラグ・pending が残っていても積は論理状態と一致させる。
  */
 template <class M, class A, bool R, std::size_t C>
-struct AggregateTraits<M, A, R, C>::Internal
-    : Bplustree::Internal<AggregateTraits<M, A, R, C>> {
+struct AggregateTraits<M, A, R, C>::Node
+    : Bplustree::Node<AggregateTraits<M, A, R, C>> {
   using Traits = AggregateTraits<M, A, R, C>;
-  using Parent = Bplustree::Internal<Traits>;
+  using Parent = Bplustree::Node<Traits>;
+  using Pools = Bplustree::NodePools<Traits>;
   using T = typename Traits::T;
   using F = typename Traits::F;
   using Leaf = typename Traits::Leaf;
@@ -97,21 +94,23 @@ struct AggregateTraits<M, A, R, C>::Internal
     forward = backward = M::e();
     if (this->level == 0) {
       for (std::size_t i = 0; i < this->count; ++i)
-        forward = M::op(forward, this->get_leaf(i).get());
+        forward = M::op(forward, Pools::leaves()[this->children[i]].get());
       if constexpr (R) {
         backward = forward;
       } else {
         for (std::size_t i = this->count; i > 0; --i)
-          backward = M::op(backward, this->get_leaf(i - 1).get());
+          backward = M::op(backward, Pools::leaves()[this->children[i - 1]].get());
       }
     } else {
       for (std::size_t i = 0; i < this->count; ++i)
-        forward = M::op(forward, this->get_child(i).forward);
+        forward = M::op(forward, Pools::with_internal(this->children[i],
+                              [](const auto& child) { return child.forward; }));
       if constexpr (R) {
         backward = forward;
       } else {
         for (std::size_t i = this->count; i > 0; --i)
-          backward = M::op(backward, this->get_child(i - 1).backward);
+          backward = M::op(backward, Pools::with_internal(this->children[i - 1],
+                              [](const auto& child) { return child.backward; }));
       }
     }
 
@@ -160,13 +159,28 @@ struct AggregateTraits<M, A, R, C>::Internal
       pending.reset();
       if (this->level == 0) {
         for (std::size_t i = 0; i < this->count; ++i)
-          this->get_leaf(i).push_lazy(f);
+          Pools::leaves()[this->children[i]].push_lazy(f);
       } else {
         for (std::size_t i = 0; i < this->count; ++i)
-          this->get_child(i).push_lazy(f);
+          Pools::with_internal(this->children[i],
+              [&](auto& child) { child.push_lazy(f); });
       }
     }
   }
+};
+
+template <class M, class A, bool R, std::size_t C>
+struct AggregateTraits<M, A, R, C>::UpperNode
+    : Bplustree::UpperNode<AggregateTraits<M, A, R, C>> {
+  using Parent = Bplustree::UpperNode<AggregateTraits<M, A, R, C>>;
+  using Parent::Parent;
+};
+
+template <class M, class A, bool R, std::size_t C>
+struct AggregateTraits<M, A, R, C>::BottomNode
+    : Bplustree::BottomNode<AggregateTraits<M, A, R, C>> {
+  using Parent = Bplustree::BottomNode<AggregateTraits<M, A, R, C>>;
+  using Parent::Parent;
 };
 
 /**
