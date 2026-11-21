@@ -101,7 +101,7 @@ struct Leaf : Traits::NodeBase {
     return value;
   }
   Parent& get_parent() {
-    return Pools::get<NodeType::Bottom>(this->parent);
+    return Pools::template get<NodeType::Bottom>(this->parent);
   }
 };
 
@@ -120,7 +120,7 @@ struct Node : Traits::NodeBase {
   static constexpr pos_type NodeCap = Traits::kNodeCapacity;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
-  using NodeType = Pools::NodeType;
+  // using NodeType = Bplustree::NodeType;
 
   pos_type count = 0;
   std::size_t size = 0;
@@ -169,13 +169,14 @@ struct NodeCRTP : Traits::Node {
  public:
   template <NodeType Type>
   auto& get_child(pos_type index) const {
-    assert(this->level > 0 && index < this->count);
+    assert(index < this->count);
     static_assert(!IsBottom ^ (Type == NodeType::Leaf));
 
-    assert((this->level == 1 && Type == NodeType::Bottom) ||
+    assert((this->level == 0 && Type == NodeType::Leaf) ||
+           (this->level == 1 && Type == NodeType::Bottom) ||
            (this->level > 1 && Type == NodeType::Upper));
 
-    return Pools::get<Type>(this->children[index]);
+    return Pools::template get<Type>(this->children[index]);
   }
 
   std::size_t child_size(pos_type index) const {
@@ -223,7 +224,7 @@ struct NodeCRTP : Traits::Node {
     };
 
     if constexpr (IsBottom) {
-      auto& child = Pools::get<NodeType::Leaf>(child_id);
+      auto& child = Pools::template get<NodeType::Leaf>(child_id);
       f(child);
     } else if (this->level == 1) {
       auto& child = Pools::get<NodeType::Bottom>(child_id);
@@ -317,7 +318,7 @@ struct NodeCRTP : Traits::Node {
     assert(this->count < NodeCap && index < this->count);
     this->size -= child_size(index);
     if (IsBottom)
-      Pools::recycle<false>(this->children[index]);
+      Pools::template recycle<false>(this->children[index]);
     else if (this->level == 1)
       Pools::recycle<Recursive>(this->children[index]);
     else
@@ -348,9 +349,9 @@ struct NodeCRTP : Traits::Node {
       for (pos_type i = 0; i < this->count; ++i) {
         if (index < child_size(i)) {
           if (this->level == 1)
-            return get_child<Pools::NodeType::Bottom>(i)
-                .template locate<WithLazy>(index, value_clean);
-          return get_child<Pools::NodeType::Upper>(i).template locate<WithLazy>(
+            return get_child<NodeType::Bottom>(i).template locate<WithLazy>(
+                index, value_clean);
+          return get_child<NodeType::Upper>(i).template locate<WithLazy>(
               index, value_clean);
         }
         index -= child_size(i);
@@ -376,7 +377,7 @@ struct BottomNode : NodeCRTP<Traits, BottomNode<Traits>, true> {
   using N = typename Traits::Node;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
-  using CRTP = Traits::NodeCRTP;
+  using CRTP = NodeCRTP<Traits, BottomNode<Traits>, true>;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
@@ -414,7 +415,7 @@ struct UpperNode : NodeCRTP<Traits, UpperNode<Traits>, false> {
   using N = typename Traits::Node;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
-  using CRTP = Traits::NodeCRTP;
+  using CRTP = NodeCRTP<Traits, UpperNode<Traits>, false>;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
@@ -485,22 +486,22 @@ struct UpperNode : NodeCRTP<Traits, UpperNode<Traits>, false> {
         index + 1 < this->count ? child_count(index + 1) : 1000;
     if (left_count + middle_count < static_cast<std::size_t>(NodeCap)) {
       if (this->level == 1) {
-        auto& left = get_child<Pools::NodeType::Bottom>(index - 1);
-        auto& right = get_child<Pools::NodeType::Bottom>(index);
+        auto& left = get_child<NodeType::Bottom>(index - 1);
+        auto& right = get_child<NodeType::Bottom>(index);
         f(left, right, left_count, middle_count, true);
       } else {
-        auto& left = get_child<Pools::NodeType::Upper>(index - 1);
-        auto& right = get_child<Pools::NodeType::Upper>(index);
+        auto& left = get_child<NodeType::Upper>(index - 1);
+        auto& right = get_child<NodeType::Upper>(index);
         f(left, right, left_count, middle_count, true);
       }
     } else if (middle_count + right_count < static_cast<std::size_t>(NodeCap)) {
       if (this->level == 1) {
-        auto& left = get_child<Pools::NodeType::Bottom>(index);
-        auto& right = get_child<Pools::NodeType::Bottom>(index + 1);
+        auto& left = get_child<NodeType::Bottom>(index);
+        auto& right = get_child<NodeType::Bottom>(index + 1);
         f(left, right, middle_count, right_count, false);
       } else {
-        auto& left = get_child<Pools::NodeType::Upper>(index);
-        auto& right = get_child<Pools::NodeType::Upper>(index + 1);
+        auto& left = get_child<NodeType::Upper>(index);
+        auto& right = get_child<NodeType::Upper>(index + 1);
         f(left, right, middle_count, right_count, false);
       }
     } else {
