@@ -66,8 +66,14 @@ struct SetTraits<Key, Capacity>::Node
 template <class Key, std::size_t Capacity>
 struct SetTraits<Key, Capacity>::UpperNode
     : Bplustree::UpperNode<SetTraits<Key, Capacity>> {
-  using Parent = Bplustree::UpperNode<SetTraits<Key, Capacity>>;
+  using Traits = SetTraits<Key, Capacity>;
+  using Parent = Bplustree::UpperNode<Traits>;
   using Parent::Parent;
+
+  // Generic UpperNode の空 hook を隠し、Set の metadata 更新を実行する。
+  void refresh_metadata() {
+    Traits::Node::refresh_metadata();
+  }
 };
 
 template <class Key, std::size_t Capacity>
