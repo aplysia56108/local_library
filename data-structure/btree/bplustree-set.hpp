@@ -28,9 +28,27 @@ struct SetTraits {
   using NodeBase = Bplustree::NodeBase<SetTraits>;
   using Leaf = Bplustree::Leaf<SetTraits>;
   struct Node;
-  using UpperNode = Bplustree::UpperNode<SetTraits>;
-  using BottomNode = Bplustree::BottomNode<SetTraits>;
+  struct UpperNode;
+  struct BottomNode;
   using Internal = Node;  // 旧コード向けの共通メタデータ型名
+};
+
+template <class Key, std::size_t Capacity>
+struct SetTraits<Key, Capacity>::UpperNode
+    : Bplustree::UpperNode<SetTraits<Key, Capacity>> {
+  using Traits = SetTraits<Key, Capacity>;
+  using Parent = Bplustree::UpperNode<Traits>;
+  using Parent::Parent;
+  void refresh_metadata() { Traits::Node::refresh_metadata(); }
+};
+
+template <class Key, std::size_t Capacity>
+struct SetTraits<Key, Capacity>::BottomNode
+    : Bplustree::BottomNode<SetTraits<Key, Capacity>> {
+  using Traits = SetTraits<Key, Capacity>;
+  using Parent = Bplustree::BottomNode<Traits>;
+  using Parent::Parent;
+  void refresh_metadata() { Traits::Node::refresh_metadata(); }
 };
 
 /**
@@ -58,7 +76,7 @@ struct SetTraits<Key, Capacity>::Node
     } else if (this->level == 0) {
       min_leaf_id = this->children[0];
     } else {
-      min_leaf_id = Pools::with_internal(
+      min_leaf_id = Pools::with_node(
           this->children[0], [](const auto& child) { return child.min_leaf_id; });
     }
   }
@@ -139,7 +157,7 @@ class Bplustree_Set
       const std::size_t m = (l + r) / 2;
       const id_type id =
           node.level
-              ? Pools::with_internal(node.children[m],
+              ? Pools::with_node(node.children[m],
                   [](const auto& child) -> id_type { return child.min_leaf_id; })
               : node.children[m];
       if (comp<Equal>(id, key))

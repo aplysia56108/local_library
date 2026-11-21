@@ -26,7 +26,7 @@ struct NodeAccess {
 
   template <class Callback>
   static decltype(auto) with(id_type id, Callback&& callback) {
-    return Pools::with_internal(id, std::forward<Callback>(callback));
+    return Pools::with_node(id, std::forward<Callback>(callback));
   }
 
   static Node& get(id_type id) {

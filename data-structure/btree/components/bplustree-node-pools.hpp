@@ -101,7 +101,7 @@ class NodePools {
    * @details 返り値は両 callback 呼び出しで同一型でなければならない。
    */
   template <class Callback>
-  static decltype(auto) with_internal(id_type id, Callback&& callback) {
+  static decltype(auto) with_node(id_type id, Callback&& callback) {
     assert(id != null_id);
     if (is_bottom(id))
       return std::forward<Callback>(callback)(get<NodeType::Bottom>(id));

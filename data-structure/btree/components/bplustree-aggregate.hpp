@@ -37,8 +37,8 @@ struct AggregateTraits {
   using NodeBase = Bplustree::NodeBase<AggregateTraits>;
   struct Node;
   struct Leaf;
-  using UpperNode = Bplustree::UpperNode<AggregateTraits>;
-  using BottomNode = Bplustree::BottomNode<AggregateTraits>;
+  struct UpperNode;
+  struct BottomNode;
   using Internal = Node;  // 旧 API が想定する共通メタデータの型
 };
 
@@ -104,13 +104,13 @@ struct AggregateTraits<M, A, R, C>::Node
       }
     } else {
       for (std::size_t i = 0; i < this->count; ++i)
-        forward = M::op(forward, Pools::with_internal(this->children[i],
+        forward = M::op(forward, Pools::with_node(this->children[i],
                               [](const auto& child) { return child.forward; }));
       if constexpr (R) {
         backward = forward;
       } else {
         for (std::size_t i = this->count; i > 0; --i)
-          backward = M::op(backward, Pools::with_internal(this->children[i - 1],
+          backward = M::op(backward, Pools::with_node(this->children[i - 1],
                               [](const auto& child) { return child.backward; }));
       }
     }
@@ -163,11 +163,33 @@ struct AggregateTraits<M, A, R, C>::Node
           Pools::leaves()[this->children[i]].push_lazy(f);
       } else {
         for (std::size_t i = 0; i < this->count; ++i)
-          Pools::with_internal(this->children[i],
+          Pools::with_node(this->children[i],
               [&](auto& child) { child.push_lazy(f); });
       }
     }
   }
+};
+
+template <class M, class A, bool R, std::size_t C>
+struct AggregateTraits<M, A, R, C>::UpperNode
+    : Bplustree::UpperNode<AggregateTraits<M, A, R, C>> {
+  using Traits = AggregateTraits<M, A, R, C>;
+  using Parent = Bplustree::UpperNode<Traits>;
+  using Parent::Parent;
+  void refresh_metadata() { Traits::Node::refresh_metadata(); }
+  void push_reverse_impl() { Traits::Node::push_reverse_impl(); }
+  void apply_lazy() { Traits::Node::apply_lazy(); }
+};
+
+template <class M, class A, bool R, std::size_t C>
+struct AggregateTraits<M, A, R, C>::BottomNode
+    : Bplustree::BottomNode<AggregateTraits<M, A, R, C>> {
+  using Traits = AggregateTraits<M, A, R, C>;
+  using Parent = Bplustree::BottomNode<Traits>;
+  using Parent::Parent;
+  void refresh_metadata() { Traits::Node::refresh_metadata(); }
+  void push_reverse_impl() { Traits::Node::push_reverse_impl(); }
+  void apply_lazy() { Traits::Node::apply_lazy(); }
 };
 
 

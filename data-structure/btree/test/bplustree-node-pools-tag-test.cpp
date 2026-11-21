@@ -53,10 +53,10 @@ signed main() {
   Pools::get<2>(upper).size = 1;
 
   bool hit_bottom = false, hit_upper = false;
-  Pools::with_internal(bottom, [&](auto& node) {
+  Pools::with_node(bottom, [&](auto& node) {
     hit_bottom = is_same_v<remove_cvref_t<decltype(node)>, MockBottom>;
   });
-  Pools::with_internal(upper, [&](auto& node) {
+  Pools::with_node(upper, [&](auto& node) {
     hit_upper = is_same_v<remove_cvref_t<decltype(node)>, MockUpper>;
   });
   assert(hit_bottom && hit_upper);

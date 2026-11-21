@@ -26,6 +26,10 @@ template <class Traits>
 struct BottomNode;
 template <class Traits, class Derived, bool IsBottom>
 struct NodeCRTP;
+template <class Traits, class Derived>
+struct BottomNodeCRTP;
+template <class Traits, class Derived>
+struct UpperNodeCRTP;
 
 /**
  * @brief 位置操作だけを行う基本 Traits。遅延作用・独自集約値を持たない。
@@ -41,12 +45,6 @@ struct Traits {
   static constexpr bool lazy = false;
   static constexpr pos_type kNodeCapacity = Capacity;
   static constexpr pos_type kNodeHalf = Capacity / 2;
-  // using NodeBase = Bplustree::NodeBase;
-  // using Leaf = Bplustree::Leaf;
-  // using Node = Bplustree::Node;
-  // using UpperNode = Bplustree::UpperNode;
-  // using BottomNode = Bplustree::BottomNode;
-  // using NodeCRTP = Bplustree::NodeCRTP;
   using NodeBase = Bplustree::NodeBase<Traits>;
   using Leaf = Bplustree::Leaf<Traits>;
   using Node = Bplustree::Node<Traits>;
@@ -163,11 +161,17 @@ struct NodeCRTP : Traits::Node {
 
  private:
   Derived& self() {
-    return static_cast<Derived&>(*this);
+    if constexpr (IsBottom)
+      return static_cast<typename Traits::BottomNode&>(*this);
+    else
+      return static_cast<typename Traits::UpperNode&>(*this);
   }
 
   const Derived& self() const {
-    return static_cast<const Derived&>(*this);
+    if constexpr (IsBottom)
+      return static_cast<const typename Traits::BottomNode&>(*this);
+    else
+      return static_cast<const typename Traits::UpperNode&>(*this);
   }
 
  public:
@@ -244,7 +248,7 @@ struct NodeCRTP : Traits::Node {
   }
 
   void refresh() {
-    static_cast<Node&>(*this).refresh_metadata();
+    self().refresh_metadata();
   }
 
   void apply_reverse() {
@@ -265,12 +269,12 @@ struct NodeCRTP : Traits::Node {
 
   void push_reverse() {
     this->is_reversed ^= true;
-    static_cast<Node&>(*this).push_reverse_impl();
+    self().push_reverse_impl();
   }
 
   void materialize() {
     apply_reverse();
-    static_cast<Node&>(*this).apply_lazy();
+    self().apply_lazy();
   }
 
   bool insert(id_type child, pos_type index) {
@@ -337,7 +341,7 @@ struct NodeCRTP : Traits::Node {
   id_type locate(std::size_t index, bool* value_clean = nullptr) {
     apply_reverse();
     if constexpr (WithLazy) {
-      static_cast<Node&>(*this).apply_lazy();
+      self().apply_lazy();
     } else if constexpr (requires { Traits::lazy; }) {
       if constexpr (Traits::lazy) {
         if (value_clean && *value_clean && static_cast<Node*>(this)->pending)
@@ -370,7 +374,7 @@ struct NodeCRTP : Traits::Node {
 };
 
 template <class Traits>
-struct BottomNode : NodeCRTP<Traits, BottomNode<Traits>, true> {
+struct BottomNode : NodeCRTP<Traits, typename Traits::BottomNode, true> {
   using pos_type = std::uint8_t;
   static constexpr pos_type NodeCap = Traits::kNodeCapacity;
   static constexpr pos_type HalfNodeCap = NodeCap / 2;
@@ -379,7 +383,7 @@ struct BottomNode : NodeCRTP<Traits, BottomNode<Traits>, true> {
   using N = typename Traits::Node;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
-  using CRTP = NodeCRTP<Traits, BottomNode<Traits>, true>;
+  using CRTP = NodeCRTP<Traits, typename Traits::BottomNode, true>;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
@@ -403,7 +407,7 @@ struct BottomNode : NodeCRTP<Traits, BottomNode<Traits>, true> {
 };
 
 template <class Traits>
-struct UpperNode : NodeCRTP<Traits, UpperNode<Traits>, false> {
+struct UpperNode : NodeCRTP<Traits, typename Traits::UpperNode, false> {
   using pos_type = std::uint8_t;
   static constexpr pos_type NodeCap = Traits::kNodeCapacity;
   static constexpr pos_type HalfNodeCap = NodeCap / 2;
@@ -412,7 +416,7 @@ struct UpperNode : NodeCRTP<Traits, UpperNode<Traits>, false> {
   using N = typename Traits::Node;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
-  using CRTP = NodeCRTP<Traits, UpperNode<Traits>, false>;
+  using CRTP = NodeCRTP<Traits, typename Traits::UpperNode, false>;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
