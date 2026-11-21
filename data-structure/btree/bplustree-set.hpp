@@ -24,40 +24,63 @@ struct SetTraits {
   static constexpr bool lazy = false;
   static constexpr bool refresh_on_leaf_swap = true;
   static constexpr std::size_t kNodeCapacity = Capacity;
-  using Node = Bplustree::Node<SetTraits>;
+  using NodeBase = Bplustree::NodeBase<SetTraits>;
   using Leaf = Bplustree::Leaf<SetTraits>;
-  struct Internal;
+  struct Node;
+  struct UpperNode;
+  struct BottomNode;
+  using Internal = Node;  // 旧コード向けの共通メタデータ型名
 };
 
 /**
- * @brief 各 Internal に最左 Leaf の Pool ID をキャッシュする。
- * @details Key のポインタや参照ではなく Leaf ID を保持するため、
- * Pool の再確保による参照の失効を避けられる。キー比較には Leaf の値を用いる。
+ * @brief Set 専用の共有メタデータ。Upper/Bottom は Node を共通基底に持つ。
+ * @details min_leaf_id は型付き Pool から子のキーを読み直して更新する。
  */
 template <class Key, std::size_t Capacity>
-struct SetTraits<Key, Capacity>::Internal
-    : Bplustree::Internal<SetTraits<Key, Capacity>> {
+struct SetTraits<Key, Capacity>::Node
+    : Bplustree::Node<SetTraits<Key, Capacity>> {
   using Traits = SetTraits<Key, Capacity>;
-  using Parent = Bplustree::Internal<Traits>;
-  using Leaf = typename Traits::Leaf;
-  using Parent::Parent;
-
+  using Parent = Bplustree::Node<Traits>;
   using Pools = Bplustree::NodePools<Traits>;
   using id_type = typename Pools::id_type;
+  using Parent::Parent;
 
-  // 実要素・番兵の Leaf ID は Pool の再確保で変わらない。
   id_type min_leaf_id = Pools::null_id;
 
   const Key& min_key() const {
     return Pools::leaves()[min_leaf_id].get();
   }
 
-  /** @brief 子の先頭 Leaf ID から最小キーのメタデータを再計算する。 */
   void refresh_metadata() {
-    min_leaf_id = this->count == 0 ? Pools::null_id
-                  : this->level    ? this->get_child(0).min_leaf_id
-                                   : this->children[0];
+    if (this->count == 0) {
+      min_leaf_id = Pools::null_id;
+    } else if (this->level == 0) {
+      min_leaf_id = this->children[0];
+    } else {
+      min_leaf_id = Pools::with_internal(
+          this->children[0], [](const auto& child) { return child.min_leaf_id; });
+    }
   }
+};
+
+template <class Key, std::size_t Capacity>
+struct SetTraits<Key, Capacity>::UpperNode
+    : Bplustree::UpperNode<SetTraits<Key, Capacity>> {
+  using Traits = SetTraits<Key, Capacity>;
+  using Parent = Bplustree::UpperNode<Traits>;
+  using Parent::Parent;
+
+  // Generic UpperNode の空 hook を隠し、Set の metadata 更新を実行する。
+  void refresh_metadata() {
+    Traits::Node::refresh_metadata();
+  }
+};
+
+template <class Key, std::size_t Capacity>
+struct SetTraits<Key, Capacity>::BottomNode
+    : Bplustree::BottomNode<SetTraits<Key, Capacity>> {
+  using Parent = Bplustree::BottomNode<SetTraits<Key, Capacity>>;
+  using Parent::Parent;
 };
 
 }  // namespace Bplustree
@@ -127,14 +150,17 @@ class Bplustree_Set
    */
   template <bool Equal>
   id_type max_l(id_type node_id, const Key& key) const {
-    const auto& node = Pools::internals()[node_id];
+    const auto& node = Bplustree::NodeAccess<Bplustree::SetTraits<Key, NodeCapacity>>::get(node_id);
     std::size_t l = 0;
     std::size_t r = node.count;
 
     while (l + 1 < r) {
       const std::size_t m = (l + r) / 2;
       const id_type id =
-          node.level ? node.get_child(m).min_leaf_id : node.children[m];
+          node.level
+              ? Pools::with_internal(node.children[m],
+                  [](const auto& child) -> id_type { return child.min_leaf_id; })
+              : node.children[m];
       if (comp<Equal>(id, key))
         l = m;
       else

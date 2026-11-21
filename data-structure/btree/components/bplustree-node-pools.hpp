@@ -1,42 +1,61 @@
 #pragma once
 
+#include <cassert>
+#include <cstddef>
 #include <cstdint>
+#include <type_traits>
+#include <utility>
 
 #include "data-structure/object-pool/object_pool.hpp"
 
 namespace Bplustree {
+
 /**
- * @brief Traits ごとに共有する Leaf / Internal の2つの ObjectPool。
- * @details ID は型ごとの Pool 内のスロット番号で、Leaf ID と Internal ID
- * は別空間。 同じ Traits の複数の木が Pool を共有する。recycle 後の ID
- * は再利用され得る。
+ * @brief Leaf / BottomNode / UpperNode を独立した Pool に保持する。
+ * @details
+ * Internal の ID は最上位ビットで Bottom/Upper を区別する。
+ * Leaf ID は別空間。型付き get<T>() はタグを除去してから Pool を参照する。
+ * root や Internal の parent は ID だけから型を判定できる。
+ *
+ * ### 計算量
+ * ノードへの型付きアクセス・型判定は O(1)。
  */
 template <class Traits>
 struct NodePools {
   using pos_type = std::uint8_t;
-
   using id_type = std::uint32_t;
   using L = typename Traits::Leaf;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
   static constexpr id_type null_id = ObjectPool<L>::null_id;
+  static constexpr id_type bottom_mask = id_type{1} << 31;
+
+  enum class NodeType { Leaf, Bottom, Upper };
 
  private:
-  // constinit により静的初期化を保証し、関数内 static の初期化ガードを避ける。
   inline static constinit ObjectPool<L> leaf_pool_{};
   inline static constinit ObjectPool<U> upper_pool_{};
   inline static constinit ObjectPool<B> bottom_pool_{};
 
  public:
+  static bool is_bottom(id_type id) {
+    return id != null_id && (id & bottom_mask) != 0;
+  }
+
   static id_type id(L& leaf) {
     return leaves().index(leaf);
   }
   static id_type id(U& node) {
-    return uppers().index(node);
+    const id_type result = uppers().index(node);
+    assert(result < bottom_mask);
+    return result;
   }
   static id_type id(B& node) {
-    return bottoms().index(node);
+    const id_type result = bottoms().index(node);
+    assert(result < bottom_mask - 1);
+    return bottom_mask | result;
   }
+
   static ObjectPool<L>& leaves() {
     return leaf_pool_;
   }
@@ -46,87 +65,94 @@ struct NodePools {
   static ObjectPool<B>& bottoms() {
     return bottom_pool_;
   }
-  enum class NodeType { Leaf, Bottom, Upper };
-  template <NodeType T>
-  static auto& get(id_type id) {
-    if constexpr (T == NodeType::Leaf) {
-      return leaves()[id];
-    }
-    if constexpr (T == NodeType::Bottom) {
-      return bottoms()[id];
-    }
-    if constexpr (T == NodeType::Upper) {
-      return uppers()[id];
-    }
-  };
 
-  template <std::size_t T>
+  template <NodeType Type>
   static auto& get(id_type id) {
-    if constexpr (T == 0) {
+    if constexpr (Type == NodeType::Leaf) {
       return leaves()[id];
-    }
-    if constexpr (T == 1) {
-      return bottoms()[id];
-    }
-    if constexpr (T == 2) {
+    } else if constexpr (Type == NodeType::Bottom) {
+      return bottoms()[id & ~bottom_mask];
+    } else {
       return uppers()[id];
     }
-  };
+  }
+
+  // 実装途中の NodeCRTP が使っている 0/1/2 の型指定にも対応する。
+  template <std::size_t Type>
+  static auto& get(id_type id) {
+    static_assert(Type <= 2);
+    if constexpr (Type == 0) return get<NodeType::Leaf>(id);
+    else if constexpr (Type == 1) return get<NodeType::Bottom>(id);
+    else return get<NodeType::Upper>(id);
+  }
+
   /**
-   * @brief 追加確保に備えて Leaf / Internal Pool の容量を増やす。
-   * @details Pool の vector
-   * が再確保されると生存中ノードへの参照は失効するが、 ID は変わらない。
+   * @brief ID タグの動的判定を境界に集約し、具象型で callback を実行する。
+   * @details 返り値は両 callback 呼び出しで同一型である必要がある。
    */
+  template <class Callback>
+  static decltype(auto) with_internal(id_type id, Callback&& callback) {
+    assert(id != null_id);
+    if (is_bottom(id))
+      return std::forward<Callback>(callback)(get<NodeType::Bottom>(id));
+    return std::forward<Callback>(callback)(get<NodeType::Upper>(id));
+  }
+
   static void reserve_buffer(std::size_t leaf_buffer = 8,
                              std::size_t node_buffer = 8) {
     leaves().reserve_buffer(leaf_buffer);
     uppers().reserve_buffer(node_buffer);
     bottoms().reserve_buffer(node_buffer);
   }
-  /** @brief Leaf を確保（解放済み ID を優先再利用）し、その ID を返す。 */
+
   template <class... Args>
   static id_type make_leaf(Args&&... args) {
-    auto id = leaves().emplace(std::forward<Args>(args)...);
-    return id;
+    return leaves().emplace(std::forward<Args>(args)...);
   }
-  /** @brief 指定 level の Internal を確保し、その ID を返す。 */
   template <class... Args>
   static id_type make_upper(Args&&... args) {
-    auto id = uppers().emplace(std::forward<Args>(args)...);
+    const id_type id = uppers().emplace(std::forward<Args>(args)...);
+    assert(id < bottom_mask);
     return id;
   }
   template <class... Args>
   static id_type make_bottom(Args&&... args) {
-    auto id = bottoms().emplace(std::forward<Args>(args)...);
-    return id;
+    const id_type id = bottoms().emplace(std::forward<Args>(args)...);
+    assert(id < bottom_mask - 1);
+    return bottom_mask | id;
   }
+
   /**
-   * @brief 指定 ID が表す Leaf または Internal 部分木を再利用可能にする。
-   * @param is_leaf true なら Leaf Pool を解放。false なら Internal
-   * 部分木を走査。
-   * @details ID 自体を解放 ID 列へ戻す処理であり、各要素のデストラクタは
-   * 直ちには呼び出されない。回収した ID を持つ iterator は失効する。
-   * ### 計算量
-   * O(回収するノード数)。
+   * @brief 同一サブツリーの全子を回収する。
+   * @tparam Type 0: Leaf, 1: Bottom, 2: Upper, 3: ID タグから判定。
+   * @tparam Recursive false の場合はノード自体のみを回収する。
    */
-  template <std::size_t Type = 2, bool Recursive = true>
-  static void recycle(const id_type& id) {
+  template <std::size_t Type = 3, bool Recursive = true>
+  static void recycle(id_type id) {
     if (id == null_id) return;
     if constexpr (Type == 0) {
       leaves().erase(id);
     } else if constexpr (Type == 1) {
-      auto& bottom = bottoms()[id];
+      auto& bottom = get<NodeType::Bottom>(id);
       if constexpr (Recursive)
         for (pos_type i = 0; i < bottom.count; ++i)
-          recycle(bottom.children[i], 0);
-      bottoms().erase(id);
-    } else {
-      auto& upper = uppers()[id];
-      if constexpr (Recursive)
-        for (pos_type i = 0; i < upper.count; ++i)
-          recycle(upper.children[i], upper.level > 1 ? 2 : 1);
+          recycle<0>(bottom.children[i]);
+      bottoms().erase(id & ~bottom_mask);
+    } else if constexpr (Type == 2) {
+      auto& upper = get<NodeType::Upper>(id);
+      if constexpr (Recursive) {
+        for (pos_type i = 0; i < upper.count; ++i) {
+          if (upper.level == 1) recycle<1>(upper.children[i]);
+          else recycle<2>(upper.children[i]);
+        }
+      }
       uppers().erase(id);
+    } else {
+      static_assert(Type == 3);
+      if (is_bottom(id)) recycle<1, Recursive>(id);
+      else recycle<2, Recursive>(id);
     }
   }
 };
+
 }  // namespace Bplustree
