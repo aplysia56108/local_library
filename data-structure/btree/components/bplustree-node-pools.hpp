@@ -59,6 +59,19 @@ struct NodePools {
       return uppers()[id];
     }
   };
+
+  template <std::size_t T>
+  static auto& get(id_type id) {
+    if constexpr (T == 0) {
+      return leaves()[id];
+    }
+    if constexpr (T == 1) {
+      return bottoms()[id];
+    }
+    if constexpr (T == 2) {
+      return uppers()[id];
+    }
+  };
   /**
    * @brief 追加確保に備えて Leaf / Internal Pool の容量を増やす。
    * @details Pool の vector
@@ -96,23 +109,24 @@ struct NodePools {
    * ### 計算量
    * O(回収するノード数)。
    */
-  static void recycle(const id_type& id, const std::size_t& type = 2,
-                      const bool recursive = true) {
+  template <std::size_t Type = 2, bool Recursive = true>
+  static void recycle(const id_type& id) {
     if (id == null_id) return;
-    if (type == 0) {
+    if constexpr (Type == 0) {
       leaves().erase(id);
-    } else if (type == 1) {
+    } else if constexpr (Type == 1) {
       auto& bottom = bottoms()[id];
-      if (recursive)
+      if constexpr (Recursive)
         for (pos_type i = 0; i < bottom.count; ++i)
-          recycle(bottom.children[i], 0, recursive);
+          recycle(bottom.children[i], 0);
       bottoms().erase(id);
+    } else {
+      auto& upper = uppers()[id];
+      if constexpr (Recursive)
+        for (pos_type i = 0; i < upper.count; ++i)
+          recycle(upper.children[i], upper.level > 1 ? 2 : 1);
+      uppers().erase(id);
     }
-    auto& upper = uppers()[id];
-    if (recursive)
-      for (pos_type i = 0; i < upper.count; ++i)
-        recycle(upper.children[i], upper.level > 1 ? 2 : 1, recursive);
-    uppers().erase(id);
   }
 };
 }  // namespace Bplustree
