@@ -247,33 +247,35 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
     });
   }
 
-  static void apply_recursive(Internal& node, std::size_t first,
+  /** @brief 作用を具象ノードへ再帰適用し、メタデータを更新する。 */
+  static void apply_recursive(id_type node_id, std::size_t first,
                               std::size_t last, const F& f)
     requires(Traits::lazy)
   {
     if (first == last) return;
-    if (first == 0 && last == node.size) {
-      node.push_lazy(f);
-      return;
-    }
-
-    node.materialize();
-    if (node.level == 0) {
-      for (std::size_t i = first; i < last; ++i) node.get_leaf(i).push_lazy(f);
-
-    } else {
-      std::size_t offset = 0;
-      for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        const std::size_t length = child.size;
-        if (first < offset + length && offset < last)
-          apply_recursive(child, first > offset ? first - offset : 0,
-                          std::min(last - offset, length), f);
-        offset += length;
-        if (offset >= last) break;
+    Access::with(node_id, [&](auto& node) {
+      if (first == 0 && last == node.size) {
+        node.push_lazy(f);
+        return;
       }
-    }
-    node.refresh_metadata();
+      node.materialize();
+      if (node.level == 0) {
+        for (std::size_t i = first; i < last; ++i)
+          Pools::leaves()[node.children[i]].push_lazy(f);
+      } else {
+        std::size_t offset = 0;
+        for (std::size_t i = 0; i < node.count; ++i) {
+          const id_type child_id = node.children[i];
+          const std::size_t length = Access::get(child_id).size;
+          if (first < offset + length && offset < last)
+            apply_recursive(child_id, first > offset ? first - offset : 0,
+                            std::min(last - offset, length), f);
+          offset += length;
+          if (offset >= last) break;
+        }
+      }
+      node.refresh_metadata();
+    });
   }
 
   // predicate が初めて偽になる部分木だけを深掘りして境界を探す。
