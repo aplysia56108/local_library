@@ -280,53 +280,56 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   // predicate が初めて偽になる部分木だけを深掘りして境界を探す。
   template <bool Leftward, class Predicate>
-  static bool search(Internal& node, std::size_t offset, std::size_t first,
-                     std::size_t last, T& value, Predicate& predicate,
-                     std::size_t& result) {
-    const std::size_t end = offset + node.size;
-    if (end <= first || last <= offset) return true;
-    if (first <= offset && end <= last) {
-      T next =
-          Leftward ? M::op(node.forward, value) : M::op(value, node.forward);
-      if (predicate(next)) {
-        value = std::move(next);
-        result = Leftward ? offset : end;
+  static bool search(id_type node_id, std::size_t offset,
+                     std::size_t first, std::size_t last, T& value,
+                     Predicate& predicate, std::size_t& result) {
+    return Access::with(node_id, [&](auto& node) -> bool {
+      const std::size_t end = offset + node.size;
+      if (end <= first || last <= offset) return true;
+      if (first <= offset && end <= last) {
+        T next = Leftward ? M::op(node.forward, value)
+                          : M::op(value, node.forward);
+        if (predicate(next)) {
+          value = std::move(next);
+          result = Leftward ? offset : end;
+          return true;
+        }
+      }
+      node.materialize();
+      if (node.level == 0) {
+        for (std::size_t j = 0; j < node.count; ++j) {
+          const std::size_t i = Leftward ? node.count - 1 - j : j;
+          const std::size_t pos = offset + i;
+          if (pos < first || pos >= last) continue;
+          const T& x = Pools::leaves()[node.children[i]].get();
+          T next = Leftward ? M::op(x, value) : M::op(value, x);
+          if (!predicate(next)) return false;
+          value = std::move(next);
+          result = Leftward ? pos : pos + 1;
+        }
         return true;
       }
-    }
-
-    node.materialize();
-    if (node.level == 0) {
-      for (std::size_t j = 0; j < node.count; ++j) {
-        const std::size_t i = Leftward ? node.count - 1 - j : j;
-        const std::size_t pos = offset + i;
-        if (pos < first || pos >= last) continue;
-        const T& x = node.get_leaf(i).get();
-        T next = Leftward ? M::op(x, value) : M::op(value, x);
-        if (!predicate(next)) return false;
-        value = std::move(next);
-        result = Leftward ? pos : pos + 1;
+      if constexpr (Leftward) {
+        std::size_t pos = end;
+        for (std::size_t i = node.count; i > 0; --i) {
+          const id_type child_id = node.children[i - 1];
+          pos -= Access::get(child_id).size;
+          if (!search<true>(child_id, pos, first, last,
+                            value, predicate, result))
+            return false;
+        }
+      } else {
+        std::size_t pos = offset;
+        for (std::size_t i = 0; i < node.count; ++i) {
+          const id_type child_id = node.children[i];
+          if (!search<false>(child_id, pos, first, last,
+                             value, predicate, result))
+            return false;
+          pos += Access::get(child_id).size;
+        }
       }
       return true;
-    }
-    if constexpr (Leftward) {
-      std::size_t pos = end;
-      for (std::size_t i = node.count; i > 0; --i) {
-        auto& child = node.get_child(i - 1);
-        pos -= child.size;
-        if (!search<true>(child, pos, first, last, value, predicate, result))
-          return false;
-      }
-    } else {
-      std::size_t pos = offset;
-      for (std::size_t i = 0; i < node.count; ++i) {
-        auto& child = node.get_child(i);
-        if (!search<false>(child, pos, first, last, value, predicate, result))
-          return false;
-        pos += child.size;
-      }
-    }
-    return true;
+    });
   }
 
  public:
@@ -343,25 +346,24 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   /** @brief 全実要素の順方向の積を取得する。O(1)。番兵は単位元。 */
   T all_prod() const {
-    return Parent::get_node(this->root_).forward;
+    return Access::with(this->root_, [](const auto& node) -> T { return node.forward; });
   }
 
   /** @brief 半開区間 [first,last) の順方向のモノイド積。空区間は M::e()。 */
   T prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return prod_recursive(Parent::get_node(this->root_), first + 1, last + 1);
+    return prod_recursive(this->root_, first + 1, last + 1);
   }
 
   /** @brief 全実要素の逆方向の積。O(1)。非可換モノイドにも対応。 */
   T all_reverse_prod() const {
-    return Parent::get_node(this->root_).backward;
+    return Access::with(this->root_, [](const auto& node) -> T { return node.backward; });
   }
 
   /** @brief 半開区間 [first,last) を逆方向に畳み込んだ積。 */
   T reverse_prod(size_type first, size_type last) const {
     assert(first <= last && last <= size());
-    return prod_recursive<true>(Parent::get_node(this->root_), first + 1,
-                                last + 1);
+    return prod_recursive<true>(this->root_, first + 1, last + 1);
   }
 
   /** @brief 要素 index を op(現在値, value) に点更新する。 */
@@ -385,7 +387,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   {
     assert(first <= last && last <= size());
     if (first == last) return;
-    apply_recursive(Parent::get_node(this->root_), first + 1, last + 1, f);
+    apply_recursive(this->root_, first + 1, last + 1, f);
     Epoch::invalidate_value();
   }
   /** @brief 全実要素へ作用を適用する（Lazy 対応時のみ）。 */
@@ -408,7 +410,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
     T value = M::e();
     size_type result = left + 1;
-    search<false>(Parent::get_node(this->root_), 0, left + 1, size() + 1, value,
+    search<false>(this->root_, 0, left + 1, size() + 1, value,
                   predicate, result);
     return result - 1;
   }
@@ -426,7 +428,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
     T value = M::e();
     size_type result = right + 1;
-    search<true>(Parent::get_node(this->root_), 0, 1, right + 1, value,
+    search<true>(this->root_, 0, 1, right + 1, value,
                  predicate, result);
     return result - 1;
   }
