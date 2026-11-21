@@ -172,8 +172,14 @@ struct AggregateTraits<M, A, R, C>::Node
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits<M, A, R, C>::UpperNode
     : Bplustree::UpperNode<AggregateTraits<M, A, R, C>> {
-  using Parent = Bplustree::UpperNode<AggregateTraits<M, A, R, C>>;
+  using Traits = AggregateTraits<M, A, R, C>;
+  using Parent = Bplustree::UpperNode<Traits>;
   using Parent::Parent;
+
+  // Generic UpperNode の空 hook より Trait 固有の処理を優先する。
+  void refresh_metadata() { Traits::Node::refresh_metadata(); }
+  void push_reverse_impl() { Traits::Node::push_reverse_impl(); }
+  void apply_lazy() { Traits::Node::apply_lazy(); }
 };
 
 template <class M, class A, bool R, std::size_t C>
