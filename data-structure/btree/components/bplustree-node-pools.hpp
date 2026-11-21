@@ -22,26 +22,24 @@ class NodePools {
   static constexpr id_type null_id = ObjectPool<typename Traits::Leaf>::null_id;
 
  private:
-  static const id_type msk = (id_type{1} << 30) - 1;
+  static const id_type node_valid_bit_n = 30;
+  static const id_type leaf_valid_bit_n = 31;
+  static const id_type node_msk = (id_type{1} << node_valid_bit_n) - 1;
+  static const id_type leaf_msk = (id_type{1} << leaf_valid_bit_n) - 1;
+  static const id_type upper_tag = (id_type{3} << node_valid_bit_n);
+  static const id_type bottom_tag = (id_type{2} << node_valid_bit_n);
   using L = typename Traits::Leaf;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
   // constinit により静的初期化を保証し、関数内 static の初期化ガードを避ける。
-  inline static constinit ObjectPool<L> leaf_pool_{};
-  inline static constinit ObjectPool<U> upper_pool_{};
-  inline static constinit ObjectPool<B> bottom_pool_{};
-
-  static NodeType type_of(const id_type id) {
-    if (id >> 31 & 1) {
-      if (id >> 30 & 1) return NodeType::Upper;
-      return NodeType::Bottom;
-    } else {
-      return NodeType::Leaf;
-    }
-  };
+  inline static constinit ObjectPool<L, leaf_msk> leaf_pool_{};
+  // upperのnode_mskはnull_idと競合するため、許容できない
+  inline static constinit ObjectPool<U, node_msk - 1> upper_pool_{};
+  inline static constinit ObjectPool<B, node_msk> bottom_pool_{};
 
   static id_type inner_id(const id_type id) {
-    return id & msk;
+    if (type_of(id) == NodeType::Leaf) return id & leaf_msk;
+    return id & node_msk;
   }
 
  public:
@@ -49,13 +47,21 @@ class NodePools {
     return leaf_pool_.index(leaf);
   }
   static id_type id(U& node) {
-    return upper_pool_.index(node) | (id_type{1} << 31) | (id_type{1} << 30);
+    return upper_pool_.index(node) | upper_tag;
   }
   static id_type id(B& node) {
-    return bottom_pool_.index(node) | (id_type{1} << 31);
+    return bottom_pool_.index(node) | bottom_tag;
   }
+
+  static NodeType type_of(const id_type id) {
+    if ((id >> leaf_valid_bit_n) == 0) return NodeType::Leaf;
+    if ((id >> node_valid_bit_n) == 2) return NodeType::Bottom;
+    return NodeType::Upper;
+  };
+
   template <NodeType T>
   static auto& get(id_type id) {
+    assert(id != null_id);
     auto id_ = inner_id(id);
     assert(T == type_of(id));
     if constexpr (T == NodeType::Leaf) {
@@ -90,12 +96,12 @@ class NodePools {
   template <class... Args>
   static id_type make_upper(Args&&... args) {
     auto id = upper_pool_.emplace(std::forward<Args>(args)...);
-    return id | (id_type{1} << 31) | (id_type{1} << 30);
+    return id | upper_tag;
   }
   template <class... Args>
   static id_type make_bottom(Args&&... args) {
     auto id = bottom_pool_.emplace(std::forward<Args>(args)...);
-    return id | (id_type{1} << 31);
+    return id | bottom_tag;
   }
   /**
    * @brief 指定 ID が表す Leaf または Internal 部分木を再利用可能にする。
@@ -109,6 +115,8 @@ class NodePools {
 
   template <bool Recursive = true>
   static void recycle(const id_type& id) {
+    if (id == null_id) return;
+
     auto Type = type_of(id);
     auto id_ = inner_id(id);
     if (Type == NodeType::Leaf)
