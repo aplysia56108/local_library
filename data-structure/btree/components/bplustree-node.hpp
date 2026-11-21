@@ -132,7 +132,7 @@ struct Node : Traits::NodeBase {
   explicit Node(pos_type lvl = 0) : Traits::NodeBase(), level(lvl) {}
 
   U& get_parent() const {
-    return Pools::get<NodeType::Upper>(this->parent);
+    return Pools::template get<NodeType::Upper>(this->parent);
   }
 };
 
@@ -227,12 +227,12 @@ struct NodeCRTP : Traits::Node {
       auto& child = Pools::template get<NodeType::Leaf>(child_id);
       f(child);
     } else if (this->level == 1) {
-      auto& child = Pools::get<NodeType::Bottom>(child_id);
+      auto& child = Pools::template get<NodeType::Bottom>(child_id);
       self().sizes[index] = child.size;
       self().counts[index] = child.count;
       f(child);
     } else {
-      auto& child = Pools::get<NodeType::Upper>(child_id);
+      auto& child = Pools::template get<NodeType::Upper>(child_id);
       self().sizes[index] = child.size;
       self().counts[index] = child.count;
       f(child);
@@ -301,13 +301,13 @@ struct NodeCRTP : Traits::Node {
     id_type right_id;
     if constexpr (IsBottom) {
       right_id = Pools::make_bottom();
-      auto& left = Pools::get<NodeType::Bottom>(left_id);
-      auto& right = Pools::get<NodeType::Bottom>(right_id);
+      auto& left = Pools::template get<NodeType::Bottom>(left_id);
+      auto& right = Pools::template get<NodeType::Bottom>(right_id);
       f(left, right, right_id);
     } else {
       right_id = Pools::make_upper(current_level);
-      auto& left = Pools::get<NodeType::Upper>(left_id);
-      auto& right = Pools::get<NodeType::Upper>(right_id);
+      auto& left = Pools::template get<NodeType::Upper>(left_id);
+      auto& right = Pools::template get<NodeType::Upper>(right_id);
       f(left, right, right_id);
     }
     return right_id;
@@ -320,9 +320,9 @@ struct NodeCRTP : Traits::Node {
     if (IsBottom)
       Pools::template recycle<false>(this->children[index]);
     else if (this->level == 1)
-      Pools::recycle<Recursive>(this->children[index]);
+      Pools::template recycle<Recursive>(this->children[index]);
     else
-      Pools::recycle<Recursive>(this->children[index]);
+      Pools::template recycle<Recursive>(this->children[index]);
 
     for (pos_type i = index + 1; i < this->count; ++i)
       this->template move_child<false>(i - 1, this->children[i]);
