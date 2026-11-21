@@ -7,3 +7,7 @@ __pycache__/
 *.py[cod]
 
 tmp.cpp
+
+# Codex
+AGENTS.md
+CODEX_HANDOFF.md
