@@ -29,6 +29,7 @@ struct AggregateTraits {
   using T = typename M::value_type;
   using F = typename A::action_type;
   static constexpr std::size_t kNodeCapacity = C;
+  static constexpr pos_type kNodeHalf = C / 2;
   static constexpr bool lazy = !std::same_as<A, NoAction>;
   static T identity() {
     return M::e();
@@ -36,8 +37,8 @@ struct AggregateTraits {
   using NodeBase = Bplustree::NodeBase<AggregateTraits>;
   struct Node;
   struct Leaf;
-  struct UpperNode;
-  struct BottomNode;
+  using UpperNode = Bplustree::UpperNode<AggregateTraits>;
+  using BottomNode = Bplustree::BottomNode<AggregateTraits>;
   using Internal = Node;  // 旧 API が想定する共通メタデータの型
 };
 
@@ -169,25 +170,6 @@ struct AggregateTraits<M, A, R, C>::Node
   }
 };
 
-template <class M, class A, bool R, std::size_t C>
-struct AggregateTraits<M, A, R, C>::UpperNode
-    : Bplustree::UpperNode<AggregateTraits<M, A, R, C>> {
-  using Traits = AggregateTraits<M, A, R, C>;
-  using Parent = Bplustree::UpperNode<Traits>;
-  using Parent::Parent;
-
-  // Generic UpperNode の空 hook より Trait 固有の処理を優先する。
-  void refresh_metadata() { Traits::Node::refresh_metadata(); }
-  void push_reverse_impl() { Traits::Node::push_reverse_impl(); }
-  void apply_lazy() { Traits::Node::apply_lazy(); }
-};
-
-template <class M, class A, bool R, std::size_t C>
-struct AggregateTraits<M, A, R, C>::BottomNode
-    : Bplustree::BottomNode<AggregateTraits<M, A, R, C>> {
-  using Parent = Bplustree::BottomNode<AggregateTraits<M, A, R, C>>;
-  using Parent::Parent;
-};
 
 /**
  * @brief 1要素1Leaf の Base に区間積・境界探索・任意の遅延作用を追加する。

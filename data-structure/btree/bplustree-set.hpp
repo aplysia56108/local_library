@@ -24,11 +24,12 @@ struct SetTraits {
   static constexpr bool lazy = false;
   static constexpr bool refresh_on_leaf_swap = true;
   static constexpr std::size_t kNodeCapacity = Capacity;
+  static constexpr pos_type kNodeHalf = Capacity / 2;
   using NodeBase = Bplustree::NodeBase<SetTraits>;
   using Leaf = Bplustree::Leaf<SetTraits>;
   struct Node;
-  struct UpperNode;
-  struct BottomNode;
+  using UpperNode = Bplustree::UpperNode<SetTraits>;
+  using BottomNode = Bplustree::BottomNode<SetTraits>;
   using Internal = Node;  // 旧コード向けの共通メタデータ型名
 };
 
@@ -61,26 +62,6 @@ struct SetTraits<Key, Capacity>::Node
           this->children[0], [](const auto& child) { return child.min_leaf_id; });
     }
   }
-};
-
-template <class Key, std::size_t Capacity>
-struct SetTraits<Key, Capacity>::UpperNode
-    : Bplustree::UpperNode<SetTraits<Key, Capacity>> {
-  using Traits = SetTraits<Key, Capacity>;
-  using Parent = Bplustree::UpperNode<Traits>;
-  using Parent::Parent;
-
-  // Generic UpperNode の空 hook を隠し、Set の metadata 更新を実行する。
-  void refresh_metadata() {
-    Traits::Node::refresh_metadata();
-  }
-};
-
-template <class Key, std::size_t Capacity>
-struct SetTraits<Key, Capacity>::BottomNode
-    : Bplustree::BottomNode<SetTraits<Key, Capacity>> {
-  using Parent = Bplustree::BottomNode<SetTraits<Key, Capacity>>;
-  using Parent::Parent;
 };
 
 }  // namespace Bplustree

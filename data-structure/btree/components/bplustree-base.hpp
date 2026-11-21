@@ -194,7 +194,6 @@ class Base {
                                pos_type level = 0) {
     const id_type parent_id =
         level == 0 ? Pools::make_bottom() : Pools::make_upper(level);
-    auto& parent = get_node(parent_id);
     Access::with(parent_id, [&](auto& node) {
       node.template move_child<true, false>(0, left, parent_id);
       node.template move_child<true, false>(1, right, parent_id);
