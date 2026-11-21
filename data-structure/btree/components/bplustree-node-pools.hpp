@@ -5,6 +5,8 @@
 #include "data-structure/object-pool/object_pool.hpp"
 
 namespace Bplustree {
+enum class NodeType { Leaf, Bottom, Upper };
+
 /**
  * @brief Traits ごとに共有する Leaf / Internal の2つの ObjectPool。
  * @details ID は型ごとの Pool 内のスロット番号で、Leaf ID と Internal ID
@@ -12,66 +14,61 @@ namespace Bplustree {
  * は再利用され得る。
  */
 template <class Traits>
-struct NodePools {
+class NodePools {
+ public:
   using pos_type = std::uint8_t;
-
   using id_type = std::uint32_t;
+
+  static constexpr id_type null_id = ObjectPool<typename Traits::Leaf>::null_id;
+
+ private:
+  static const id_type msk = (id_type{1} << 30) - 1;
   using L = typename Traits::Leaf;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
-  static constexpr id_type null_id = ObjectPool<L>::null_id;
-
- private:
   // constinit により静的初期化を保証し、関数内 static の初期化ガードを避ける。
   inline static constinit ObjectPool<L> leaf_pool_{};
   inline static constinit ObjectPool<U> upper_pool_{};
   inline static constinit ObjectPool<B> bottom_pool_{};
 
- public:
-  static id_type id(L& leaf) {
-    return leaves().index(leaf);
-  }
-  static id_type id(U& node) {
-    return uppers().index(node);
-  }
-  static id_type id(B& node) {
-    return bottoms().index(node);
-  }
-  static ObjectPool<L>& leaves() {
-    return leaf_pool_;
-  }
-  static ObjectPool<U>& uppers() {
-    return upper_pool_;
-  }
-  static ObjectPool<B>& bottoms() {
-    return bottom_pool_;
-  }
-  enum class NodeType { Leaf, Bottom, Upper };
-  template <NodeType T>
-  static auto& get(id_type id) {
-    if constexpr (T == NodeType::Leaf) {
-      return leaves()[id];
-    }
-    if constexpr (T == NodeType::Bottom) {
-      return bottoms()[id];
-    }
-    if constexpr (T == NodeType::Upper) {
-      return uppers()[id];
+  static NodeType type_of(const id_type id) {
+    if (id >> 31 & 1) {
+      if (id >> 30 & 1) return NodeType::Upper;
+      return NodeType::Bottom;
+    } else {
+      return NodeType::Leaf;
     }
   };
 
-  template <std::size_t T>
+  static id_type inner_id(const id_type id) {
+    return id & msk;
+  }
+
+ public:
+  static id_type id(L& leaf) {
+    return leaf_pool_.index(leaf);
+  }
+  static id_type id(U& node) {
+    return upper_pool_.index(node) | (id_type{1} << 31) | (id_type{1} << 30);
+  }
+  static id_type id(B& node) {
+    return bottom_pool_.index(node) | (id_type{1} << 31);
+  }
+  template <NodeType T>
   static auto& get(id_type id) {
-    if constexpr (T == 0) {
-      return leaves()[id];
+    auto id_ = inner_id(id);
+    assert(T == type_of(id));
+    if constexpr (T == NodeType::Leaf) {
+      return leaf_pool_[id_];
     }
-    if constexpr (T == 1) {
-      return bottoms()[id];
+    if constexpr (T == NodeType::Bottom) {
+      return bottom_pool_[id_];
     }
-    if constexpr (T == 2) {
-      return uppers()[id];
+    if constexpr (T == NodeType::Upper) {
+      return upper_pool_[id_];
     }
   };
+
   /**
    * @brief 追加確保に備えて Leaf / Internal Pool の容量を増やす。
    * @details Pool の vector
@@ -79,26 +76,26 @@ struct NodePools {
    */
   static void reserve_buffer(std::size_t leaf_buffer = 8,
                              std::size_t node_buffer = 8) {
-    leaves().reserve_buffer(leaf_buffer);
-    uppers().reserve_buffer(node_buffer);
-    bottoms().reserve_buffer(node_buffer);
+    leaf_pool_.reserve_buffer(leaf_buffer);
+    upper_pool_.reserve_buffer(node_buffer);
+    bottom_pool_.reserve_buffer(node_buffer);
   }
   /** @brief Leaf を確保（解放済み ID を優先再利用）し、その ID を返す。 */
   template <class... Args>
   static id_type make_leaf(Args&&... args) {
-    auto id = leaves().emplace(std::forward<Args>(args)...);
+    auto id = leaf_pool_.emplace(std::forward<Args>(args)...);
     return id;
   }
   /** @brief 指定 level の Internal を確保し、その ID を返す。 */
   template <class... Args>
   static id_type make_upper(Args&&... args) {
-    auto id = uppers().emplace(std::forward<Args>(args)...);
-    return id;
+    auto id = upper_pool_.emplace(std::forward<Args>(args)...);
+    return id | (id_type{1} << 31) | (id_type{1} << 30);
   }
   template <class... Args>
   static id_type make_bottom(Args&&... args) {
-    auto id = bottoms().emplace(std::forward<Args>(args)...);
-    return id;
+    auto id = bottom_pool_.emplace(std::forward<Args>(args)...);
+    return id | (id_type{1} << 31);
   }
   /**
    * @brief 指定 ID が表す Leaf または Internal 部分木を再利用可能にする。
@@ -109,24 +106,28 @@ struct NodePools {
    * ### 計算量
    * O(回収するノード数)。
    */
-  template <std::size_t Type = 2, bool Recursive = true>
+
+  template <bool Recursive = true>
   static void recycle(const id_type& id) {
-    if (id == null_id) return;
-    if constexpr (Type == 0) {
-      leaves().erase(id);
-    } else if constexpr (Type == 1) {
-      auto& bottom = bottoms()[id];
-      if constexpr (Recursive)
+    auto Type = type_of(id);
+    auto id_ = inner_id(id);
+    if (Type == NodeType::Leaf)
+      leaf_pool_.erase(id_);
+    else if (Type == NodeType::Bottom) {
+      if constexpr (Recursive) {
+        auto bottom = bottom_pool_[id_];
         for (pos_type i = 0; i < bottom.count; ++i)
-          recycle(bottom.children[i], 0);
-      bottoms().erase(id);
+          recycle<false>(bottom.children[i]);
+      }
+      bottom_pool_.erase(id_);
     } else {
-      auto& upper = uppers()[id];
-      if constexpr (Recursive)
+      if constexpr (Recursive) {
+        auto upper = upper_pool_[id_];
         for (pos_type i = 0; i < upper.count; ++i)
-          recycle(upper.children[i], upper.level > 1 ? 2 : 1);
-      uppers().erase(id);
+          recycle<true>(upper.children[i]);
+      }
+      upper_pool_.erase(id_);
     }
-  }
+  };
 };
 }  // namespace Bplustree
