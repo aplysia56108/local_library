@@ -41,16 +41,16 @@ signed main() {
   assert(Pools::is_bottom(bottom));
   assert(!Pools::is_bottom(upper));
   assert(bottom != upper);
-  assert(Pools::get<1>(bottom).count == 0);
-  assert(Pools::get<2>(upper).level == 1);
-  assert(Pools::get<Pools::NodeType::Leaf>(leaf).value == 42);
+  assert(Pools::get<Bplustree::NodeType::Bottom>(bottom).count == 0);
+  assert(Pools::get<Bplustree::NodeType::Upper>(upper).level == 1);
+  assert(Pools::get<Bplustree::NodeType::Leaf>(leaf).value == 42);
 
-  Pools::get<1>(bottom).children[0] = leaf;
-  Pools::get<1>(bottom).count = 1;
-  Pools::get<1>(bottom).size = 1;
-  Pools::get<2>(upper).children[0] = bottom;
-  Pools::get<2>(upper).count = 1;
-  Pools::get<2>(upper).size = 1;
+  Pools::get<Bplustree::NodeType::Bottom>(bottom).children[0] = leaf;
+  Pools::get<Bplustree::NodeType::Bottom>(bottom).count = 1;
+  Pools::get<Bplustree::NodeType::Bottom>(bottom).size = 1;
+  Pools::get<Bplustree::NodeType::Upper>(upper).children[0] = bottom;
+  Pools::get<Bplustree::NodeType::Upper>(upper).count = 1;
+  Pools::get<Bplustree::NodeType::Upper>(upper).size = 1;
 
   bool hit_bottom = false, hit_upper = false;
   Pools::with_node(bottom, [&](auto& node) {
@@ -60,8 +60,8 @@ signed main() {
     hit_upper = is_same_v<remove_cvref_t<decltype(node)>, MockUpper>;
   });
   assert(hit_bottom && hit_upper);
-  assert(Pools::id(Pools::get<1>(bottom)) == bottom);
-  assert(Pools::id(Pools::get<2>(upper)) == upper);
+  assert(Pools::id(Pools::get<Bplustree::NodeType::Bottom>(bottom)) == bottom);
+  assert(Pools::id(Pools::get<Bplustree::NodeType::Upper>(upper)) == upper);
 
   Pools::recycle(upper);
   assert(Pools::leaves().size() == 0);
