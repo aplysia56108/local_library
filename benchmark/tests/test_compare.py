@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from compare import compile_variant
+import run as benchmark
 
 
 class SharedBenchmarkSourceTest(unittest.TestCase):
@@ -43,6 +44,23 @@ class SharedBenchmarkSourceTest(unittest.TestCase):
                 )
                 result = subprocess.run([str(executable)], check=False)
                 self.assertEqual(result.returncode, 0)
+
+    def test_benchmark_flags_disable_asserts(self):
+        """Performance and A/B benchmarks share assert-free compilation flags."""
+        self.assertIn("-DNDEBUG", benchmark.FLAGS)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "benchmark.cpp"
+            source.write_text(
+                '#include <cassert>\n'
+                '#ifndef NDEBUG\n'
+                '#error "Benchmarks must compile with NDEBUG"\n'
+                '#endif\n'
+                'signed main() { assert(false); return 0; }\n'
+            )
+            executable = root / "benchmark"
+            compile_variant(source, root, executable, benchmark.FLAGS)
+            subprocess.run([str(executable)], check=True)
 
     def test_requires_absolute_main_source(self):
         with self.assertRaisesRegex(ValueError, "absolute"):
