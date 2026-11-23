@@ -445,8 +445,8 @@ struct UpperNode : Traits::UpperCRTP {
   void integrate_child(pos_type index) {
     assert(this->level > 0 && index < this->count);
     if (child_count(index) == 0) {
-      return;
       erase(index);
+      return;
     }
 
     auto f = [this](auto& left, auto& right, const pos_type left_count,
