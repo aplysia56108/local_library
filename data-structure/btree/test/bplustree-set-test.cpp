@@ -109,7 +109,6 @@ class InspectableSet
     : public Bplustree_Set<long long, Type, std::less<long long>, Capacity> {
   using Traits = Bplustree::SetTraits<long long, Capacity>;
   using Base = Bplustree::Base<Traits>;
-  using Internal = typename Traits::Internal;
   using Leaf = typename Traits::Leaf;
 
   using Pools = Bplustree::NodePools<Traits>;
