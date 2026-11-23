@@ -26,10 +26,6 @@ template <class Traits>
 struct BottomNode;
 template <class Traits, class Derived, bool IsBottom>
 struct NodeCRTP;
-template <class Traits, class Derived>
-struct BottomNodeCRTP;
-template <class Traits, class Derived>
-struct UpperNodeCRTP;
 
 /**
  * @brief 位置操作だけを行う基本 Traits。遅延作用・独自集約値を持たない。
@@ -50,6 +46,8 @@ struct Traits {
   using Node = Bplustree::Node<Traits>;
   using UpperNode = Bplustree::UpperNode<Traits>;
   using BottomNode = Bplustree::BottomNode<Traits>;
+  using UpperCRTP = Bplustree::NodeCRTP<Traits, UpperNode, false>;
+  using BottomCRTP = Bplustree::NodeCRTP<Traits, BottomNode, true>;
 };
 
 /**
@@ -374,7 +372,7 @@ struct NodeCRTP : Traits::Node {
 };
 
 template <class Traits>
-struct BottomNode : NodeCRTP<Traits, typename Traits::BottomNode, true> {
+struct BottomNode : Traits::BottomCRTP {
   using pos_type = std::uint8_t;
   static constexpr pos_type NodeCap = Traits::kNodeCapacity;
   static constexpr pos_type HalfNodeCap = NodeCap / 2;
@@ -383,7 +381,7 @@ struct BottomNode : NodeCRTP<Traits, typename Traits::BottomNode, true> {
   using N = typename Traits::Node;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
-  using CRTP = NodeCRTP<Traits, typename Traits::BottomNode, true>;
+  using CRTP = Traits::BottomCRTP;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
@@ -407,7 +405,7 @@ struct BottomNode : NodeCRTP<Traits, typename Traits::BottomNode, true> {
 };
 
 template <class Traits>
-struct UpperNode : NodeCRTP<Traits, typename Traits::UpperNode, false> {
+struct UpperNode : Traits::UpperCRTP {
   using pos_type = std::uint8_t;
   static constexpr pos_type NodeCap = Traits::kNodeCapacity;
   static constexpr pos_type HalfNodeCap = NodeCap / 2;
@@ -416,7 +414,7 @@ struct UpperNode : NodeCRTP<Traits, typename Traits::UpperNode, false> {
   using N = typename Traits::Node;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
-  using CRTP = NodeCRTP<Traits, typename Traits::UpperNode, false>;
+  using CRTP = Traits::UpperCRTP;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 

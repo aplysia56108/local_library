@@ -46,15 +46,12 @@ class Base {
   using Pools = NodePools<Traits>;
   using Epoch = IteratorEpoch<Traits>;
   using id_type = typename Pools::id_type;
-  using leaf_pool_type = ObjectPool<typename Traits::Leaf>;
-  using internal_pool_type = ObjectPool<typename Traits::UpperNode>;
   static constexpr id_type null_id = Pools::null_id;
 
  protected:
   using T = value_type;
   using Node = typename Traits::Node;
   using Leaf = typename Traits::Leaf;
-  using Internal = typename Traits::Node;
   using Access = NodeAccess<Traits>;
   static constexpr size_type NodeCap = Traits::kNodeCapacity;
   static_assert(NodeCap >= 3);
@@ -67,7 +64,7 @@ class Base {
   static Leaf& get_leaf(const id_type& id) {
     return Pools::leaves()[id];
   }
-  static Internal& get_node(const id_type& id) {
+  static Node& get_node(const id_type& id) {
     return Access::get(id);
   }
   static T init_value() {
@@ -209,7 +206,7 @@ class Base {
   }
 
   /** @brief 下位の構造変更に伴う要素数の増減を祖先へ伝える。 */
-  static void add_size_delta(Internal& node, difference_type delta) {
+  static void add_size_delta(Node& node, difference_type delta) {
     if (delta >= 0) {
       node.size += static_cast<size_type>(delta);
     } else {
@@ -418,13 +415,13 @@ class Base {
     return Access::template locate<WithLazy>(root_, index);
   }
 
-  /** @brief locate で検証した position / value epoch を iterator に引き継ぐ。 */
+  /** @brief locate で検証した position / value epoch を iterator に引き継ぐ。
+   */
   template <bool WithLazy = false>
   iterator locate_iterator(size_type index) const {
-    return iterator{
-        locate<WithLazy>(index),
-        WithLazy ? iterator::Validation::Value
-                 : iterator::Validation::Position};
+    return iterator{locate<WithLazy>(index),
+                    WithLazy ? iterator::Validation::Value
+                             : iterator::Validation::Position};
   }
 
   static iterator mutable_iterator(const const_iterator& it) {
@@ -625,7 +622,8 @@ class Base {
   void pop_front() {
     erase(0);
   }
-  /** @brief 全実要素を削除する。番兵は再利用し、旧要素の iterator は失効する。 */
+  /** @brief 全実要素を削除する。番兵は再利用し、旧要素の iterator は失効する。
+   */
   void clear() {
     init();
   }
@@ -636,7 +634,8 @@ class Base {
   }
   /**
    * @brief 現在の要素を一括構築し直す。
-   * @details 実要素 Leaf ID を作り直すため、保持済み実要素 iterator は失効する。
+   * @details 実要素 Leaf ID を作り直すため、保持済み実要素 iterator
+   * は失効する。
    */
   void rebuild() {
     assign(begin(), end());
@@ -725,7 +724,8 @@ class Base {
     swap_end(bbegin_, end_);
     Epoch::invalidate_position();
   }
-  /** @brief 半開区間 [first,last) を反転する。通常 O(NodeCapacity * 木の高さ)。 */
+  /** @brief 半開区間 [first,last) を反転する。通常 O(NodeCapacity * 木の高さ)。
+   */
   void reverse(size_type first, size_type last) {
     assert(first <= last && last <= size());
     if (last - first < 2) return;

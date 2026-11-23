@@ -17,6 +17,9 @@ struct NoAction {
   using action_type = long long;
 };
 
+template <class Traits, class Derived, bool IsBottom>
+struct AggregateNodeCRTP;
+
 /**
  * @brief 集約モノイドと任意の遅延作用を追加する Traits。
  * @tparam M モノイド（value_type、op、e を提供）。
@@ -26,8 +29,13 @@ struct NoAction {
  */
 template <class M, class A, bool R, std::size_t C>
 struct AggregateTraits {
+  using Monoid = M;
+  using Action = A;
   using T = typename M::value_type;
   using F = typename A::action_type;
+  static constexpr bool Reversible = R;
+  using Pools = Bplustree::NodePools<AggregateTraits>;
+
   static constexpr std::size_t kNodeCapacity = C;
   static constexpr pos_type kNodeHalf = C / 2;
   static constexpr bool lazy = !std::same_as<A, NoAction>;
@@ -39,7 +47,116 @@ struct AggregateTraits {
   struct Leaf;
   struct UpperNode;
   struct BottomNode;
-  using Internal = Node;  // 旧 API が想定する共通メタデータの型
+  using UpperCRTP =
+      Bplustree::AggregateNodeCRTP<AggregateTraits, UpperNode, false>;
+  using BottomCRTP =
+      Bplustree::AggregateNodeCRTP<AggregateTraits, BottomNode, true>;
+};
+
+template <class Traits, class Derived, bool IsBottom>
+struct AggregateNodeCRTP : NodeCRTP<Traits, Derived, IsBottom> {
+  using M = typename Traits::Monoid;
+  using A = typename Traits::Action;
+  using T = typename M::value_type;
+  using F = typename A::action_type;
+
+  static constexpr bool R = Traits::Reversible;
+  using Pools = typename Traits::Pools;
+
+  using Parent = NodeCRTP<Traits, Derived, IsBottom>;
+  using Parent::Parent;
+  /**
+   * @brief 子の値・区間積を順方向 / 逆方向に畳み込んで再計算する。
+   * @details 未伝搬の is_reversed / pending が残る場合も、
+   * それらを反映した論理状態の積を更新する。size は変更しない。
+   */
+  void refresh_metadata() {
+    this->forward = this->backward = M::e();
+    if constexpr (IsBottom) {
+      for (std::size_t i = 0; i < this->count; ++i)
+        this->forward =
+            M::op(this->forward, Pools::leaves()[this->children[i]].get());
+      if constexpr (R) {
+        this->backward = this->forward;
+      } else {
+        for (std::size_t i = this->count; i > 0; --i)
+          this->backward = M::op(this->backward,
+                                 Pools::leaves()[this->children[i - 1]].get());
+      }
+    } else {
+      for (std::size_t i = 0; i < this->count; ++i)
+        this->forward =
+            M::op(this->forward,
+                  Pools::with_node(this->children[i], [](const auto& child) {
+                    return child.forward;
+                  }));
+      if constexpr (R) {
+        this->backward = this->forward;
+      } else {
+        for (std::size_t i = this->count; i > 0; --i)
+          this->backward = M::op(
+              this->backward,
+              Pools::with_node(this->children[i - 1], [](const auto& child) {
+                return child.backward;
+              }));
+      }
+    }
+
+    if constexpr (!R) {
+      if (this->is_reversed) std::swap(this->forward, this->backward);
+    }
+    if constexpr (Traits::lazy) {
+      if (this->pending) {
+        this->forward = A::mapping(*this->pending, this->forward, this->size);
+        if constexpr (R)
+          this->backward = this->forward;
+        else
+          this->backward =
+              A::mapping(*this->pending, this->backward, this->size);
+      }
+    }
+  }
+
+  /**
+   * @brief ノード全体の作用を pending に合成し、集約値だけ即時更新する。
+   * @details pending は既存作用の後に f を適用するため composition(f, old)。
+   */
+  void push_lazy(const F& f)
+    requires(Traits::lazy)
+  {
+    this->forward = A::mapping(f, this->forward, this->size);
+    if constexpr (R)
+      this->backward = this->forward;
+    else
+      this->backward = A::mapping(f, this->backward, this->size);
+    this->pending = this->pending ? A::composition(f, *this->pending) : f;
+  }
+
+  /** @brief 反転時に順方向積と逆方向積を交換する（R=true なら不要）。 */
+  void push_reverse_impl() {
+    if constexpr (!R) std::swap(this->forward, this->backward);
+  }
+
+  /**
+   * @brief pending を子へ渡し、Leaf なら値を直接更新する。
+   * @details 作用は合成順序を維持して伝搬し、伝搬後 pending を解除する。
+   */
+  void apply_lazy() {
+    if constexpr (Traits::lazy) {
+      if (!this->pending) return;
+      F f = *this->pending;
+      this->pending.reset();
+      if constexpr (IsBottom) {
+        for (std::size_t i = 0; i < this->count; ++i)
+          Pools::leaves()[this->children[i]].push_lazy(f);
+      } else {
+        for (std::size_t i = 0; i < this->count; ++i)
+          Pools::with_node(this->children[i], [&](auto& child) {
+            child.push_lazy(f);
+          });
+      }
+    }
+  }
 };
 
 /**
@@ -85,89 +202,6 @@ struct AggregateTraits<M, A, R, C>::Node
   T forward = M::e();
   T backward = M::e();
   std::optional<F> pending;
-
-  /**
-   * @brief 子の値・区間積を順方向 / 逆方向に畳み込んで再計算する。
-   * @details 未伝搬の is_reversed / pending が残る場合も、
-   * それらを反映した論理状態の積を更新する。size は変更しない。
-   */
-  void refresh_metadata() {
-    forward = backward = M::e();
-    if (this->level == 0) {
-      for (std::size_t i = 0; i < this->count; ++i)
-        forward = M::op(forward, Pools::leaves()[this->children[i]].get());
-      if constexpr (R) {
-        backward = forward;
-      } else {
-        for (std::size_t i = this->count; i > 0; --i)
-          backward = M::op(backward, Pools::leaves()[this->children[i - 1]].get());
-      }
-    } else {
-      for (std::size_t i = 0; i < this->count; ++i)
-        forward = M::op(forward, Pools::with_node(this->children[i],
-                              [](const auto& child) { return child.forward; }));
-      if constexpr (R) {
-        backward = forward;
-      } else {
-        for (std::size_t i = this->count; i > 0; --i)
-          backward = M::op(backward, Pools::with_node(this->children[i - 1],
-                              [](const auto& child) { return child.backward; }));
-      }
-    }
-
-    if constexpr (!R) {
-      if (this->is_reversed) std::swap(forward, backward);
-    }
-    if constexpr (Traits::lazy) {
-      if (pending) {
-        forward = A::mapping(*pending, forward, this->size);
-        if constexpr (R)
-          backward = forward;
-        else
-          backward = A::mapping(*pending, backward, this->size);
-      }
-    }
-  }
-
-  /**
-   * @brief ノード全体の作用を pending に合成し、集約値だけ即時更新する。
-   * @details pending は既存作用の後に f を適用するため composition(f, old)。
-   */
-  void push_lazy(const F& f)
-    requires(Traits::lazy)
-  {
-    forward = A::mapping(f, forward, this->size);
-    if constexpr (R)
-      backward = forward;
-    else
-      backward = A::mapping(f, backward, this->size);
-    pending = pending ? A::composition(f, *pending) : f;
-  }
-
-  /** @brief 反転時に順方向積と逆方向積を交換する（R=true なら不要）。 */
-  void push_reverse_impl() {
-    if constexpr (!R) std::swap(forward, backward);
-  }
-
-  /**
-   * @brief pending を子へ渡し、Leaf なら値を直接更新する。
-   * @details 作用は合成順序を維持して伝搬し、伝搬後 pending を解除する。
-   */
-  void apply_lazy() {
-    if constexpr (Traits::lazy) {
-      if (!pending) return;
-      F f = *pending;
-      pending.reset();
-      if (this->level == 0) {
-        for (std::size_t i = 0; i < this->count; ++i)
-          Pools::leaves()[this->children[i]].push_lazy(f);
-      } else {
-        for (std::size_t i = 0; i < this->count; ++i)
-          Pools::with_node(this->children[i],
-              [&](auto& child) { child.push_lazy(f); });
-      }
-    }
-  }
 };
 
 template <class M, class A, bool R, std::size_t C>
@@ -176,9 +210,10 @@ struct AggregateTraits<M, A, R, C>::UpperNode
   using Traits = AggregateTraits<M, A, R, C>;
   using Parent = Bplustree::UpperNode<Traits>;
   using Parent::Parent;
-  void refresh_metadata() { Traits::Node::refresh_metadata(); }
-  void push_reverse_impl() { Traits::Node::push_reverse_impl(); }
-  void apply_lazy() { Traits::Node::apply_lazy(); }
+  using CRTP = Traits::UpperCRTP;
+  using CRTP::apply_lazy;
+  using CRTP::push_reverse_impl;
+  using CRTP::refresh_metadata;
 };
 
 template <class M, class A, bool R, std::size_t C>
@@ -187,11 +222,11 @@ struct AggregateTraits<M, A, R, C>::BottomNode
   using Traits = AggregateTraits<M, A, R, C>;
   using Parent = Bplustree::BottomNode<Traits>;
   using Parent::Parent;
-  void refresh_metadata() { Traits::Node::refresh_metadata(); }
-  void push_reverse_impl() { Traits::Node::push_reverse_impl(); }
-  void apply_lazy() { Traits::Node::apply_lazy(); }
+  using CRTP = Traits::BottomCRTP;
+  using CRTP::apply_lazy;
+  using CRTP::push_reverse_impl;
+  using CRTP::refresh_metadata;
 };
-
 
 /**
  * @brief 1要素1Leaf の Base に区間積・境界探索・任意の遅延作用を追加する。
@@ -212,7 +247,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
   using Traits = AggregateTraits<M, A, R, C>;
   using Parent = Base<Traits>;
   using Leaf = typename Traits::Leaf;
-  using Internal = typename Traits::Internal;
+  using Node = typename Traits::Node;
   using T = typename Traits::T;
   using F = typename Traits::F;
   using id_type = typename Parent::id_type;
@@ -223,7 +258,8 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   /** @brief 具象型へ1回分岐して区間積を再帰計算する。 */
   template <bool Reversed = false>
-  static T prod_recursive(id_type node_id, std::size_t first, std::size_t last) {
+  static T prod_recursive(id_type node_id, std::size_t first,
+                          std::size_t last) {
     if (first == last) return M::e();
     return Access::with(node_id, [&](auto& node) -> T {
       if (first == 0 && last == node.size) {
@@ -249,9 +285,10 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
           const std::size_t length = Access::get(child_id).size;
           offset -= length;
           if (first < offset + length && offset < last)
-            result = M::op(result, prod_recursive<true>(
-                child_id, first > offset ? first - offset : 0,
-                std::min(last - offset, length)));
+            result =
+                M::op(result, prod_recursive<true>(
+                                  child_id, first > offset ? first - offset : 0,
+                                  std::min(last - offset, length)));
           if (offset <= first) break;
         }
       } else {
@@ -260,9 +297,10 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
           const id_type child_id = node.children[i];
           const std::size_t length = Access::get(child_id).size;
           if (first < offset + length && offset < last)
-            result = M::op(result, prod_recursive(
-                child_id, first > offset ? first - offset : 0,
-                std::min(last - offset, length)));
+            result = M::op(
+                result,
+                prod_recursive(child_id, first > offset ? first - offset : 0,
+                               std::min(last - offset, length)));
           offset += length;
           if (offset >= last) break;
         }
@@ -304,15 +342,15 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   // predicate が初めて偽になる部分木だけを深掘りして境界を探す。
   template <bool Leftward, class Predicate>
-  static bool search(id_type node_id, std::size_t offset,
-                     std::size_t first, std::size_t last, T& value,
-                     Predicate& predicate, std::size_t& result) {
+  static bool search(id_type node_id, std::size_t offset, std::size_t first,
+                     std::size_t last, T& value, Predicate& predicate,
+                     std::size_t& result) {
     return Access::with(node_id, [&](auto& node) -> bool {
       const std::size_t end = offset + node.size;
       if (end <= first || last <= offset) return true;
       if (first <= offset && end <= last) {
-        T next = Leftward ? M::op(node.forward, value)
-                          : M::op(value, node.forward);
+        T next =
+            Leftward ? M::op(node.forward, value) : M::op(value, node.forward);
         if (predicate(next)) {
           value = std::move(next);
           result = Leftward ? offset : end;
@@ -338,16 +376,16 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
         for (std::size_t i = node.count; i > 0; --i) {
           const id_type child_id = node.children[i - 1];
           pos -= Access::get(child_id).size;
-          if (!search<true>(child_id, pos, first, last,
-                            value, predicate, result))
+          if (!search<true>(child_id, pos, first, last, value, predicate,
+                            result))
             return false;
         }
       } else {
         std::size_t pos = offset;
         for (std::size_t i = 0; i < node.count; ++i) {
           const id_type child_id = node.children[i];
-          if (!search<false>(child_id, pos, first, last,
-                             value, predicate, result))
+          if (!search<false>(child_id, pos, first, last, value, predicate,
+                             result))
             return false;
           pos += Access::get(child_id).size;
         }
@@ -370,7 +408,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   /** @brief 全実要素の順方向の積を取得する。O(1)。番兵は単位元。 */
   T all_prod() const {
-    return Access::with(this->root_, [](const auto& node) -> T { return node.forward; });
+    return Access::with(this->root_, [](const auto& node) -> T {
+      return node.forward;
+    });
   }
 
   /** @brief 半開区間 [first,last) の順方向のモノイド積。空区間は M::e()。 */
@@ -381,7 +421,9 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
   /** @brief 全実要素の逆方向の積。O(1)。非可換モノイドにも対応。 */
   T all_reverse_prod() const {
-    return Access::with(this->root_, [](const auto& node) -> T { return node.backward; });
+    return Access::with(this->root_, [](const auto& node) -> T {
+      return node.backward;
+    });
   }
 
   /** @brief 半開区間 [first,last) を逆方向に畳み込んだ積。 */
@@ -434,8 +476,8 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
     T value = M::e();
     size_type result = left + 1;
-    search<false>(this->root_, 0, left + 1, size() + 1, value,
-                  predicate, result);
+    search<false>(this->root_, 0, left + 1, size() + 1, value, predicate,
+                  result);
     return result - 1;
   }
 
@@ -452,8 +494,7 @@ class AggregateTree : public Base<AggregateTraits<M, A, R, C>> {
 
     T value = M::e();
     size_type result = right + 1;
-    search<true>(this->root_, 0, 1, right + 1, value,
-                 predicate, result);
+    search<true>(this->root_, 0, 1, right + 1, value, predicate, result);
     return result - 1;
   }
 

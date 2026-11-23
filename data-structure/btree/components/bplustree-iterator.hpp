@@ -62,7 +62,7 @@ class Iterator {
 
  protected:
   using Leaf = typename Traits::Leaf;
-  using Internal = typename Traits::Node;
+  using Node = typename Traits::Node;
   using Access = NodeAccess<Traits>;
   using T = typename Traits::T;
   using Pools = NodePools<Traits>;
@@ -71,14 +71,11 @@ class Iterator {
   static constexpr id_type null_id = NodePools<Traits>::null_id;
 
   // lazy=false を明示した Traits では value epoch をコンパイル時に省略。
-  // 未宣言の場合はカスタム Traits との互換性のため Lazy ありとして扱う。
   static constexpr bool HasLazy = [] {
     if constexpr (requires { Traits::lazy; })
       return Traits::lazy;
     else
-      // 既存のカスタムTraitsはlazy宣言なしでapply_lazy()を実装できる。
-      // 未宣言の場合は安全のためLazyありとして扱う。
-      return true;
+      return false;
   }();
 
   // LazyがないTraitsでは値epochのキャッシュ自体を保持しない。
@@ -94,7 +91,7 @@ class Iterator {
   static Leaf& get_leaf(const id_type& id) {
     return Pools::leaves()[id];
   }
-  static Internal& get_node(const id_type& id) {
+  static Node& get_node(const id_type& id) {
     return Access::get(id);
   }
   Leaf& this_leaf() const {
@@ -104,7 +101,9 @@ class Iterator {
   static void reverse_path(id_type node_id) {
     auto& node = get_node(node_id);
     if (node.parent != null_id) reverse_path(node.parent);
-    Access::with(node_id, [](auto& concrete) { concrete.apply_reverse(); });
+    Access::with(node_id, [](auto& concrete) {
+      concrete.apply_reverse();
+    });
   }
 
   static void materialize_path(id_type node_id) {
@@ -125,7 +124,8 @@ class Iterator {
     }
   }
 
-  /** @brief 値参照前に必要な遅延作用を伝搬し、position/value 世代を確定する。 */
+  /** @brief 値参照前に必要な遅延作用を伝搬し、position/value 世代を確定する。
+   */
   void ensure_value_path() const {
     if constexpr (HasLazy) {
       if (validated_value_epoch_ != Epoch::value) {
@@ -181,7 +181,8 @@ class Iterator {
         if constexpr (HasLazy) {
           // Lazyありの場合だけ、値epochと未伝搬タグを確認する。
           bool value_clean = validated_value_epoch_ == Epoch::value;
-          leaf_id_ = Access::template locate<false>(node_id, to_index, &value_clean);
+          leaf_id_ =
+              Access::template locate<false>(node_id, to_index, &value_clean);
           validated_position_epoch_ = Epoch::position;
           validated_value_epoch_ = value_clean ? Epoch::value : 0;
         } else {
@@ -216,8 +217,7 @@ class Iterator {
    * @brief Leaf ID を受け取り、任意で検証済みの世代を記録する。
    * @details Position なら位置経路、Value なら位置と値経路が確定済み。
    */
-  explicit Iterator(id_type leaf_id,
-                    Validation validation = Validation::None)
+  explicit Iterator(id_type leaf_id, Validation validation = Validation::None)
       : leaf_id_(leaf_id) {
     if (validation != Validation::None)
       validated_position_epoch_ = Epoch::position;
@@ -339,7 +339,8 @@ class Iterator {
     return (lhs - rhs) <=> 0;
   }
 
-  // 同一性は Leaf ID のみで判定する。epoch はキャッシュ状態であり等値性に含めない。
+  // 同一性は Leaf ID のみで判定する。epoch
+  // はキャッシュ状態であり等値性に含めない。
   friend bool operator==(const Iterator& lhs, const Iterator& rhs) {
     return lhs.leaf_id_ == rhs.leaf_id_;
   }
