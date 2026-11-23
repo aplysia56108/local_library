@@ -115,15 +115,15 @@ C++20 の `std::random_access_iterator` コンセプトを満たしますが、*
 iterator の参照や移動時に世代が合わなければ経路を再検証し、
 未伝搬の反転（position）と作用（value）を必要に応じて実体化します。
 
-`Traits::lazy = false` を明示すれば、値 epoch の追跡・確認を `if constexpr` で除外します。
-未指定のカスタム Traits は互換性のため Lazy ありとして扱います。
+`Traits::lazy = false`（未指定時も false）なら、値 epoch の追跡・確認を `if constexpr` で除外します。
+遅延作用を実装するカスタム Traits は `static constexpr bool lazy = true;` を明示してください。
 世代は **キャッシュの妥当性** の管理であり、iterator の等値性は Leaf ID で判断します。
 同じ Traits の無関係な木の更新でも、保守的にキャッシュが失効する場合があります。
 
 ## 独自 Traits と内部実装
 
 Traits は `T`、`kNodeCapacity`、`Node` / `Leaf` / `Internal` を定義します。
-遅延作用がない拡張では `lazy = false`、反転により特殊なメタデータ更新が必要な場合は派生ノードの
+`lazy` の未指定は false として扱い、遅延作用を実装する拡張では `lazy = true` を明示します。反転により特殊なメタデータ更新が必要な場合は派生ノードの
 `push_reverse_impl()`、メタデータ再計算には `refresh_metadata()` を使います。
 **旧 `IsReversible` / `IsMergable` フラグは現在のインターフェースでは使いません。**
 
