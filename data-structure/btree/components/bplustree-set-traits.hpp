@@ -34,9 +34,12 @@ template <class Traits, class Derived, bool IsBottom>
 struct SetNodeCRTP : Bplustree::NodeCRTP<Traits, Derived, IsBottom> {
   using Pools = typename Traits::Pools;
 
+  using Parent = Bplustree::NodeCRTP<Traits, Derived, IsBottom>;
+  using Parent::Parent;
+
   void refresh_metadata() {
     assert(this->count);
-    if (IsBottom) {
+    if constexpr (IsBottom) {
       this->min_leaf_id = this->children[0];
     } else {
       this->min_leaf_id =
@@ -81,7 +84,7 @@ template <class Key, std::size_t Capacity>
 struct SetTraits<Key, Capacity>::BottomNode
     : Bplustree::BottomNode<SetTraits<Key, Capacity>> {
   using Traits = SetTraits<Key, Capacity>;
-  using Parent = Bplustree::UpperNode<Traits>;
+  using Parent = Bplustree::BottomNode<Traits>;
   using Parent::Parent;
   using CRTP = Traits::BottomCRTP;
   using CRTP::refresh_metadata;
