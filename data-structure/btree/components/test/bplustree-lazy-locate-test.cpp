@@ -3,39 +3,60 @@
 #include <cassert>
 #include <iostream>
 
-// Minimal lazy extension: pending increments live in Internal nodes.
+// Minimal lazy extension: pending increments live in Node metadata.
 // locate<false> keeps a pending action; locate<true> materializes the path.
 struct LazyTraits {
   using T = long long;
   static constexpr std::size_t kNodeCapacity = 4;
-  static constexpr bool IsReversible = true;
-  static constexpr bool IsMergable = true;
-  using Node = Bplustree::Node<LazyTraits>;
+  static constexpr Bplustree::pos_type kNodeHalf = kNodeCapacity / 2;
+  static constexpr bool lazy = true;
+  using NodeBase = Bplustree::NodeBase<LazyTraits>;
+  struct Node;
   struct Leaf;
-  struct Internal;
+  struct UpperNode;
+  struct BottomNode;
+  using UpperCRTP = Bplustree::NodeCRTP<LazyTraits, UpperNode, false>;
+  using BottomCRTP = Bplustree::NodeCRTP<LazyTraits, BottomNode, true>;
 };
 struct LazyTraits::Leaf : Bplustree::Leaf<LazyTraits> {
   using Bplustree::Leaf<LazyTraits>::Leaf;
 };
-struct LazyTraits::Internal : Bplustree::Internal<LazyTraits> {
-  using Bplustree::Internal<LazyTraits>::Internal;
+struct LazyTraits::Node : Bplustree::Node<LazyTraits> {
+  using Parent = Bplustree::Node<LazyTraits>;
+  using Pools = Bplustree::NodePools<LazyTraits>;
+  using Parent::Parent;
   long long pending = 0;
-  void apply_lazy() {
-    if (pending == 0) return;
 
-    if (this->level == 0) {
-      for (std::size_t i = 0; i < this->count; ++i) {
-        auto& leaf = this->get_leaf(i);
-        leaf.set(leaf.get() + pending);
-      }
-    } else {
-      for (std::size_t i = 0; i < this->count; ++i)
-        this->get_child(i).pending += pending;
-    }
-
-    pending = 0;
-  }
+  void apply_lazy();
 };
+
+struct LazyTraits::UpperNode : Bplustree::UpperNode<LazyTraits> {
+  using Parent = Bplustree::UpperNode<LazyTraits>;
+  using Parent::Parent;
+  void apply_lazy() { LazyTraits::Node::apply_lazy(); }
+};
+
+struct LazyTraits::BottomNode : Bplustree::BottomNode<LazyTraits> {
+  using Parent = Bplustree::BottomNode<LazyTraits>;
+  using Parent::Parent;
+  void apply_lazy() { LazyTraits::Node::apply_lazy(); }
+};
+
+inline void LazyTraits::Node::apply_lazy() {
+  if (pending == 0) return;
+  if (this->level == 0) {
+    for (std::size_t i = 0; i < this->count; ++i) {
+      auto& leaf = Pools::leaves()[this->children[i]];
+      leaf.set(leaf.get() + pending);
+    }
+  } else {
+    for (std::size_t i = 0; i < this->count; ++i)
+      Pools::with_node(this->children[i], [&](auto& child) {
+        child.pending += pending;
+      });
+  }
+  pending = 0;
+}
 class LazySequence : public Bplustree::Base<LazyTraits> {
   using Parent = Bplustree::Base<LazyTraits>;
 

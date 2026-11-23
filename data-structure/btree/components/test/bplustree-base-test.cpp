@@ -165,7 +165,8 @@ void pool_reclamation_tests() {
   using Traits = Bplustree::Traits<long long, Capacity>;
   using Pools = Bplustree::NodePools<Traits>;
   const auto before_leaves = Pools::leaves().size();
-  const auto before_internals = Pools::internals().size();
+  const auto before_bottoms = Pools::bottoms().size();
+  const auto before_uppers = Pools::uppers().size();
   {
     Tree<Capacity> a{1, 2, 3, 4, 5, 6, 7, 8};
     auto right = a.split(4);
@@ -177,7 +178,8 @@ void pool_reclamation_tests() {
     a.assign(3, 10);
   }
   assert(Pools::leaves().size() == before_leaves);
-  assert(Pools::internals().size() == before_internals);
+  assert(Pools::bottoms().size() == before_bottoms);
+  assert(Pools::uppers().size() == before_uppers);
   std::cerr << "base pool reclamation tests all passed! (capacity=" << Capacity
             << ")\n";
 }
