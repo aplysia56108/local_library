@@ -331,8 +331,10 @@ struct NodeCRTP : Traits::Node {
     for (pos_type i = index + 1; i < this->count; ++i)
       this->template move_child<false>(i - 1, this->children[i]);
     --this->count;
+    // count 0のnodeではrefreshを呼ばないことを要請する。
+    if (this->count == 0) return true;
     refresh();
-    return this->count == 0;
+    return false;
   }
 
   template <bool WithLazy = false>
