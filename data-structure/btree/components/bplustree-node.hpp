@@ -301,8 +301,8 @@ struct NodeCRTP : Traits::Node {
       for (pos_type i = 0; i < right_count; ++i) {
         right.move_child(i, left.children[left_count + i], right_id);
       }
-      left.refresh();
-      right.refresh();
+      if (left_count) left.refresh();
+      if (right_count) right.refresh();
     };
     id_type right_id;
     if constexpr (IsBottom) {
@@ -444,6 +444,10 @@ struct UpperNode : Traits::UpperCRTP {
 
   void integrate_child(pos_type index) {
     assert(this->level > 0 && index < this->count);
+    if (child_count(index) == 0) {
+      return;
+      erase(index);
+    }
 
     auto f = [this](auto& left, auto& right, const pos_type left_count,
                     const pos_type right_count, const bool to_left) -> void {
