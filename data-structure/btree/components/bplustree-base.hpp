@@ -130,11 +130,7 @@ class Base {
       auto& node = get_node(root);
       Access::materialize(root);
       const id_type child = node.children[0];
-      // 根の昇格は子の親を null にする特別な所有権移動。
-      // 回収時に子まで解放されないよう、旧根の count を先に0にする。
-      node.count = 0;
-      node.size = 0;
-      Pools::recycle(root);
+      Pools::recycle<false>(root);
       root = child;
       get_node(root).parent = null_id;
       get_node(root).position = 0;
@@ -207,13 +203,18 @@ class Base {
 
   /** @brief 下位の構造変更に伴う要素数の増減を祖先へ伝える。 */
   static void add_size_delta(Node& node, difference_type delta) {
-    if (delta >= 0) {
+    if (delta == 0) return;
+    if (delta > 0) {
       node.size += static_cast<size_type>(delta);
     } else {
       const size_type removed = static_cast<size_type>(-delta);
       assert(node.size >= removed);
       node.size -= removed;
     }
+
+    if (node.parent != null_id)
+      Pools::get<NodeType::Upper>(node.parent).children[node.position] =
+          node.size;
   }
 
   static difference_type size_delta(size_type before, size_type after) {

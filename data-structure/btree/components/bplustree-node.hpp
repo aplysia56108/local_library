@@ -189,8 +189,7 @@ struct NodeCRTP : Traits::Node {
     if constexpr (IsBottom) {
       return 1;
     } else {
-      if (this->level == 1) return get_child<NodeType::Bottom>(index).size;
-      return get_child<NodeType::Upper>(index).size;
+      return self().sizes[index];
     }
   }
 
@@ -334,6 +333,9 @@ struct NodeCRTP : Traits::Node {
     // count 0のnodeではrefreshを呼ばないことを要請する。
     if (this->count == 0) return true;
     refresh();
+    if (this->parent != null_id)
+      Pools::get<NodeType::Upper>(this->parent).sizes[this->position] =
+          this->size;
     return false;
   }
 
@@ -352,30 +354,21 @@ struct NodeCRTP : Traits::Node {
       assert(index < this->count);
       return this->children[index];
     } else {
-      auto descend = [this, &index, value_clean]<NodeType Type>() -> id_type {
-        for (pos_type i = 0; i < this->count; ++i) {
-          auto& child = get_child<Type>(i);
-          const auto sz = child.size;
-
-          if (index < sz)
-            return child.template locate<WithLazy>(index, value_clean);
-
-          index -= sz;
+      for (pos_type i = 0; i < this->count; ++i) {
+        auto sz = child_size(i);
+        if (index < sz) {
+          if (this->level == 1)
+            return get_child<NodeType::Bottom>(i).template locate<WithLazy>(
+                index, value_clean);
+          return get_child<NodeType::Upper>(i).template locate<WithLazy>(
+              index, value_clean);
         }
-
-        assert(false);
-        return null_id;
-      };
-
-      if (this->level == 1)
-        return descend.template operator()<NodeType::Bottom>();
-
-      return descend.template operator()<NodeType::Upper>();
+        index -= sz;
+      }
     }
     assert(false);
     return null_id;
   }
-
   void integrate() {
     if (this->parent == null_id) return;
     self().get_parent().integrate_child(this->position);
@@ -497,6 +490,8 @@ struct UpperNode : Traits::UpperCRTP {
         auto& left = this->template get_child<NodeType::Upper>(index - 1);
         auto& right = this->template get_child<NodeType::Upper>(index);
         f(left, right, left_count, middle_count, true);
+        sizes[index - 1] = left.size;
+        counts[index - 1] = left.count;
       }
     } else if (middle_count + right_count < static_cast<std::size_t>(NodeCap)) {
       if (this->level == 1) {
