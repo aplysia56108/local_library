@@ -15,7 +15,9 @@ from metrics import measure
 ROOT = Path(__file__).resolve().parent.parent
 BENCHMARKS = ROOT / "benchmark"
 BUILD = ROOT / "out" / "benchmark"
-FLAGS = ["-std=c++23", "-O2", "-Wall", "-Wextra", "-I.", "-Idebug", "-I.deps/ac-library"]
+# Performance benchmarks should reflect optimized builds without assert checks.
+# Lightweight C++ tests and Verify are compiled separately with asserts enabled.
+FLAGS = ["-std=c++23", "-O2", "-DNDEBUG", "-Wall", "-Wextra", "-I.", "-Idebug", "-I.deps/ac-library"]
 
 
 def cpu_model():
