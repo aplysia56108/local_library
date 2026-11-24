@@ -86,7 +86,9 @@ class NodePools {
   template <NodeType Type>
   static auto& get(id_type id) {
     assert(id != null_id && Type == type_of(id));
-    const id_type id_ = inner_id(id);
+    constexpr id_type mask = Type == NodeType::Leaf ? kLeafMask : kNodeMask;
+
+    const id_type id_ = id & mask;
     if constexpr (Type == NodeType::Leaf) {
       return leaves()[id_];
     } else if constexpr (Type == NodeType::Bottom) {
