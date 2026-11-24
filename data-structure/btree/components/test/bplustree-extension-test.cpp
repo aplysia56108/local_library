@@ -5,41 +5,58 @@
 #include <iostream>
 #include <vector>
 
-// Traits::Internal::refresh_metadata: derived metadata is refreshed on edits.
-// Leaf holds a single value; only Internal holds the aggregate.
+// Node metadata is shared by UpperNode / BottomNode and refreshed on edits.
 struct SumTraits {
   using T = long long;
   static constexpr std::size_t kNodeCapacity = 4;
+  static constexpr Bplustree::pos_type kNodeHalf = kNodeCapacity / 2;
+  static constexpr bool lazy = false;
+  using NodeBase = Bplustree::NodeBase<SumTraits>;
   struct Node;
   struct Leaf;
-  struct Internal;
+  struct UpperNode;
+  struct BottomNode;
+  using UpperCRTP = Bplustree::NodeCRTP<SumTraits, UpperNode, false>;
+  using BottomCRTP = Bplustree::NodeCRTP<SumTraits, BottomNode, true>;
 };
 
 struct SumTraits::Node : Bplustree::Node<SumTraits> {
-  using Bplustree::Node<SumTraits>::Node;
+  using Parent = Bplustree::Node<SumTraits>;
+  using Pools = Bplustree::NodePools<SumTraits>;
+  using Parent::Parent;
+
+  long long sum = 0;
+
+  void refresh_metadata();
 };
 
 struct SumTraits::Leaf : Bplustree::Leaf<SumTraits> {
   using Bplustree::Leaf<SumTraits>::Leaf;
 };
 
-struct SumTraits::Internal : Bplustree::Internal<SumTraits> {
-  using Parent = Bplustree::Internal<SumTraits>;
+struct SumTraits::UpperNode : Bplustree::UpperNode<SumTraits> {
+  using Parent = Bplustree::UpperNode<SumTraits>;
   using Parent::Parent;
-
-  long long sum = 0;
-
-  void refresh_metadata() {
-    sum = 0;
-    if (this->level == 0) {
-      for (std::size_t i = 0; i < this->count; ++i)
-        sum += this->get_leaf(i).get();
-    } else {
-      for (std::size_t i = 0; i < this->count; ++i)
-        sum += this->get_child(i).sum;
-    }
-  }
+  void refresh_metadata() { SumTraits::Node::refresh_metadata(); }
 };
+
+struct SumTraits::BottomNode : Bplustree::BottomNode<SumTraits> {
+  using Parent = Bplustree::BottomNode<SumTraits>;
+  using Parent::Parent;
+  void refresh_metadata() { SumTraits::Node::refresh_metadata(); }
+};
+
+inline void SumTraits::Node::refresh_metadata() {
+  sum = 0;
+  if (this->level == 0) {
+    for (std::size_t i = 0; i < this->count; ++i)
+      sum += Pools::leaves()[this->children[i]].get();
+  } else {
+    for (std::size_t i = 0; i < this->count; ++i)
+      sum += Pools::with_node(this->children[i],
+                              [](const auto& child) { return child.sum; });
+  }
+}
 
 class SumSequence : public Bplustree::Base<SumTraits> {
   using Parent = Bplustree::Base<SumTraits>;

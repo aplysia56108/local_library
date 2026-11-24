@@ -41,17 +41,13 @@ struct Traits {
   static constexpr bool lazy = false;
   static constexpr pos_type kNodeCapacity = Capacity;
   static constexpr pos_type kNodeHalf = Capacity / 2;
-  // using NodeBase = Bplustree::NodeBase;
-  // using Leaf = Bplustree::Leaf;
-  // using Node = Bplustree::Node;
-  // using UpperNode = Bplustree::UpperNode;
-  // using BottomNode = Bplustree::BottomNode;
-  // using NodeCRTP = Bplustree::NodeCRTP;
   using NodeBase = Bplustree::NodeBase<Traits>;
   using Leaf = Bplustree::Leaf<Traits>;
   using Node = Bplustree::Node<Traits>;
   using UpperNode = Bplustree::UpperNode<Traits>;
   using BottomNode = Bplustree::BottomNode<Traits>;
+  using UpperCRTP = Bplustree::NodeCRTP<Traits, UpperNode, false>;
+  using BottomCRTP = Bplustree::NodeCRTP<Traits, BottomNode, true>;
 };
 
 /**
@@ -131,6 +127,10 @@ struct Node : Traits::NodeBase {
 
   explicit Node(pos_type lvl = 0) : Traits::NodeBase(), level(lvl) {}
 
+  void refresh_metadata() {}
+  void push_reverse_impl() {}
+  void apply_lazy() {}
+
   U& get_parent() const {
     return Pools::template get<NodeType::Upper>(this->parent);
   }
@@ -159,11 +159,17 @@ struct NodeCRTP : Traits::Node {
 
  private:
   Derived& self() {
-    return static_cast<Derived&>(*this);
+    if constexpr (IsBottom)
+      return static_cast<typename Traits::BottomNode&>(*this);
+    else
+      return static_cast<typename Traits::UpperNode&>(*this);
   }
 
   const Derived& self() const {
-    return static_cast<const Derived&>(*this);
+    if constexpr (IsBottom)
+      return static_cast<const typename Traits::BottomNode&>(*this);
+    else
+      return static_cast<const typename Traits::UpperNode&>(*this);
   }
 
  public:
@@ -183,8 +189,7 @@ struct NodeCRTP : Traits::Node {
     if constexpr (IsBottom) {
       return 1;
     } else {
-      if (this->level == 1) return get_child<NodeType::Bottom>(index).size;
-      return get_child<NodeType::Upper>(index).size;
+      return self().sizes[index];
     }
   }
 
@@ -295,8 +300,8 @@ struct NodeCRTP : Traits::Node {
       for (pos_type i = 0; i < right_count; ++i) {
         right.move_child(i, left.children[left_count + i], right_id);
       }
-      left.refresh();
-      right.refresh();
+      if (left_count) left.refresh();
+      if (right_count) right.refresh();
     };
     id_type right_id;
     if constexpr (IsBottom) {
@@ -325,8 +330,13 @@ struct NodeCRTP : Traits::Node {
     for (pos_type i = index + 1; i < this->count; ++i)
       this->template move_child<false>(i - 1, this->children[i]);
     --this->count;
+    // count 0のnodeではrefreshを呼ばないことを要請する。
+    if (this->count == 0) return true;
     refresh();
-    return this->count == 0;
+    if (this->parent != null_id)
+      Pools::get<NodeType::Upper>(this->parent).sizes[this->position] =
+          this->size;
+    return false;
   }
 
   template <bool WithLazy = false>
@@ -345,20 +355,20 @@ struct NodeCRTP : Traits::Node {
       return this->children[index];
     } else {
       for (pos_type i = 0; i < this->count; ++i) {
-        if (index < child_size(i)) {
+        auto sz = child_size(i);
+        if (index < sz) {
           if (this->level == 1)
             return get_child<NodeType::Bottom>(i).template locate<WithLazy>(
                 index, value_clean);
           return get_child<NodeType::Upper>(i).template locate<WithLazy>(
               index, value_clean);
         }
-        index -= child_size(i);
+        index -= sz;
       }
     }
     assert(false);
     return null_id;
   }
-
   void integrate() {
     if (this->parent == null_id) return;
     self().get_parent().integrate_child(this->position);
@@ -366,7 +376,7 @@ struct NodeCRTP : Traits::Node {
 };
 
 template <class Traits>
-struct BottomNode : NodeCRTP<Traits, BottomNode<Traits>, true> {
+struct BottomNode : Traits::BottomCRTP {
   using pos_type = std::uint8_t;
   static constexpr pos_type NodeCap = Traits::kNodeCapacity;
   static constexpr pos_type HalfNodeCap = NodeCap / 2;
@@ -375,18 +385,13 @@ struct BottomNode : NodeCRTP<Traits, BottomNode<Traits>, true> {
   using N = typename Traits::Node;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
-  using CRTP = NodeCRTP<Traits, BottomNode<Traits>, true>;
+  using CRTP = Traits::BottomCRTP;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
   static constexpr id_type null_id = Pools::null_id;
 
   explicit BottomNode() : CRTP(0) {};
-  void refresh_metadata() {}
-
-  void push_reverse_impl() {}
-
-  void apply_lazy() {}
   using CRTP::apply_reverse;
   using CRTP::child_count;
   using CRTP::child_size;
@@ -404,7 +409,7 @@ struct BottomNode : NodeCRTP<Traits, BottomNode<Traits>, true> {
 };
 
 template <class Traits>
-struct UpperNode : NodeCRTP<Traits, UpperNode<Traits>, false> {
+struct UpperNode : Traits::UpperCRTP {
   using pos_type = std::uint8_t;
   static constexpr pos_type NodeCap = Traits::kNodeCapacity;
   static constexpr pos_type HalfNodeCap = NodeCap / 2;
@@ -413,7 +418,7 @@ struct UpperNode : NodeCRTP<Traits, UpperNode<Traits>, false> {
   using N = typename Traits::Node;
   using U = typename Traits::UpperNode;
   using B = typename Traits::BottomNode;
-  using CRTP = NodeCRTP<Traits, UpperNode<Traits>, false>;
+  using CRTP = Traits::UpperCRTP;
   using Pools = NodePools<Traits>;
   using id_type = typename Pools::id_type;
 
@@ -423,16 +428,6 @@ struct UpperNode : NodeCRTP<Traits, UpperNode<Traits>, false> {
   std::array<pos_type, NodeCap> counts{};
 
   explicit UpperNode(pos_type lvl) : CRTP(lvl) {};
-
-  /**
-   * @brief 派生 Internal が保持する追加情報の再計算フック。
-   * @details 基本 Internal は何も保持しないため空実装。
-   */
-  void refresh_metadata() {}
-
-  void push_reverse_impl() {}
-
-  void apply_lazy() {}
 
   using CRTP::apply_reverse;
   using CRTP::child_count;
@@ -451,6 +446,10 @@ struct UpperNode : NodeCRTP<Traits, UpperNode<Traits>, false> {
 
   void integrate_child(pos_type index) {
     assert(this->level > 0 && index < this->count);
+    if (child_count(index) == 0) {
+      erase(index);
+      return;
+    }
 
     auto f = [this](auto& left, auto& right, const pos_type left_count,
                     const pos_type right_count, const bool to_left) -> void {
@@ -484,22 +483,24 @@ struct UpperNode : NodeCRTP<Traits, UpperNode<Traits>, false> {
         index + 1 < this->count ? child_count(index + 1) : 1000;
     if (left_count + middle_count < static_cast<std::size_t>(NodeCap)) {
       if (this->level == 1) {
-        auto& left = get_child<NodeType::Bottom>(index - 1);
-        auto& right = get_child<NodeType::Bottom>(index);
+        auto& left = this->template get_child<NodeType::Bottom>(index - 1);
+        auto& right = this->template get_child<NodeType::Bottom>(index);
         f(left, right, left_count, middle_count, true);
       } else {
-        auto& left = get_child<NodeType::Upper>(index - 1);
-        auto& right = get_child<NodeType::Upper>(index);
+        auto& left = this->template get_child<NodeType::Upper>(index - 1);
+        auto& right = this->template get_child<NodeType::Upper>(index);
         f(left, right, left_count, middle_count, true);
+        sizes[index - 1] = left.size;
+        counts[index - 1] = left.count;
       }
     } else if (middle_count + right_count < static_cast<std::size_t>(NodeCap)) {
       if (this->level == 1) {
-        auto& left = get_child<NodeType::Bottom>(index);
-        auto& right = get_child<NodeType::Bottom>(index + 1);
+        auto& left = this->template get_child<NodeType::Bottom>(index);
+        auto& right = this->template get_child<NodeType::Bottom>(index + 1);
         f(left, right, middle_count, right_count, false);
       } else {
-        auto& left = get_child<NodeType::Upper>(index);
-        auto& right = get_child<NodeType::Upper>(index + 1);
+        auto& left = this->template get_child<NodeType::Upper>(index);
+        auto& right = this->template get_child<NodeType::Upper>(index + 1);
         f(left, right, middle_count, right_count, false);
       }
     } else {

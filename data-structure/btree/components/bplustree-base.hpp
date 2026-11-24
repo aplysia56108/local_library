@@ -11,6 +11,7 @@
 #include <iostream>
 
 #include "data-structure/btree/components/bplustree-node.hpp"
+#include "data-structure/btree/components/bplustree-node-access.hpp"
 #include "data-structure/btree/components/bplustree-iterator.hpp"
 #include "data-structure/btree/components/bplustree-setter.hpp"
 #include "data-structure/btree/components/bplustree-node-pools.hpp"
@@ -45,15 +46,13 @@ class Base {
   using Pools = NodePools<Traits>;
   using Epoch = IteratorEpoch<Traits>;
   using id_type = typename Pools::id_type;
-  using leaf_pool_type = ObjectPool<typename Traits::Leaf>;
-  using internal_pool_type = ObjectPool<typename Traits::Internal>;
   static constexpr id_type null_id = Pools::null_id;
 
  protected:
   using T = value_type;
   using Node = typename Traits::Node;
   using Leaf = typename Traits::Leaf;
-  using Internal = typename Traits::Internal;
+  using Access = NodeAccess<Traits>;
   static constexpr size_type NodeCap = Traits::kNodeCapacity;
   static_assert(NodeCap >= 3);
 
@@ -65,8 +64,8 @@ class Base {
   static Leaf& get_leaf(const id_type& id) {
     return Pools::leaves()[id];
   }
-  static Internal& get_node(const id_type& id) {
-    return Pools::internals()[id];
+  static Node& get_node(const id_type& id) {
+    return Access::get(id);
   }
   static T init_value() {
     if constexpr (requires { Traits::identity(); })
@@ -129,13 +128,9 @@ class Base {
   static void cut_root(id_type& root) {
     while (get_node(root).count == 1 && get_node(root).level) {
       auto& node = get_node(root);
-      node.materialize();
+      Access::materialize(root);
       const id_type child = node.children[0];
-      // 根の昇格は子の親を null にする特別な所有権移動。
-      // 回収時に子まで解放されないよう、旧根の count を先に0にする。
-      node.count = 0;
-      node.size = 0;
-      Pools::recycle(root);
+      Pools::recycle<false>(root);
       root = child;
       get_node(root).parent = null_id;
       get_node(root).position = 0;
@@ -168,12 +163,16 @@ class Base {
       std::vector<id_type> next;
       next.reserve((nodes.size() + MaxCount - 1) / MaxCount);
       for (size_type i = 0; i < nodes.size();) {
-        const id_type parent_id = Pools::make_internal(current_level);
+        const id_type parent_id = current_level == 0
+                                      ? Pools::make_bottom()
+                                      : Pools::make_upper(current_level);
         auto& parent = get_node(parent_id);
         while (parent.count < MaxCount && i < nodes.size())
-          parent.template move_child<true, false>(parent.count, nodes[i++],
+          Access::with(parent_id, [&](auto& node) {
+            node.template move_child<true, false>(node.count, nodes[i++],
                                                   parent_id);
-        parent.refresh();
+          });
+        Access::refresh(parent_id);
         next.push_back(parent_id);
       }
       nodes = std::move(next);
@@ -186,29 +185,36 @@ class Base {
 
   static id_type make_new_root(id_type left, id_type right,
                                pos_type level = 0) {
-    const id_type parent_id = Pools::make_internal(level);
-    auto& parent = get_node(parent_id);
-    parent.template move_child<true, false>(0, left, parent_id);
-    parent.template move_child<true, false>(1, right, parent_id);
-    parent.refresh();
+    const id_type parent_id =
+        level == 0 ? Pools::make_bottom() : Pools::make_upper(level);
+    Access::with(parent_id, [&](auto& node) {
+      node.template move_child<true, false>(0, left, parent_id);
+      node.template move_child<true, false>(1, right, parent_id);
+      node.refresh();
+    });
     return parent_id;
   }
 
   static void materialize_path(id_type node_id) {
     auto& node = get_node(node_id);
     if (node.parent != null_id) materialize_path(node.parent);
-    node.materialize();
+    Access::materialize(node_id);
   }
 
   /** @brief 下位の構造変更に伴う要素数の増減を祖先へ伝える。 */
-  static void add_size_delta(Internal& node, difference_type delta) {
-    if (delta >= 0) {
+  static void add_size_delta(Node& node, difference_type delta) {
+    if (delta == 0) return;
+    if (delta > 0) {
       node.size += static_cast<size_type>(delta);
     } else {
       const size_type removed = static_cast<size_type>(-delta);
       assert(node.size >= removed);
       node.size -= removed;
     }
+
+    if (node.parent != null_id)
+      Pools::get<NodeType::Upper>(node.parent).children[node.position] =
+          node.size;
   }
 
   static difference_type size_delta(size_type before, size_type after) {
@@ -223,7 +229,7 @@ class Base {
   static void refresh_recursive(id_type node_id, difference_type delta = 0) {
     auto& node = get_node(node_id);
     add_size_delta(node, delta);
-    node.refresh();
+    Access::refresh(node_id);
     if (node.parent != null_id) refresh_recursive(node.parent, delta);
   }
 
@@ -236,10 +242,10 @@ class Base {
     // 下位の分割により既存の左子のサイズが変化している分を先に補正する。
     add_size_delta(parent, delta);
     if (child != null_id) {
-      if (parent.insert(child, index)) {
+      if (Access::insert(parent_id, child, index)) {
         const id_type upper_id = parent.parent;
         const pos_type upper_pos = parent.position;
-        const id_type right_id = parent.split();
+        const id_type right_id = Access::split(parent_id, Traits::kNodeHalf);
         if (upper_id != null_id) {
           // 左子の変化量と新しい右子の挿入量を足して祖先へ伝える。
           return insert_recursive(
@@ -249,7 +255,7 @@ class Base {
         return right_id;
       }
     } else {
-      parent.refresh();
+      Access::refresh(parent_id);
     }
     if (parent.parent != null_id)
       refresh_recursive(parent.parent, size_delta(old_size, parent.size));
@@ -264,7 +270,7 @@ class Base {
     id_type current_id = root;
     while (true) {
       auto& current = get_node(current_id);
-      current.materialize();
+      Access::materialize(current_id);
       nodes.push_back(current_id);
       if (current.level == 0) break;
       if constexpr (Left)
@@ -281,7 +287,7 @@ class Base {
 
       while (true) {
         auto& node = get_node(node_id);
-        node.materialize();
+        Access::materialize(node_id);
         if (node.size == 0 && node.parent != null_id) {
           erase(node.parent, node.position, root);
           break;
@@ -309,7 +315,7 @@ class Base {
     const pos_type upper_pos = parent.position;
     // 空の子を回収するときも、下位で失った分のsizeを反映させる。
     add_size_delta(parent, delta);
-    const bool empty = parent.erase(index);
+    const bool empty = Access::erase(parent_id, index);
     const difference_type change = size_delta(old_size, parent.size);
     if (empty) {
       if (upper != null_id) erase_recursive(upper, upper_pos, change);
@@ -340,10 +346,10 @@ class Base {
       auto& parent = get_node(parent_id);
       assert(parent.size >= removed_from_boundary);
       parent.size -= removed_from_boundary;
-      const id_type next = parent.split(position);
+      const id_type next = Access::split(parent_id, position);
       if (right != null_id) {
         if (get_node(right).count)
-          get_node(next).insert(right, 0);
+          Access::insert(next, right, 0);
         else
           Pools::recycle(right);
       }
@@ -354,10 +360,10 @@ class Base {
     }
     cut_root(root);
     cut_zero_node(root);
-    for (id_type id : end_nodes<false>(root)) get_node(id).integrate();
+    for (id_type id : end_nodes<false>(root)) Access::integrate(id);
     cut_root(right);
     cut_zero_node(right);
-    for (id_type id : end_nodes<true>(right)) get_node(id).integrate();
+    for (id_type id : end_nodes<true>(right)) Access::integrate(id);
     return right;
   }
 
@@ -376,30 +382,30 @@ class Base {
     for (id_type id : end_nodes<true>(right_id)) integrate_nodes.push_back(id);
     if (left.level == right.level) {
       id_type root = make_new_root(left_id, right_id, left.level + 1);
-      for (id_type id : integrate_nodes) get_node(id).integrate();
+      for (id_type id : integrate_nodes) Access::integrate(id);
       cut_root(root);
       return root;
     }
     if (left.level < right.level) {
       auto target_id = right_id;
       while (left.level + 1 < get_node(target_id).level) {
-        get_node(target_id).materialize();
+        Access::materialize(target_id);
         target_id = get_node(target_id).children[0];
       }
-      get_node(target_id).materialize();
+      Access::materialize(target_id);
       insert(target_id, 0, left_id, right_id);
-      for (id_type id : integrate_nodes) get_node(id).integrate();
+      for (id_type id : integrate_nodes) Access::integrate(id);
       return right_id;
     }
     auto target_id = left_id;
     while (right.level + 1 < get_node(target_id).level) {
       auto& target = get_node(target_id);
-      target.materialize();
+      Access::materialize(target_id);
       target_id = target.children[target.count - 1];
     }
-    get_node(target_id).materialize();
+    Access::materialize(target_id);
     insert(target_id, get_node(target_id).count, right_id, left_id);
-    for (id_type id : integrate_nodes) get_node(id).integrate();
+    for (id_type id : integrate_nodes) Access::integrate(id);
     return left_id;
   }
 
@@ -407,16 +413,16 @@ class Base {
   id_type locate(size_type index) const {
     assert(index <= size());
     ++index;
-    return get_node(root_).template locate<WithLazy>(index);
+    return Access::template locate<WithLazy>(root_, index);
   }
 
-  /** @brief locate で検証した position / value epoch を iterator に引き継ぐ。 */
+  /** @brief locate で検証した position / value epoch を iterator に引き継ぐ。
+   */
   template <bool WithLazy = false>
   iterator locate_iterator(size_type index) const {
-    return iterator{
-        locate<WithLazy>(index),
-        WithLazy ? iterator::Validation::Value
-                 : iterator::Validation::Position};
+    return iterator{locate<WithLazy>(index),
+                    WithLazy ? iterator::Validation::Value
+                             : iterator::Validation::Position};
   }
 
   static iterator mutable_iterator(const const_iterator& it) {
@@ -617,7 +623,8 @@ class Base {
   void pop_front() {
     erase(0);
   }
-  /** @brief 全実要素を削除する。番兵は再利用し、旧要素の iterator は失効する。 */
+  /** @brief 全実要素を削除する。番兵は再利用し、旧要素の iterator は失効する。
+   */
   void clear() {
     init();
   }
@@ -628,7 +635,8 @@ class Base {
   }
   /**
    * @brief 現在の要素を一括構築し直す。
-   * @details 実要素 Leaf ID を作り直すため、保持済み実要素 iterator は失効する。
+   * @details 実要素 Leaf ID を作り直すため、保持済み実要素 iterator
+   * は失効する。
    */
   void rebuild() {
     assign(begin(), end());
@@ -667,12 +675,12 @@ class Base {
     get_node(old_right_root).count = 0;
     Pools::recycle(old_right_root);
     {
-      const id_type end_leaf = get_node(root_).locate(get_node(root_).size - 1);
+      const id_type end_leaf = Access::locate(root_, get_node(root_).size - 1);
       const id_type end_parent = get_leaf(end_leaf).parent;
       insert(end_parent, get_node(end_parent).count, right.end_, root_);
     }
     {
-      const id_type bbegin_leaf = get_node(right.root_).locate(0);
+      const id_type bbegin_leaf = Access::locate(right.root_, 0);
       const id_type bbegin_parent = get_leaf(bbegin_leaf).parent;
       insert(bbegin_parent, 0, right.bbegin_, right.root_);
     }
@@ -713,11 +721,12 @@ class Base {
    * 番兵の祖先のメタデータ更新で O(木の高さ) が加わる。
    */
   void reverse() {
-    get_node(root_).push_reverse();
+    Access::push_reverse(root_);
     swap_end(bbegin_, end_);
     Epoch::invalidate_position();
   }
-  /** @brief 半開区間 [first,last) を反転する。通常 O(NodeCapacity * 木の高さ)。 */
+  /** @brief 半開区間 [first,last) を反転する。通常 O(NodeCapacity * 木の高さ)。
+   */
   void reverse(size_type first, size_type last) {
     assert(first <= last && last <= size());
     if (last - first < 2) return;
@@ -729,7 +738,7 @@ class Base {
     if (first == last) return;
     auto right = devide(root_, last.leaf_id_);
     auto middle = devide(root_, first.leaf_id_);
-    get_node(middle).push_reverse();
+    Access::push_reverse(middle);
     root_ = unite(root_, middle);
     root_ = unite(root_, right);
     // 部分反転はsplit/mergeでLazy経路も再構成するため両方を無効化。

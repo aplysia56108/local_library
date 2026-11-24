@@ -10,6 +10,7 @@
 #include <type_traits>
 
 #include "data-structure/btree/components/bplustree-node.hpp"
+#include "data-structure/btree/components/bplustree-node-access.hpp"
 
 namespace Bplustree {
 
@@ -61,7 +62,8 @@ class Iterator {
 
  protected:
   using Leaf = typename Traits::Leaf;
-  using Internal = typename Traits::Internal;
+  using Node = typename Traits::Node;
+  using Access = NodeAccess<Traits>;
   using T = typename Traits::T;
   using Pools = NodePools<Traits>;
   using Epoch = IteratorEpoch<Traits>;
@@ -69,14 +71,11 @@ class Iterator {
   static constexpr id_type null_id = NodePools<Traits>::null_id;
 
   // lazy=false を明示した Traits では value epoch をコンパイル時に省略。
-  // 未宣言の場合はカスタム Traits との互換性のため Lazy ありとして扱う。
   static constexpr bool HasLazy = [] {
     if constexpr (requires { Traits::lazy; })
       return Traits::lazy;
     else
-      // 既存のカスタムTraitsはlazy宣言なしでapply_lazy()を実装できる。
-      // 未宣言の場合は安全のためLazyありとして扱う。
-      return true;
+      return false;
   }();
 
   // LazyがないTraitsでは値epochのキャッシュ自体を保持しない。
@@ -92,8 +91,8 @@ class Iterator {
   static Leaf& get_leaf(const id_type& id) {
     return Pools::leaves()[id];
   }
-  static Internal& get_node(const id_type& id) {
-    return Pools::internals()[id];
+  static Node& get_node(const id_type& id) {
+    return Access::get(id);
   }
   Leaf& this_leaf() const {
     return get_leaf(leaf_id_);
@@ -102,13 +101,15 @@ class Iterator {
   static void reverse_path(id_type node_id) {
     auto& node = get_node(node_id);
     if (node.parent != null_id) reverse_path(node.parent);
-    node.apply_reverse();
+    Access::with(node_id, [](auto& concrete) {
+      concrete.apply_reverse();
+    });
   }
 
   static void materialize_path(id_type node_id) {
     auto& node = get_node(node_id);
     if (node.parent != null_id) materialize_path(node.parent);
-    node.materialize();
+    Access::materialize(node_id);
   }
 
   void materialize_path() const {
@@ -123,7 +124,8 @@ class Iterator {
     }
   }
 
-  /** @brief 値参照前に必要な遅延作用を伝搬し、position/value 世代を確定する。 */
+  /** @brief 値参照前に必要な遅延作用を伝搬し、position/value 世代を確定する。
+   */
   void ensure_value_path() const {
     if constexpr (HasLazy) {
       if (validated_value_epoch_ != Epoch::value) {
@@ -138,7 +140,7 @@ class Iterator {
 
   static void refresh_path(id_type node_id) {
     auto& node = get_node(node_id);
-    node.refresh_metadata();
+    Access::refresh_metadata(node_id);
     if (node.parent != null_id) refresh_path(node.parent);
   }
 
@@ -179,19 +181,20 @@ class Iterator {
         if constexpr (HasLazy) {
           // Lazyありの場合だけ、値epochと未伝搬タグを確認する。
           bool value_clean = validated_value_epoch_ == Epoch::value;
-          leaf_id_ = node.template locate<false>(to_index, &value_clean);
+          leaf_id_ =
+              Access::template locate<false>(node_id, to_index, &value_clean);
           validated_position_epoch_ = Epoch::position;
           validated_value_epoch_ = value_clean ? Epoch::value : 0;
         } else {
           // Set / Vector / Segtreeには値epochもLazy検証も不要。
-          leaf_id_ = node.template locate<false>(to_index);
+          leaf_id_ = Access::template locate<false>(node_id, to_index);
           validated_position_epoch_ = Epoch::position;
         }
         return;
       }
       assert(node.parent != null_id);
       for (std::size_t i = 0; i < node.position; ++i) {
-        to_index += get_node(node.parent).child_size(i);
+        to_index += Access::child_size(node.parent, i);
       }
       node_id = node.parent;
     }
@@ -214,8 +217,7 @@ class Iterator {
    * @brief Leaf ID を受け取り、任意で検証済みの世代を記録する。
    * @details Position なら位置経路、Value なら位置と値経路が確定済み。
    */
-  explicit Iterator(id_type leaf_id,
-                    Validation validation = Validation::None)
+  explicit Iterator(id_type leaf_id, Validation validation = Validation::None)
       : leaf_id_(leaf_id) {
     if (validation != Validation::None)
       validated_position_epoch_ = Epoch::position;
@@ -318,9 +320,9 @@ class Iterator {
       auto& r_node = get_node(r_node_id);
       assert(l_node.parent != null_id && r_node.parent != null_id);
       for (std::size_t i = 0; i < l_node.position; ++i)
-        l_index += get_node(l_node.parent).child_size(i);
+        l_index += Access::child_size(l_node.parent, i);
       for (std::size_t i = 0; i < r_node.position; ++i)
-        r_index += get_node(r_node.parent).child_size(i);
+        r_index += Access::child_size(r_node.parent, i);
 
       l_node_id = l_node.parent;
       r_node_id = r_node.parent;
@@ -337,7 +339,8 @@ class Iterator {
     return (lhs - rhs) <=> 0;
   }
 
-  // 同一性は Leaf ID のみで判定する。epoch はキャッシュ状態であり等値性に含めない。
+  // 同一性は Leaf ID のみで判定する。epoch
+  // はキャッシュ状態であり等値性に含めない。
   friend bool operator==(const Iterator& lhs, const Iterator& rhs) {
     return lhs.leaf_id_ == rhs.leaf_id_;
   }

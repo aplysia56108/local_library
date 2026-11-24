@@ -9,58 +9,7 @@
 #include <utility>
 #include <vector>
 
-#include "data-structure/btree/components/bplustree-base.hpp"
-
-namespace Bplustree {
-
-/**
- * @brief Set / Multiset 用 Traits。Leaf はキー1個を保持する。
- * @details refresh_on_leaf_swap は、固定番兵を入れ替えた際の
- * Internal::min_leaf_id 更新を Base に要求する。
- */
-template <class Key, std::size_t Capacity>
-struct SetTraits {
-  using T = Key;
-  static constexpr bool lazy = false;
-  static constexpr bool refresh_on_leaf_swap = true;
-  static constexpr std::size_t kNodeCapacity = Capacity;
-  using Node = Bplustree::Node<SetTraits>;
-  using Leaf = Bplustree::Leaf<SetTraits>;
-  struct Internal;
-};
-
-/**
- * @brief 各 Internal に最左 Leaf の Pool ID をキャッシュする。
- * @details Key のポインタや参照ではなく Leaf ID を保持するため、
- * Pool の再確保による参照の失効を避けられる。キー比較には Leaf の値を用いる。
- */
-template <class Key, std::size_t Capacity>
-struct SetTraits<Key, Capacity>::Internal
-    : Bplustree::Internal<SetTraits<Key, Capacity>> {
-  using Traits = SetTraits<Key, Capacity>;
-  using Parent = Bplustree::Internal<Traits>;
-  using Leaf = typename Traits::Leaf;
-  using Parent::Parent;
-
-  using Pools = Bplustree::NodePools<Traits>;
-  using id_type = typename Pools::id_type;
-
-  // 実要素・番兵の Leaf ID は Pool の再確保で変わらない。
-  id_type min_leaf_id = Pools::null_id;
-
-  const Key& min_key() const {
-    return Pools::leaves()[min_leaf_id].get();
-  }
-
-  /** @brief 子の先頭 Leaf ID から最小キーのメタデータを再計算する。 */
-  void refresh_metadata() {
-    min_leaf_id = this->count == 0 ? Pools::null_id
-                  : this->level    ? this->get_child(0).min_leaf_id
-                                   : this->children[0];
-  }
-};
-
-}  // namespace Bplustree
+#include "data-structure/btree/components/bplustree-set-traits.hpp"
 
 enum class SetType { Set, MultiSet };
 
@@ -118,8 +67,6 @@ class Bplustree_Set
   }
 
   using Leaf = typename Parent::Leaf;
-  using Internal = typename Parent::Internal;
-
   /**
    * @brief 最右の「key より小さい／以下」の Leaf ID を探索する。
    * @details Equal=false では <、true では <=。先頭番兵を下限として
@@ -127,14 +74,20 @@ class Bplustree_Set
    */
   template <bool Equal>
   id_type max_l(id_type node_id, const Key& key) const {
-    const auto& node = Pools::internals()[node_id];
+    const auto& node =
+        Bplustree::NodeAccess<Bplustree::SetTraits<Key, NodeCapacity>>::get(
+            node_id);
     std::size_t l = 0;
     std::size_t r = node.count;
 
     while (l + 1 < r) {
       const std::size_t m = (l + r) / 2;
       const id_type id =
-          node.level ? node.get_child(m).min_leaf_id : node.children[m];
+          node.level ? Pools::with_node(node.children[m],
+                                        [](const auto& child) -> id_type {
+                                          return child.min_leaf_id;
+                                        })
+                     : node.children[m];
       if (comp<Equal>(id, key))
         l = m;
       else
@@ -282,8 +235,7 @@ class Bplustree_Set
     requires std::copy_constructible<Compare>
   {
     Bplustree_Set right(compare_);
-    static_cast<Parent&>(right) =
-        Parent::split(this->mutable_iterator(pos));
+    static_cast<Parent&>(right) = Parent::split(this->mutable_iterator(pos));
     return right;
   }
 
@@ -373,7 +325,8 @@ class Bplustree_Set
     return upper_bound(key) - lower_bound(key);
   }
 
-  /** @brief キーを挿入する。Set の既存等価キーなら false、Multiset は常に true。 */
+  /** @brief キーを挿入する。Set の既存等価キーなら false、Multiset は常に
+   * true。 */
   std::pair<iterator, bool> insert(const Key& key) {
     auto it = this->mutable_iterator(lower_bound(key));
     if constexpr (Type == SetType::Set) {

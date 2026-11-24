@@ -109,16 +109,16 @@ class InspectableSet
     : public Bplustree_Set<long long, Type, std::less<long long>, Capacity> {
   using Traits = Bplustree::SetTraits<long long, Capacity>;
   using Base = Bplustree::Base<Traits>;
-  using Internal = typename Traits::Internal;
   using Leaf = typename Traits::Leaf;
 
   using Pools = Bplustree::NodePools<Traits>;
+  using Access = Bplustree::NodeAccess<Traits>;
   using id_type = typename Pools::id_type;
 
   // Return the leftmost Leaf ID, validating parent links and min_leaf_id.
   static id_type validate_node(id_type node_id, const char* phase,
                                long long step, std::size_t depth = 0) {
-    const auto& node = Pools::internals()[node_id];
+    const auto& node = Access::get(node_id);
     if (node.count == 0 || node.count >= Capacity) {
       std::cerr << "invalid Internal: phase=" << phase << ", step=" << step
                 << ", depth=" << depth
@@ -137,7 +137,7 @@ class InspectableSet
       assert(child_id != Pools::null_id);
       id_type min_leaf;
       if (node.level) {
-        const auto& child = Pools::internals()[child_id];
+        const auto& child = Access::get(child_id);
         assert(child.parent == node_id);
         assert(child.position == i);
         assert(child.level + 1 == node.level);
@@ -165,7 +165,8 @@ class InspectableSet
   }
 
   void validate_structure(const char* phase, long long step) const {
-    const auto& root = Pools::internals()[this->root_];
+    const auto& root = Bplustree::NodeAccess<typename Base::traits_type>::get(
+        this->root_);
     if (root.parent != Pools::null_id) {
       std::cerr << "invalid root parent:"
                 << " phase=" << phase << " step=" << step
