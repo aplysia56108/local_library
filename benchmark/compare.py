@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare libraries using Main's benchmark sources and fixtures on one runner."""
+"""Compare arbitrary library refs using main benchmark sources on one runner."""
 
 import argparse
 import hashlib
@@ -35,23 +35,38 @@ def historical_best(records, case, compiler, flags, fixture_sha, cpu):
     return select("best_ns"), select("best_rss_kb")
 
 
-def summarize(results, metadata, base_sha, dev_sha):
+def record_main_best_if_applicable(records, case, fingerprint, ns, rss_kib,
+                                   base_sha, benchmark_sha):
+    """Only a measured main baseline may contribute to benchmark-records."""
+    if base_sha != benchmark_sha:
+        return False
+    benchmark.update_best_record(
+        records, case, fingerprint, ns, rss_kib, commit=base_sha,
+    )
+    return True
+
+
+def summarize(results, metadata, base_sha, dev_sha, *,
+              base_label="main", dev_label="development", source_sha=None):
     def geometric_ratio(rows, field):
         return math.exp(sum(math.log(r[field]) for r in rows) / len(rows))
 
+    source_sha = source_sha or base_sha
+    is_main_base = base_sha == source_sha
     lines = [
         "## Performance A/B comparison", "",
-        f"Base: main @ {base_sha[:12]}  ",
-        f"Development: {dev_sha[:12]}  ",
+        f"Base: {base_label} @ {base_sha[:12]}  ",
+        f"Development: {dev_label} @ {dev_sha[:12]}  ",
+        f"Benchmark definitions: main @ {source_sha[:12]}  ",
         f"CPU: {metadata['cpu']}  ",
         f"Compiler: {metadata['compiler']}  ", "",
         "**Below 100% is better.** Both versions were verified against the same",
         "expected output and run in alternating order on this runner.",
-        "Benchmark sources and fixtures are from Main; library headers use each variant's checkout.",
+        "Benchmark sources and fixtures are from main; library headers use each variant's checkout.",
         "Peak RSS measures the whole process, including buffers and allocator overhead.",
         "",
         "### Summary by structure", "",
-        "| Structure | Cases | Runtime dev/main | Peak RSS dev/main | Median RSS saved |",
+        "| Structure | Cases | Runtime dev/base | Peak RSS dev/base | Median RSS saved |",
         "| --- | ---: | ---: | ---: | ---: |",
     ]
     for kind in sorted({r["case"].split("/")[1] for r in results}):
@@ -74,7 +89,7 @@ def summarize(results, metadata, base_sha, dev_sha):
 
     lines += [
         "", "### Time", "",
-        "| Case | Main | Dev | Dev/Main | Historical main best | Estimated dev best |",
+        "| Case | Base | Dev | Dev/Base | Historical main best | Estimated dev best |",
         "| --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for r in results:
@@ -86,7 +101,7 @@ def summarize(results, metadata, base_sha, dev_sha):
 
     lines += [
         "", "### Peak RSS", "",
-        "| Case | Main | Dev | Dev/Main | Historical main best | Estimated dev best |",
+        "| Case | Base | Dev | Dev/Base | Historical main best | Estimated dev best |",
         "| --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for r in results:
@@ -101,27 +116,36 @@ def summarize(results, metadata, base_sha, dev_sha):
                        r["historical_best_cpu"] != metadata["cpu"]) for r in results)
     old_commit = sum(bool(r["historical_best_commit"] and
                           r["historical_best_commit"] != base_sha) for r in results)
+    if is_main_base:
+        lines += [
+            "",
+            "**Estimated dev best = historical main best × (measured dev / measured base).**",
+            "Estimates are extrapolations, not measured records. Historical records",
+            "must match compiler, flags and fixture; an exact CPU is preferred.",
+            f"Estimated time based on a different CPU: {foreign} cases.",
+            f"Historical time record from a different main commit: {old_commit} cases.",
+            "Verified main measurements can update benchmark-records after all cases succeed.",
+        ]
+    else:
+        lines += [
+            "",
+            "Base is not the benchmark main commit. Historical main bests and",
+            "estimated dev bests are omitted, and benchmark-records is not updated.",
+        ]
     lines += [
-        "",
-        "**Estimated dev best = historical main best × (measured dev / measured main).**",
-        "Estimates are extrapolations, not measured records. Historical records",
-        "must match compiler, flags and fixture; an exact CPU is preferred.",
-        f"Estimated time based on a different CPU: {foreign} cases.",
-        f"Historical time record from a different main commit: {old_commit} cases.",
         "A/B ratios may not transfer to different CPU models or code revisions.",
-        "Raw samples and historical source metadata are saved in compare/results.json.",
-        "Verified main measurements can update benchmark-records after all cases succeed.",
+        "Raw samples and source metadata are saved in compare/results.json.",
     ]
     return "\n".join(lines)
 
 
 def compile_variant(source, library_root, executable, flags):
-    """Build Main's workload with headers from the selected library checkout.
+    """Build main's workload with headers from a selected library checkout.
 
-    The absolute source path keeps relative benchmark includes on Main.
+    The absolute source path keeps relative benchmark includes on main.
     The compiler's working directory and -I. resolve data-structure/
-    headers to the selected checkout, not to Main's implementation.
-    No benchmark files are required in the development checkout.
+    headers to the selected checkout, not to main's implementation.
+    Neither variant checkout needs to contain benchmark files.
     """
     if not source.is_absolute():
         raise ValueError("Benchmark source must be an absolute path from Main")
@@ -133,8 +157,13 @@ def compile_variant(source, library_root, executable, flags):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base-root", type=Path, required=True)
+    parser.add_argument("--base-root", type=Path, required=True,
+                        help="main checkout supplying benchmark sources and fixtures")
+    parser.add_argument("--base-library-root", type=Path,
+                        help="library checkout for base (defaults to --base-root)")
     parser.add_argument("--dev-root", type=Path, required=True)
+    parser.add_argument("--base-label", default="main")
+    parser.add_argument("--dev-label", default="development")
     parser.add_argument("--target", default="all")
     parser.add_argument("--caps", default="all")
     parser.add_argument("--runs", type=int, default=5)
@@ -144,14 +173,19 @@ def main():
         parser.error("--runs must be a positive odd number")
 
     base_root, dev_root = args.base_root.resolve(), args.dev_root.resolve()
+    base_library_root = (args.base_library_root or base_root).resolve()
     if base_root != benchmark.ROOT:
         raise RuntimeError("--base-root must match the main checkout containing compare.py")
-    base_sha = subprocess.check_output(
+    benchmark_sha = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=base_root, text=True
+    ).strip()
+    base_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=base_library_root, text=True
     ).strip()
     dev_sha = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=dev_root, text=True
     ).strip()
+    is_main_base = base_sha == benchmark_sha
     baseline = json.loads(args.baseline.read_text())
     if baseline.get("schema") != 1:
         raise RuntimeError("Unsupported historical best-record format")
@@ -169,17 +203,17 @@ def main():
             case = relative_dir.as_posix() + f"/cap{cap}"
             flags = [*benchmark.FLAGS, f"-DNODE_CAP={cap}"]
             executables = {}
-            for variant, root in (("main", base_root), ("dev", dev_root)):
+            for variant, root in (("base", base_library_root), ("dev", dev_root)):
                 exe = build / (variant + "_" + case.replace("/", "_") + ".exe")
                 compile_variant(source, root, exe, flags)
                 executables[variant] = exe
 
             samples = {
-                "main": {"ns": [], "rss_kib": []},
+                "base": {"ns": [], "rss_kib": []},
                 "dev": {"ns": [], "rss_kib": []},
             }
             for iteration in range(args.runs):
-                order = ("main", "dev") if iteration % 2 == 0 else ("dev", "main")
+                order = ("base", "dev") if iteration % 2 == 0 else ("dev", "base")
                 for variant in order:
                     ns, rss = measure(
                         executables[variant], input_bytes, expected,
@@ -192,19 +226,22 @@ def main():
                         f"{ns / 1e6:.3f} ms, {rss / 1024:.2f} MiB", flush=True,
                     )
 
-            main_ns = statistics.median(samples["main"]["ns"])
+            base_ns = statistics.median(samples["base"]["ns"])
             dev_ns = statistics.median(samples["dev"]["ns"])
-            main_rss = statistics.median(samples["main"]["rss_kib"])
+            base_rss = statistics.median(samples["base"]["rss_kib"])
             dev_rss = statistics.median(samples["dev"]["rss_kib"])
-            old_time, old_mem = historical_best(
-                baseline.get("records", {}), case, compiler, flags,
-                fixture_sha, metadata["cpu"],
-            )
-            time_ratio, rss_ratio = dev_ns / main_ns, dev_rss / main_rss
+            if is_main_base:
+                old_time, old_mem = historical_best(
+                    baseline.get("records", {}), case, compiler, flags,
+                    fixture_sha, metadata["cpu"],
+                )
+            else:
+                old_time, old_mem = None, None
+            time_ratio, rss_ratio = dev_ns / base_ns, dev_rss / base_rss
             results.append({
                 "case": case,
-                "base_ns": main_ns, "dev_ns": dev_ns,
-                "base_rss_kib": main_rss, "dev_rss_kib": dev_rss,
+                "base_ns": base_ns, "dev_ns": dev_ns,
+                "base_rss_kib": base_rss, "dev_rss_kib": dev_rss,
                 "time_ratio": time_ratio, "rss_ratio": rss_ratio,
                 "historical_best_ns": old_time["best_ns"] if old_time else None,
                 "historical_best_rss_kib": old_mem["best_rss_kb"] if old_mem else None,
@@ -221,23 +258,29 @@ def main():
                     old_mem.get("rss_commit", old_mem.get("commit")) if old_mem else None,
                 "samples": samples,
             })
-            # Only main contributes measured bests. Never record development
-            # samples or extrapolated development bests.
-            benchmark.update_best_record(
+            # Only the measured main baseline may update historical records.
+            record_main_best_if_applicable(
                 baseline, case,
                 {"cpu": metadata["cpu"], "compiler": compiler,
                  "flags": flags, "fixture_sha256": fixture_sha},
-                main_ns, main_rss, commit=base_sha,
+                base_ns, base_rss, base_sha, benchmark_sha,
             )
 
     (benchmark.BUILD / "best-updated.json").write_text(
         json.dumps(baseline, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
     )
     (build / "results.json").write_text(json.dumps({
+        "benchmark_source_sha": benchmark_sha,
+        "base_ref": args.base_label, "dev_ref": args.dev_label,
         "base_sha": base_sha, "dev_sha": dev_sha,
+        "base_is_main": is_main_base,
         "metadata": metadata, "runs": args.runs, "results": results,
     }, indent=2, ensure_ascii=False) + "\n")
-    summary = summarize(results, metadata, base_sha, dev_sha)
+    summary = summarize(
+        results, metadata, base_sha, dev_sha,
+        base_label=args.base_label, dev_label=args.dev_label,
+        source_sha=benchmark_sha,
+    )
     print(summary)
     if os.getenv("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as stream:

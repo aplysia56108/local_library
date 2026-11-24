@@ -1,11 +1,16 @@
 name: Performance A/B comparison
-run-name: 'A/B ${{ inputs.target }} cap=${{ inputs.caps }} runs=${{ inputs.runs }} | ${{ inputs.development_ref }}'
+run-name: 'A/B ${{ inputs.target }} cap=${{ inputs.caps }} runs=${{ inputs.runs }} | ${{ inputs.base_ref }} vs ${{ inputs.development_ref }}'
 
 on:
   workflow_dispatch:
     inputs:
+      base_ref:
+        description: Base branch name or full commit SHA (default main)
+        type: string
+        required: true
+        default: main
       development_ref:
-        description: Development branch name or full commit SHA to compare with main
+        description: Development branch name or full commit SHA to compare with base
         type: string
         required: true
       target:
@@ -137,31 +142,59 @@ jobs:
           git clone https://github.com/atcoder/ac-library .deps/ac-library
           git -C .deps/ac-library checkout --detach 864245a00b00dd008d1abfdc239618fdb7d139da
 
-      - name: Checkout development ref on the same runner
+      - name: Checkout both comparison refs on the same runner
+        id: comparison_refs
         shell: bash
         env:
+          BASE_REF: ${{ inputs.base_ref }}
           DEVELOPMENT_REF: ${{ inputs.development_ref }}
         run: |
+          # Workflow and fixtures are intentionally taken from the main checkout.
           if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
-            echo "Run this workflow from main; select the development ref in the input." >&2
+            echo "Run this workflow from main; choose comparison refs in the inputs." >&2
             exit 1
           fi
-          if [[ "$DEVELOPMENT_REF" =~ ^[0-9a-f]{40}$ ]]; then
-            git fetch --no-tags origin "$DEVELOPMENT_REF"
-            dev_sha=$(git rev-parse FETCH_HEAD^{commit})
+          main_sha=$(git rev-parse HEAD)
+          resolve_ref() {
+            local ref="$1" remote_ref="$2"
+            if [[ "$ref" == "main" ]]; then
+              printf '%s\n' "$main_sha"
+            elif [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+              git fetch --no-tags origin "$ref" >&2
+              git rev-parse 'FETCH_HEAD^{commit}'
+            else
+              git check-ref-format --branch "$ref" >&2
+              git fetch --no-tags origin "+refs/heads/$ref:refs/remotes/origin/$remote_ref" >&2
+              git rev-parse "refs/remotes/origin/$remote_ref^{commit}"
+            fi
+          }
+          base_sha=$(resolve_ref "$BASE_REF" compare-base)
+          dev_sha=$(resolve_ref "$DEVELOPMENT_REF" compare-development)
+          echo "Resolved base: $BASE_REF @ $base_sha"
+          echo "Resolved development: $DEVELOPMENT_REF @ $dev_sha"
+
+          for variant in base dev; do
+            if [[ "$variant" == "base" ]]; then
+              sha="$base_sha"
+            else
+              sha="$dev_sha"
+            fi
+            checkout_dir="$GITHUB_WORKSPACE/out/benchmark/ab-$variant-checkout"
+            mkdir -p "$GITHUB_WORKSPACE/out/benchmark"
+            git worktree add --detach "$checkout_dir" "$sha"
+            git config --global --add safe.directory "$checkout_dir"
+            mkdir -p "$checkout_dir/.deps"
+            ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$checkout_dir/.deps/ac-library"
+          done
+
+          if [[ "$base_sha" == "$main_sha" ]]; then
+            echo "base_is_main=true" >> "$GITHUB_OUTPUT"
           else
-            git check-ref-format --branch "$DEVELOPMENT_REF"
-            git fetch --no-tags origin "+refs/heads/${DEVELOPMENT_REF}:refs/remotes/origin/compare-development"
-            dev_sha=$(git rev-parse refs/remotes/origin/compare-development^{commit})
+            echo "base_is_main=false" >> "$GITHUB_OUTPUT"
           fi
-          dev_dir="$GITHUB_WORKSPACE/out/benchmark/ab-dev-checkout"
-          mkdir -p "$GITHUB_WORKSPACE/out/benchmark"
-          git worktree add --detach "$dev_dir" "$dev_sha"
-          git config --global --add safe.directory "$dev_dir"
-          mkdir -p "$dev_dir/.deps"
-          ln -s "$GITHUB_WORKSPACE/.deps/ac-library" "$dev_dir/.deps/ac-library"
 
       - name: Load historical main bests (read only)
+        if: steps.comparison_refs.outputs.base_is_main == 'true'
         shell: bash
         run: |
           mkdir -p out/benchmark
@@ -173,19 +206,34 @@ jobs:
             printf '{"schema":1,"records":{}}\n' > out/benchmark/best.json
           fi
 
-      # Main owns workload definitions and fixtures; the development worktree
-      # supplies only the library headers used at compilation.
+      - name: Initialize empty baseline for non-main comparisons
+        if: steps.comparison_refs.outputs.base_is_main != 'true'
+        shell: bash
+        run: |
+          mkdir -p out/benchmark
+          printf '{"schema":1,"records":{}}\n' > out/benchmark/best.json
+
+      # Main owns benchmark sources and fixtures. Both library versions are
+      # compiled from separate worktrees with identical compiler flags.
       - name: Compare runtime and peak RSS
         shell: bash
         env:
           BENCHMARK_TARGET: ${{ inputs.target }}
           BENCHMARK_CAPS: ${{ inputs.caps }}
           BENCHMARK_RUNS: ${{ inputs.runs }}
+          BASE_REF: ${{ inputs.base_ref }}
+          DEVELOPMENT_REF: ${{ inputs.development_ref }}
         run: |
-          python3 benchmark/compare.py --base-root "$GITHUB_WORKSPACE" --dev-root "$GITHUB_WORKSPACE/out/benchmark/ab-dev-checkout" --target "$BENCHMARK_TARGET" --caps "$BENCHMARK_CAPS" --runs "$BENCHMARK_RUNS" --baseline out/benchmark/best.json
+          python3 benchmark/compare.py \
+            --base-root "$GITHUB_WORKSPACE" \
+            --base-library-root "$GITHUB_WORKSPACE/out/benchmark/ab-base-checkout" \
+            --dev-root "$GITHUB_WORKSPACE/out/benchmark/ab-dev-checkout" \
+            --base-label "$BASE_REF" --dev-label "$DEVELOPMENT_REF" \
+            --target "$BENCHMARK_TARGET" --caps "$BENCHMARK_CAPS" \
+            --runs "$BENCHMARK_RUNS" --baseline out/benchmark/best.json
 
       - name: Update main best records
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.comparison_refs.outputs.base_is_main == 'true'
         uses: ./.github/actions/push-benchmark-records
 
       - name: Upload comparison results

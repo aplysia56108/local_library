@@ -122,7 +122,7 @@ g++ -std=c++23 -O2 generator.cpp -o /tmp/benchmark-generator
 
 ## GitHub Actions と記録
 
-GitHub Actionsの実行一覧では、**実行待ち（Queued / Pending）の段階から** `run-name` に操作対象・Cap・実行回数を表示する。通常版は実行ブランチ、A/B版は `development_ref` も表示する。例：`A/B btree/vector/iterate cap=16 runs=5 | perf/bplustree-static-pool-no-guard`。実行名は起動時の入力を示し、実行開始後にブランチ先端が変わっても表示を変更しない。実際に比較したSHAはA/B結果のサマリーで確認する。
+GitHub Actionsの実行一覧では、**実行待ち（Queued / Pending）の段階から** `run-name` に操作対象・Cap・実行回数を表示する。通常版は実行ブランチ、A/B版は `base_ref` と `development_ref` の両方を表示する。例：`A/B btree/vector/iterate cap=16 runs=5 | main vs perf/bplustree-static-pool-no-guard`。実行名は起動時の入力を示し、実行開始後にブランチ先端が変わっても表示を変更しない。実際に比較したSHAはA/B結果のサマリーで確認する。
 
 Actions → Performance benchmarks → Run workflow から対象ブランチ・種類/操作・Capを選択する。時間とPeak RSSをそれぞれ5回の**中央値**で比較し、各ベスト比120%超で🟡、150%超で🔴（遅くなっても警告のみ、結果の不一致は失敗）。
 
@@ -132,13 +132,34 @@ GitHub-hosted runnerのCPUモデルやホスト負荷は変化するため、最
 
 ## 同一ランナーのA/B比較（Performance A/B comparison）
 
-メモリプールなどの大規模変更を評価する際は、Actions → **Performance A/B comparison** → Run workflow から**workflowのブランチはmainを選択**し、`development_ref` に開発ブランチ名（例：`refactor/bplustree-node-pool-ids`）または40文字のコミットSHAを入力する。 `target`（デフォルト`all`）、`caps`、`runs`（3/5/7、デフォルト5）を指定できる。対象は既存のベンチマークと同じ。
+Actions → **Performance A/B comparison** → Run workflow から、**workflowの実行ブランチは`main`を選択**する。比較対象は入力欄の2つのrefで決める。どちらもブランチ名または40文字のコミットSHAを指定できる。
 
-- 同じGCC 15.2コンテナ・ランナーに開発版を別Worktreeでcheckoutし、**Main上の同じベンチマークソース**を両版でコンパイルする。コンパイル時の `-I.` は各版のWorktreeを指すため、ライブラリのヘッダだけが版ごとに切り替わる。入力・期待出力もMainのフィクスチャを共用し、**毎回両者の出力を完全照合**する。
-- 実行順序はmain→開発版、開発版→mainを繰り返す。操作時間とPeak RSSのそれぞれの中央値、開発版/main比、構造別の幾何平均比、RSSの削減量を表示する。
-- **開発ブランチにベンチマーク定義を取り込む必要はない。** 新しい操作（例：`access_random`）もMainに追加されていれば、そのまま古い開発ブランチと比較できる。ベンチマーク本体・フィクスチャはMainのものを両版で共用するため、ワークロードの食い違いは起こらない。開発版のライブラリがそのAPIを持たずコンパイルできない場合は、明確にビルドエラーとして失敗する。
-- **推定ベスト**は、既存mainベスト ×（今回の開発版/今回のmain）として計算する。時間とPeak RSSの両方に適用。ただし実測記録ではなく、CPU間で相対性能差が維持されるという仮定に基づく**参考値**である。
-- ベスト記録の検索では、コンパイラ・フラグ・フィクスチャSHA256の一致を必須とし、CPUモデルが一致する記録を優先する。異なるCPUやmainコミットの記録を使った推定はその旨を表示する。過去のメモリベストがなければ推定メモリ値を表示しない。
-- **A/B比較でもmain側の実測中央値がベストを更新した場合は記録する。** 時間とPeak RSSは独立に更新し、開発版の実測値・推定ベストは記録しない。すべての対象ケースが正常終了した場合だけ `benchmark-records/best.json` を更新する。通常ベンチマークとA/B比較は同一のconcurrencyグループ（`benchmark-records`）で直列化し、共通の更新処理を用いる。過去ベストはA/B実行開始時の値を比較・推定に利用する。計測値・サンプル・元ベストの詳細は `out/benchmark/compare/results.json` に保存し、Artifactで14日保持する。重いので最初は対象・Capを絞るとよい。
+| 入力 | 内容 | 既定値 |
+| --- | --- | --- |
+| `base_ref` | 比較元（旧実装） | `main` |
+| `development_ref` | 比較先（新実装） | 必須 |
+| `target` | 種類・操作の絞り込み | `all` |
+| `caps` | ノード容量 | `all`（8/16/32/64） |
+| `runs` | 両版の測定回数 | `5`（3/5/7） |
+
+例えば、`get<Type>()` 最適化後のコミットと、`child_size()` 二重取得解消後のコミットを比較するなら以下のように設定する。
+
+```text
+Workflow branch: main
+base_ref: 5057440515850611598c2516e9977f6f3b61c259
+development_ref: 2e95a0b846c5e96e70c412c50cb2d43a6ce198ab
+target: btree/vector/access_random
+caps: all
+runs: 5
+```
+
+- **比較スクリプト・ワークロード・フィクスチャは実行元のmainに固定**する。比較対象の2つのrefは、同一GCC 15.2コンテナ・ランナー内のそれぞれ独立したWorktreeにcheckoutし、各ライブラリのヘッダーだけを切り替えてコンパイルする。開発ブランチ側にベンチマーク定義をマージする必要はない。
+- 出力・異常終了を毎回検証する。実行順はBase→Dev、Dev→Baseを交互に繰り返す。操作時間とPeak RSSのそれぞれの中央値、**Dev/Base比**、構造別の幾何平均比、RSSの削減量を表示する。
+- 結果サマリーと`results.json`には、**Base・Devの入力refと実際のコミットSHA、およびベンチマーク定義元mainのSHA**を記録する。比較開始後にブランチが更新されても、解決したSHAの実装だけを測定する。
+- **BaseのSHAがベンチマーク定義元mainのSHAと一致するときのみ**、main側の測定値で`benchmark-records`の時間・Peak RSSベストを更新できる。Devの実測値や推定値は記録しない。全ケース成功時だけ共通の更新アクションを起動する。
+- **Baseがmain以外のコミットなら`benchmark-records`を一切更新しない。** この場合は履歴上のmainベストと推定Devベストも表示しない（比較対象と一致しないため）。mainがBaseの場合だけ、履歴mainベスト ×（今回のDev/Base）を推定Devベストとして表示する。
+- 履歴ベストの参照には、コンパイラ・フラグ・フィクスチャSHA256の一致を必須とし、同CPUモデルを優先する。異なるCPUやmainコミットの記録による推定は参考値として扱う。
+- 通常版とA/B比較は同じ`benchmark-records` concurrencyグループで直列化する。対象とCapを絞って小さく確認し、必要なら全ケースを測定する。サンプルと詳細は`out/benchmark/compare/results.json`に保存し、Artifactで14日保持する。
+
 
 ピークRSSはプロセスの生存期間全体での最大値であり、B+treeの内部確保容量や、操作区間だけのメモリ使用量を測っているものではない。ノードのみの容量比較が必要になった場合は、別途専用の測定を追加する。

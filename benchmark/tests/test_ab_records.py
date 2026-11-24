@@ -32,7 +32,7 @@ class ABMainRecordTest(unittest.TestCase):
             baseline_path.write_text('{"schema":1,"records":{}}\n')
 
             samples = {
-                "main": iter([(120, 3000), (100, 3200), (110, 3100)]),
+                "base": iter([(120, 3000), (100, 3200), (110, 3100)]),
                 "dev": iter([(60, 1500), (70, 1400), (50, 1600)]),
             }
 
@@ -98,6 +98,8 @@ class ABMainRecordTest(unittest.TestCase):
                 hashlib.sha256(b"input\0output").hexdigest(),
             )
             results = json.loads((build / "compare/results.json").read_text())
+            self.assertTrue(results["base_is_main"])
+            self.assertEqual(results["benchmark_source_sha"], "a" * 40)
             self.assertEqual(results["results"][0]["base_ns"], 110)
             self.assertEqual(results["results"][0]["dev_ns"], 60)
             self.assertEqual(results["results"][0]["base_rss_kib"], 3100)
