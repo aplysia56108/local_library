@@ -352,17 +352,25 @@ struct NodeCRTP : Traits::Node {
       assert(index < this->count);
       return this->children[index];
     } else {
-      for (pos_type i = 0; i < this->count; ++i) {
-        auto sz = child_size(i);
-        if (index < sz) {
-          if (this->level == 1)
-            return get_child<NodeType::Bottom>(i).template locate<WithLazy>(
-                index, value_clean);
-          return get_child<NodeType::Upper>(i).template locate<WithLazy>(
-              index, value_clean);
+      auto descend = [this, &index, value_clean]<NodeType Type>() -> id_type {
+        for (pos_type i = 0; i < this->count; ++i) {
+          auto& child = get_child<Type>(i);
+          const auto sz = child.size;
+
+          if (index < sz)
+            return child.template locate<WithLazy>(index, value_clean);
+
+          index -= sz;
         }
-        index -= sz;
-      }
+
+        assert(false);
+        return null_id;
+      };
+
+      if (this->level == 1)
+        return descend.template operator()<NodeType::Bottom>();
+
+      return descend.template operator()<NodeType::Upper>();
     }
     assert(false);
     return null_id;
