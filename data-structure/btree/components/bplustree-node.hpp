@@ -353,14 +353,15 @@ struct NodeCRTP : Traits::Node {
       return this->children[index];
     } else {
       for (pos_type i = 0; i < this->count; ++i) {
-        if (index < child_size(i)) {
+        auto& sz = child_size(i);
+        if (index < sz) {
           if (this->level == 1)
             return get_child<NodeType::Bottom>(i).template locate<WithLazy>(
                 index, value_clean);
           return get_child<NodeType::Upper>(i).template locate<WithLazy>(
               index, value_clean);
         }
-        index -= child_size(i);
+        index -= sz;
       }
     }
     assert(false);
